@@ -22,6 +22,7 @@ export class WebhooksController {
     return this.conversationsService.handleIncomingMessage(
       payload.userId,
       payload.content,
+      tenantId,
       payload.externalId
     );
   }

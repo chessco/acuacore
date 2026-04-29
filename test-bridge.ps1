@@ -2,11 +2,19 @@
 $apiKey = "pitaya_internal_secret_2026"
 $tenantSlug = "pitaya"
 
-# Try to find the correct Flow port
+# Try to find the correct Flow domain
 Write-Host "Connecting to Production Flow..." -ForegroundColor Yellow
 $flowUrl = "https://flow-api.pitayacode.io"
+try { 
+    Invoke-RestMethod -Uri "$flowUrl/whatsapp/webhook" -ErrorAction Stop | Out-Null 
+} catch { 
+    $flowUrl = "https://flow.pitayacode.io" 
+}
 Write-Host "Using Flow API at: $flowUrl" -ForegroundColor Gray
-$acuacoreUrl = "http://localhost:3014"
+
+# Use ngrok URL for AcuaCore Local
+$acuacoreUrl = "https://6cc3-2806-263-481-978-bc0a-79c6-8231-a5c2.ngrok-free.app"
+Write-Host "Using AcuaCore Tunnel at: $acuacoreUrl" -ForegroundColor Gray
 
 Write-Host "`n--- Testing Flow API Auth & Tenant Resolution ---" -ForegroundColor Cyan
 
@@ -38,21 +46,21 @@ try {
 
 Write-Host "`n--- Testing Webhook Forwarding (Flow -> AcuaCore) ---" -ForegroundColor Cyan
 
-# 3. Simulate Flow forwarding a message to AcuaCore
+# 3. Simulate Flow forwarding a message to AcuaCore via ngrok
 try {
     $headers = @{
         "x-internal-key" = $apiKey
-        "x-tenant-id" = "edd1ac37-5ff9-4e46-bc7f-fff3c414d718" # Real Acuacore UUID
+        "x-tenant-id" = "edd1ac37-5ff9-4e46-bc7f-fff3c414d718"
         "Content-Type" = "application/json"
     }
     $body = @{
         userId = "526442221844"
-        content = "Test message from automated script"
-        externalId = "wamid.test_$(Get-Date -Format 'yyyyMMddHHmmss')"
+        content = "Test message from ngrok tunnel"
+        externalId = "wamid.ngrok_$(Get-Date -Format 'yyyyMMddHHmmss')"
     } | ConvertTo-Json
 
-    $response = Invoke-RestMethod -Uri "$acuacoreUrl/webhooks/flow/incoming" -Headers $headers -Method Post -Body $body
-    Write-Host "[SUCCESS] AcuaCore accepted the forwarded message." -ForegroundColor Green
+    $response = Invoke-RestMethod -Uri "$acuacoreUrl/api/webhooks/flow/incoming" -Headers $headers -Method Post -Body $body
+    Write-Host "[SUCCESS] AcuaCore (via ngrok) accepted the forwarded message." -ForegroundColor Green
 } catch {
     Write-Host "[FAILURE] AcuaCore webhook error: $($_.Exception.Message)" -ForegroundColor Red
 }

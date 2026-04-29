@@ -18,8 +18,8 @@ export class ConversationsService {
     private gateway: ConversationsGateway,
   ) {}
 
-  async handleIncomingMessage(userId: string, content: string, externalId?: string) {
-    const tenantId = getTenantId();
+  async handleIncomingMessage(userId: string, content: string, tenantIdParam?: string, externalId?: string) {
+    const tenantId = tenantIdParam || getTenantId();
 
     // 1. Find or create conversation
     let conversation = await this.db.mysql.conversation.findFirst({
@@ -46,7 +46,7 @@ export class ConversationsService {
     this.gateway.emitNewMessage(tenantId, savedUserMessage);
 
     // 3. Generate AI response via Router (Cost Optimized)
-    const aiResult = await this.aiRouter.route(content);
+    const aiResult = await this.aiRouter.route(content, tenantId);
 
     // 4. Save AI message
     const savedAiMessage = await this.db.mysql.message.create({

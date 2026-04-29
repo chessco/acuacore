@@ -26,8 +26,8 @@ export class AiRouterService {
     private db: DatabaseService,
   ) {}
 
-  async route(userInput: string): Promise<RouterResponse> {
-    const tenantId = getTenantId();
+  async route(userInput: string, tenantIdParam?: string): Promise<RouterResponse> {
+    const tenantId = tenantIdParam || getTenantId();
 
     // 1. Check for FAQ (Static) - Cost: $0
     const faq = await this.checkFaq(userInput, tenantId);
