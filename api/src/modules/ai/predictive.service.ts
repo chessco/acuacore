@@ -30,7 +30,7 @@ export class PredictiveService {
     try {
       const result = await this.aiService.generateResponse(prompt, []);
       return {
-        insight: result,
+        insight: result.content,
         confidence: 0.94,
         timestamp: new Date().toISOString(),
       };
@@ -61,8 +61,8 @@ export class PredictiveService {
 
     try {
       const result = await this.aiService.generateResponse(prompt, []);
-      // Extract JSON from response if Gemini wraps it in code blocks
-      const jsonStr = result.replace(/```json/g, '').replace(/```/g, '').trim();
+      // result is { content, confidence, isFlagged }
+      const jsonStr = result.content.replace(/```json/g, '').replace(/```/g, '').trim();
       return JSON.parse(jsonStr);
     } catch (error) {
       this.logger.error(`Error analyzing conversation: ${error.message}`);

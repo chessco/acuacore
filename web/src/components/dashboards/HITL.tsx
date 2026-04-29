@@ -33,7 +33,7 @@ export function HITL() {
   const fetchPending = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('http://localhost:3014/hitl/pending', {
+      const response = await axios.get('http://localhost:3014/api/hitl/pending', {
         headers: { 'x-tenant-id': flowTenantSlug || 'pitaya' }
       })
       setPendingActions(response.data)
@@ -51,7 +51,7 @@ export function HITL() {
   const handleApprove = async () => {
     if (!selectedAction) return;
     try {
-      await axios.put(`http://localhost:3014/hitl/${selectedAction.id}/approve`, {
+      await axios.put(`http://localhost:3014/api/hitl/${selectedAction.id}/approve`, {
         reviewerId: 'admin-user', // Mock admin user
         editedContent: editedContent !== selectedAction.message.content ? editedContent : undefined
       }, {

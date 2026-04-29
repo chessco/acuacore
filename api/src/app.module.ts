@@ -1,5 +1,6 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './common/database/database.module';
@@ -9,6 +10,8 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { HitlModule } from './modules/hitl/hitl.module';
 import { AiModule } from './modules/ai/ai.module';
+import { ApiKeyGuard } from './common/guards/api-key.guard';
+import { CombinedAuthGuard } from './common/guards/combined-auth.guard';
 
 @Module({
   imports: [
@@ -21,12 +24,19 @@ import { AiModule } from './modules/ai/ai.module';
     AiModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    ApiKeyGuard,
+    {
+      provide: APP_GUARD,
+      useClass: CombinedAuthGuard,
+    },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(TenantMiddleware)
-      .forRoutes('*');
+      .forRoutes({ path: '(.*)', method: -1 }); // Fix for NestJS 11+ wildcards
   }
 }

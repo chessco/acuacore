@@ -25,12 +25,36 @@ export class HitlService {
     const tenantId = getTenantId();
     
     // Check if message exists
-    const message = await this.db.mysql.message.findUnique({
+    let message = await this.db.mysql.message.findUnique({
       where: { id: messageId }
     });
 
     if (!message) {
-      throw new Error('Message not found');
+      // Create a placeholder message so the HITL system works even for unsynced Flow messages
+      // We need a conversation first
+      let conversation = await this.db.mysql.conversation.findFirst({
+        where: { tenantId }
+      });
+      
+      if (!conversation) {
+        conversation = await this.db.mysql.conversation.create({
+          data: { 
+            userId: 'external-user',
+            tenantId,
+            externalId: 'flow-auto-sync'
+          }
+        });
+      }
+
+      message = await this.db.mysql.message.create({
+        data: {
+          id: messageId,
+          conversationId: conversation.id,
+          tenantId,
+          role: 'user',
+          content: 'Contenido no sincronizado (Ver en Flow)',
+        }
+      });
     }
 
     return this.db.mysql.hitlAction.create({

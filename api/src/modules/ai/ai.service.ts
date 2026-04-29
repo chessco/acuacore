@@ -23,20 +23,21 @@ export class AiService {
 
   async generateResponse(userMessage: string, history: any[] = [], modelName: string = 'gemini-1.5-flash') {
     const tenantId = getTenantId();
-    const model = this.genAI.getGenerativeModel({ model: modelName });
-    
-    const tenant = await this.db.mysql.tenant.findUnique({
-      where: { id: tenantId },
+    const systemPrompt = `You are AcuaCore AI, an expert advisor in aquaculture.
+Your goal is to provide precise, technical, and helpful advice based on the conversation context.
+Always respond in the same language as the user.
+If you need to provide a recommended response for the agent, keep it professional and action-oriented.`;
+
+    const model = this.genAI.getGenerativeModel({ 
+      model: modelName,
+      systemInstruction: systemPrompt
     });
-
-    const systemPrompt = `You are AcuaCore AI...`; // System instructions
-
+    
     const chat = model.startChat({
       history: history.map(h => ({
         role: h.role === 'user' ? 'user' : 'model',
         parts: [{ text: h.content }],
       })),
-      systemInstruction: systemPrompt,
     });
 
     const result = await chat.sendMessage(userMessage);

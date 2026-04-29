@@ -12,7 +12,8 @@ import {
   Lightbulb,
   BookOpen,
   Link,
-  ArrowRight
+  ArrowRight,
+  RefreshCw
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
@@ -154,9 +155,12 @@ export function Inbox() {
     if (msgs.length === 0) return;
     setIsAnalyzing(true);
     try {
-      const response = await fetch('http://localhost:3014/ai/analyze-conversation', {
+      const response = await fetch('http://localhost:3014/api/ai/analyze-conversation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-tenant-id': flowTenantSlug || 'pitaya'
+        },
         body: JSON.stringify({ messages: msgs })
       });
       const data = await response.json();
@@ -456,7 +460,7 @@ export function Inbox() {
                       const lastMsg = messages[messages.length - 1];
                       if (!lastMsg) return;
                       
-                      fetch('http://localhost:3014/hitl/intervene', {
+                      fetch('http://localhost:3014/api/hitl/intervene', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'x-tenant-id': flowTenantSlug || 'pitaya' },
                         body: JSON.stringify({ messageId: lastMsg.id, level: 'BIOLOGIST', comments: 'Escalado manual desde bandeja' })

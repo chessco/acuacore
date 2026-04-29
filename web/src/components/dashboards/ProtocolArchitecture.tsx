@@ -43,7 +43,7 @@ export function ProtocolArchitecture() {
     setGenerating(true);
     try {
       const tenantId = localStorage.getItem('selectedTenantId') || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718';
-      const response = await axios.post('http://localhost:3014/ai/predictive/insight', {
+      const response = await axios.post('http://localhost:3014/api/ai/predictive/insight', {
         topic,
         type: 'SOP_GENERATION',
         options
