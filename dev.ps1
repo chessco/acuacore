@@ -1,0 +1,24 @@
+# AcuaCore AI - Local Development Launcher
+# Este script inicia el API y el Web en ventanas externas
+
+Write-Host "🚀 Iniciando AcuaCore AI en modo local..." -ForegroundColor Cyan
+
+# 1. Verificar/Iniciar Infraestructura (Docker)
+Write-Host "📦 Verificando bases de datos (Docker)..." -ForegroundColor Yellow
+docker-compose up -d mysql postgres
+
+# 2. Inicializar Skills (Don Juan Camaron)
+Write-Host "🧠 Inicializando Skills..." -ForegroundColor Cyan
+cd api; npx ts-node init-skills.ts; cd ..
+
+# 2. Iniciar API (NestJS) en ventana externa
+Write-Host "🔌 Iniciando Backend API..." -ForegroundColor Green
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd api; Write-Host '--- ACUACORE API (NESTJS) ---' -ForegroundColor Cyan; npm run start:dev"
+
+# 3. Iniciar Web (React + Vite) en ventana externa
+Write-Host "💻 Iniciando Frontend Web..." -ForegroundColor Green
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd web; Write-Host '--- ACUACORE WEB (VITE) ---' -ForegroundColor Cyan; npm run dev"
+
+Write-Host "✅ Todo listo. Las ventanas externas se han abierto." -ForegroundColor Green
+Write-Host "API: http://localhost:3014" -ForegroundColor Gray
+Write-Host "Web: http://localhost:3000" -ForegroundColor Gray

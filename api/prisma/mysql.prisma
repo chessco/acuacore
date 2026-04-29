@@ -1,0 +1,174 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/mysql-client"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum Role {
+  PRODUCER
+  BIOLOGIST
+  TECHNICAL_ADVISOR
+  DIRECTOR
+  ADMIN
+}
+
+model Tenant {
+  id        String   @id @default(uuid())
+  name      String
+  plan      Plan     @default(FREE)
+  status    Status   @default(ACTIVE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  conversations Conversation[]
+  skills        Skill[]
+  knowledge     KnowledgeBase[]
+  costLogs      AiCostLog[]
+}
+
+model User {
+  id        String   @id @default(uuid())
+  tenantId  String
+  email     String   @unique
+  name      String
+  role      Role
+  status    Status   @default(ACTIVE)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  conversations Conversation[]
+}
+
+model Conversation {
+  id         String   @id @default(uuid())
+  tenantId   String
+  userId     String
+  externalId String? // WhatsApp ID
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id])
+  user     User      @relation(fields: [userId], references: [id])
+  messages Message[]
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  tenantId       String
+  role           String // 'user' | 'assistant'
+  content        String   @db.Text
+  classification String?
+  confidence     Float?
+  isFlagged      Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  hitl         HitlAction?
+}
+
+model HitlAction {
+  id         String   @id @default(uuid())
+  messageId  String   @unique
+  tenantId   String
+  level      String // 'BIOLOGIST' | 'ADVISOR' | 'DIRECTOR'
+  status     String // 'PENDING' | 'APPROVED' | 'REJECTED'
+  reviewerId String?
+  comments   String?  @db.Text
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  message Message @relation(fields: [messageId], references: [id])
+}
+
+model Skill {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  prompt      String   @db.Text
+  version     String   @default("1.0")
+  config      Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  promptVersions PromptVersion[]
+}
+
+model KnowledgeBase {
+  id        String   @id @default(uuid())
+  tenantId  String? // Null for global knowledge
+  title     String
+  source    String?
+  version   String   @default("1.0")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+  chunks KnowledgeBaseChunk[]
+}
+
+model KnowledgeBaseChunk {
+  id        String   @id @default(uuid())
+  kbId      String
+  tenantId  String?
+  content   String   @db.Text
+  sequence  Int
+  createdAt DateTime @default(now())
+
+  kb KnowledgeBase @relation(fields: [kbId], references: [id])
+}
+
+model AiCostLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  model      String
+  tokensIn   Int
+  tokensOut  Int
+  costUsd    Float
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model PromptVersion {
+  id        String   @id @default(uuid())
+  skillId   String
+  content   String   @db.Text
+  version   String
+  isActive  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  skill Skill @relation(fields: [skillId], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  tenantId  String?
+  userId    String?
+  action    String
+  entity    String
+  entityId  String
+  changes   Json?
+  createdAt DateTime @default(now())
+}

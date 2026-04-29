@@ -1,0 +1,23 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../node_modules/@prisma/postgres-client"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("VECTOR_DATABASE_URL")
+  extensions = [pgvector]
+}
+
+model VectorRecord {
+  id        String   @id @default(uuid())
+  tenantId  String
+  content   String   @db.Text
+  embedding Unsupported("vector(1536)")? // Adjust dimension based on model (e.g., Gemini is 768 or 1536)
+  refId     String? // Reference to MySQL ID
+  refType   String? // 'KB' | 'MESSAGE'
+  createdAt DateTime @default(now())
+
+  @@index([tenantId])
+}

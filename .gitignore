@@ -1,8 +1,58 @@
+# Dependencies
 node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Production
 build/
 dist/
-coverage/
-.DS_Store
+dist-ssr/
+*.local
+
+# Logs
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
 .env*
 !.env.example
+
+# Editor folders and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS metadata
+Thumbs.db
+ehthumbs.db
+
+# Subdirectories specifics (if they have their own builds)
+api/dist/
+api/node_modules/
+web/dist/
+web/node_modules/
+web/stats.html
+
+# Database
+prisma/dev.db
+prisma/dev.db-journal
+
+# Docker
+.docker/

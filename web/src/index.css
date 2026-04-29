@@ -1,0 +1,92 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-blue: #377DFF;
+  --color-brand-blue-light: rgba(55, 125, 255, 0.1);
+  --color-brand-amber: #FFC107;
+  --color-brand-deep: #003B71;
+  --color-surface: #F8FAFC;
+  --color-card: #FFFFFF;
+  --color-border: #E2E8F0;
+  --color-text-main: #1E293B;
+  --color-text-muted: #64748B;
+
+  --font-display: "Manrope", sans-serif;
+  --font-sans: "Inter", sans-serif;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+:root {
+  font-family: "Inter", system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.6;
+  font-weight: 400;
+
+  color-scheme: light;
+  color: var(--color-text-main);
+  background-color: var(--color-surface);
+
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background-color: var(--color-surface);
+}
+
+@layer utilities {
+  .dashboard-card {
+    background-color: var(--color-card);
+    border: 1px solid var(--color-border);
+    border-radius: 20px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.3s ease;
+  }
+  
+  .dashboard-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: var(--color-brand-blue-light);
+  }
+
+  .text-gradient {
+    background-clip: text;
+    -webkit-background-clip: text;
+    color: transparent;
+    background-image: linear-gradient(to right, #003B71, #377DFF);
+  }
+
+  .btn-primary {
+    @apply bg-brand-blue text-white font-bold py-2 px-4 rounded-xl shadow-lg shadow-brand-blue/20 hover:opacity-90 transition-all;
+  }
+
+  .badge-amber {
+    @apply bg-brand-amber/10 text-brand-amber text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider;
+  }
+
+  .badge-blue {
+    @apply bg-brand-blue/10 text-brand-blue text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-wider;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #E2E8F0;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #CBD5E1;
+}
