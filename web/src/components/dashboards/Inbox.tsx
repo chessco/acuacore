@@ -9,7 +9,10 @@ import {
   ShieldAlert,
   Sparkles,
   BarChart3,
-  Lightbulb
+  Lightbulb,
+  BookOpen,
+  Link,
+  ArrowRight
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
@@ -23,6 +26,14 @@ export function Inbox() {
   const [messages, setMessages] = useState<any[]>([])
   const [inputText, setInputText] = useState('')
   const [isAiAnalysisOpen, setIsAiAnalysisOpen] = useState(true)
+  const [analysis, setAnalysis] = useState<any>({
+    sentiment: "Neutral",
+    intent: "Soporte",
+    summary: "Selecciona una conversación para iniciar el análisis...",
+    suggestedResponse: "",
+    confidence: 0
+  })
+  const [isAnalyzing, setIsAnalyzing] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
   const socketRef = useRef<Socket | null>(null)
@@ -132,11 +143,30 @@ export function Inbox() {
           role: (m.senderType === 'STAFF' || m.senderType === 'AGENT' || m.senderType === 'AI') ? 'assistant' : 'user'
         }))
         setMessages(mapped)
+        runAnalysis(mapped)
       })
       .catch(err => {
         console.error("[Inbox] Error cargando historial:", err);
       })
   }, [activeConversationId, flowUrl, flowTenantSlug, flowToken, flowApiKey])
+
+  const runAnalysis = async (msgs: any[]) => {
+    if (msgs.length === 0) return;
+    setIsAnalyzing(true);
+    try {
+      const response = await fetch('http://localhost:3014/ai/analyze-conversation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: msgs })
+      });
+      const data = await response.json();
+      setAnalysis(data);
+    } catch (error) {
+      console.error("[Inbox] Error en análisis de IA:", error);
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const handleSendMessage = () => {
     if (!inputText.trim() || !activeConversationId) return;
@@ -308,7 +338,7 @@ export function Inbox() {
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="w-80 border-l border-border bg-white flex flex-col overflow-hidden z-30"
           >
-            <div className="p-6 space-y-8 overflow-y-auto custom-scrollbar">
+            <div className={`p-6 space-y-8 overflow-y-auto custom-scrollbar ${isAnalyzing ? 'opacity-50' : ''}`}>
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2 text-slate-400">
                   <BarChart3 size={16} />
@@ -321,31 +351,121 @@ export function Inbox() {
                   <Plus size={18} className="rotate-45" />
                 </button>
               </div>
+
+              {isAnalyzing && (
+                <div className="flex items-center gap-2 text-[10px] font-black text-brand-blue uppercase animate-pulse">
+                   <RefreshCw size={12} className="animate-spin" /> Analizando conversación...
+                </div>
+              )}
+
               <div className="bg-white p-4 rounded-2xl border border-border shadow-sm">
                 <div className="flex justify-between items-end mb-2">
                   <p className="text-xs font-bold text-slate-500">Puntaje de Confianza</p>
-                  <p className="text-xl font-black text-brand-blue">98.4%</p>
+                  <p className="text-xl font-black text-brand-blue">{(analysis.confidence * 100).toFixed(1)}%</p>
                 </div>
                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-brand-blue w-[98.4%]" />
+                  <motion.div 
+                    initial={{ width: 0 }}
+                    animate={{ width: `${analysis.confidence * 100}%` }}
+                    className="h-full bg-brand-blue" 
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                 <div className="bg-white p-4 rounded-2xl border border-border shadow-sm">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Sentimiento</p>
+                    <div className="flex items-center gap-2">
+                       <Smile className={analysis.sentiment === 'Positivo' ? 'text-emerald-500' : 'text-slate-400'} size={14} />
+                       <span className="text-xs font-bold text-slate-700">{analysis.sentiment}</span>
+                    </div>
+                 </div>
+                 <div className="bg-white p-4 rounded-2xl border border-border shadow-sm">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Intención</p>
+                    <div className="flex items-center gap-2">
+                       <BookOpen className="text-brand-blue" size={14} />
+                       <span className="text-xs font-bold text-slate-700">{analysis.intent}</span>
+                    </div>
+                 </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 text-slate-400 mb-4">
+                  <Lightbulb size={16} />
+                  <h4 className="text-[10px] font-black uppercase tracking-widest">Resumen del Caso</h4>
+                </div>
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <p className="text-[11px] text-slate-500 leading-relaxed font-medium">
+                    {analysis.summary}
+                  </p>
                 </div>
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2 text-slate-400">
-                    <Lightbulb size={16} />
+                    <Sparkles size={16} />
                     <h4 className="text-[10px] font-black uppercase tracking-widest">Respuesta Sugerida</h4>
                   </div>
                 </div>
                 <div className="bg-white p-4 rounded-2xl border border-brand-blue/20 shadow-sm shadow-brand-blue/5">
                   <p className="text-xs text-slate-600 italic leading-relaxed mb-4">
-                    “He revisado la telemetría del sensor y la calibración parece correcta. Recomiendo medir manualmente para confirmar.”
+                    “{analysis.suggestedResponse || 'No hay sugerencias disponibles.'}”
                   </p>
                   <div className="flex gap-2">
                     <button className="flex-1 py-2 bg-white border border-border rounded-lg text-[10px] font-black text-brand-blue uppercase tracking-widest hover:bg-slate-50 transition-all">Editar</button>
-                    <button className="flex-1 py-2 bg-brand-blue text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-brand-blue/20">Usar</button>
+                    <button 
+                      onClick={() => setInputText(analysis.suggestedResponse)}
+                      disabled={!analysis.suggestedResponse}
+                      className="flex-1 py-2 bg-brand-blue text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg shadow-brand-blue/20 disabled:opacity-30"
+                    >
+                      Usar
+                    </button>
                   </div>
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 text-slate-400 mb-4">
+                  <Link size={16} />
+                  <h4 className="text-[10px] font-black uppercase tracking-widest">Referencias KB</h4>
+                </div>
+                <div className="space-y-2">
+                   {['Protocolo Calibración v2.1', 'Manual Sensor OPT-X'].map((ref, i) => (
+                     <div key={i} className="flex items-center justify-between p-3 bg-white border border-border rounded-xl hover:border-brand-blue transition-all cursor-pointer group">
+                        <span className="text-[10px] font-bold text-slate-600">{ref}</span>
+                        <ArrowRight size={12} className="text-slate-300 group-hover:text-brand-blue group-hover:translate-x-1 transition-all" />
+                     </div>
+                   ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2 text-rose-500">
+                    <ShieldAlert size={16} />
+                    <h4 className="text-[10px] font-black uppercase tracking-widest">Intervención Humana</h4>
+                  </div>
+                </div>
+                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4">
+                  <p className="text-[10px] text-rose-600 font-medium mb-4 leading-relaxed">
+                    Si la IA no puede resolver la duda técnica o el cliente solicita un experto, escala este chat.
+                  </p>
+                  <button 
+                    onClick={() => {
+                      const lastMsg = messages[messages.length - 1];
+                      if (!lastMsg) return;
+                      
+                      fetch('http://localhost:3014/hitl/intervene', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'x-tenant-id': flowTenantSlug || 'pitaya' },
+                        body: JSON.stringify({ messageId: lastMsg.id, level: 'BIOLOGIST', comments: 'Escalado manual desde bandeja' })
+                      }).then(() => alert('Enviado a revisión HITL (Biólogo)'));
+                    }}
+                    className="w-full py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20"
+                  >
+                    Escalar a HITL
+                  </button>
                 </div>
               </div>
             </div>

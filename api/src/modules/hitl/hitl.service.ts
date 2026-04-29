@@ -10,7 +10,37 @@ export class HitlService {
     const tenantId = getTenantId();
     return this.db.mysql.hitlAction.findMany({
       where: { tenantId, status: 'PENDING' },
-      include: { message: true },
+      include: { 
+        message: {
+          include: {
+            conversation: true
+          }
+        } 
+      },
+      orderBy: { createdAt: 'desc' }
+    });
+  }
+
+  async createAction(messageId: string, level: string = 'BIOLOGIST', comments?: string) {
+    const tenantId = getTenantId();
+    
+    // Check if message exists
+    const message = await this.db.mysql.message.findUnique({
+      where: { id: messageId }
+    });
+
+    if (!message) {
+      throw new Error('Message not found');
+    }
+
+    return this.db.mysql.hitlAction.create({
+      data: {
+        messageId,
+        tenantId,
+        level,
+        status: 'PENDING',
+        comments
+      }
     });
   }
 

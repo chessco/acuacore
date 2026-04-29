@@ -44,6 +44,9 @@ import { HITL } from './HITL'
 import { SkillsManager } from './SkillsManager'
 import { TenantManager } from './TenantManager'
 import { useTenant } from '../../contexts/TenantContext'
+import { PredictiveHub } from './PredictiveHub'
+import { ProtocolArchitecture } from './ProtocolArchitecture'
+import { VisionLab } from './VisionLab'
 import { motion, AnimatePresence } from 'motion/react'
 
 const chartData = [
@@ -371,6 +374,12 @@ export function OperationalDashboard() {
           </div>
         ) : activeTab === 'conversations' ? (
           <Inbox />
+        ) : activeTab === 'predictive' ? (
+          <PredictiveHub />
+        ) : activeTab === 'protocols' ? (
+          <ProtocolArchitecture />
+        ) : activeTab === 'vision' ? (
+          <VisionLab />
         ) : activeTab === 'kb' ? (
           <KnowledgeBase />
         ) : activeTab === 'analytics' ? (

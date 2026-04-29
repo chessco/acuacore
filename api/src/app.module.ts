@@ -7,6 +7,8 @@ import { TenantMiddleware } from './common/tenant/tenant.middleware';
 import { TenantsModule } from './modules/tenants/tenants.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
+import { HitlModule } from './modules/hitl/hitl.module';
+import { AiModule } from './modules/ai/ai.module';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { ConversationsModule } from './modules/conversations/conversations.modul
     TenantsModule,
     WebhooksModule,
     ConversationsModule,
+    HitlModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],
