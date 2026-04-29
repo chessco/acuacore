@@ -8,7 +8,7 @@ $flowUrl = "https://flow-api.pitayacode.io"
 Write-Host "Using Flow API at: $flowUrl" -ForegroundColor Gray
 
 # Use ngrok URL for AcuaCore Local
-$acuacoreUrl = "https://6cc3-2806-263-481-978-bc0a-79c6-8231-a5c2.ngrok-free.app"
+$acuacoreUrl = "https://0d29-2806-263-481-978-bc0a-79c6-8231-a5c2.ngrok-free.app"
 Write-Host "Using AcuaCore Tunnel at: $acuacoreUrl" -ForegroundColor Gray
 
 Write-Host "`n--- Testing Flow API Auth & Tenant Resolution ---" -ForegroundColor Cyan
