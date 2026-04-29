@@ -2,6 +2,7 @@ import { Injectable, Logger, Inject, forwardRef } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { KnowledgeBaseService } from '../knowledge-base/knowledge-base.service';
+import { getTenantId } from '../../common/tenant/tenant.middleware';
 
 @Injectable()
 export class PredictiveService {
@@ -97,7 +98,25 @@ export class PredictiveService {
     `;
 
     try {
-      const result = await this.aiService.generateResponse(prompt, []);
+      const tenantId = getTenantId();
+      
+      // Fetch the "Don Juan Camarón" skill or any active skill for this tenant
+      const activeSkill = await this.db.mysql.skill.findFirst({
+        where: { 
+          OR: [
+            { tenantId },
+            { tenantId: 'DEFAULT_TENANT' }
+          ],
+          id: { contains: 'juan' } // Specifically look for the Juan skill for now
+        }
+      });
+
+      const result = await this.aiService.generateResponse(
+        prompt, 
+        [], 
+        'gemini-2.5-flash-lite', 
+        activeSkill?.prompt
+      );
       
       const jsonMatch = result.content.match(/\{[\s\S]*\}/);
       if (!jsonMatch) {

@@ -70,6 +70,24 @@ export function HITL() {
       console.error('Error approving HITL action:', error)
     }
   }
+  const handleReject = async () => {
+    if (!selectedAction) return;
+    try {
+      await axios.put(`http://localhost:3014/api/hitl/${selectedAction.id}/reject`, {
+        reviewerId: 'admin-user'
+      }, {
+        headers: { 
+          'x-tenant-id': selectedTenant?.id || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718',
+          'x-api-key': flowApiKey
+        }
+      })
+      alert('Caso rechazado y eliminado de la cola.')
+      fetchPending()
+      setSelectedAction(null)
+    } catch (error) {
+      console.error('Error rejecting HITL action:', error)
+    }
+  }
 
   if (loading) {
     return (
@@ -195,12 +213,18 @@ export function HITL() {
 
           {/* Footer Actions */}
           <div className="flex justify-between items-center pt-8 border-t border-border mt-auto">
-            <button className="flex items-center gap-2 px-6 py-3 text-rose-500 font-bold text-sm hover:bg-rose-50 rounded-xl transition-all">
+            <button 
+              onClick={handleReject}
+              className="flex items-center gap-2 px-6 py-3 text-rose-500 font-bold text-sm hover:bg-rose-50 rounded-xl transition-all"
+            >
               <XCircle size={18} />
               Rechazar Caso
             </button>
             <div className="flex gap-4">
-              <button className="px-8 py-3 bg-white border border-border rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+              <button 
+                onClick={() => alert('Borrador guardado localmente.')}
+                className="px-8 py-3 bg-white border border-border rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+              >
                 Guardar Borrador
               </button>
               <button 

@@ -22,4 +22,12 @@ export class HitlController {
   ) {
     return this.hitlService.approve(id, body.reviewerId, body.editedContent);
   }
+
+  @Put(':id/reject')
+  async reject(
+    @Param('id') id: string,
+    @Body() body: { reviewerId: string }
+  ) {
+    return this.hitlService.reject(id, body.reviewerId);
+  }
 }

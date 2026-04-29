@@ -1,0 +1,42 @@
+services:
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: acua-core-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: acuacore_user
+      POSTGRES_PASSWORD: acuacore_pass
+      POSTGRES_DB: acuacore_vectors
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - pitaya_net
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: acua-core-api
+    restart: always
+    environment:
+      DATABASE_URL: "mysql://root:luxury_pass@luxury-mysql-prod:3306/acuacore_db"
+      VECTOR_DATABASE_URL: "postgresql://acuacore_user:acuacore_pass@acua-core-postgres:5432/acuacore_vectors"
+      PORT: 3014
+      FLOW_API_URL: "http://localhost:3003"
+      INTERNAL_API_KEY: "pitaya_internal_secret_2026"
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    ports:
+      - "3014:3014"
+    networks:
+      - pitaya_net
+    depends_on:
+      - postgres
+
+networks:
+  pitaya_net:
+    external: true
+
+volumes:
+  postgres_data:

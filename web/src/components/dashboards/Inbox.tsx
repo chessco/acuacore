@@ -495,7 +495,11 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
                             'x-tenant-id': selectedTenant?.id || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718',
                             'x-api-key': flowApiKey
                           },
-                          body: JSON.stringify({ messageId: lastMsg.id, level: 'BIOLOGIST', comments: 'Escalado manual desde bandeja' })
+                          body: JSON.stringify({ 
+                            messageId: lastMsg.id, 
+                            comments: 'Escalado manual desde bandeja',
+                            content: lastMsg.content
+                          }),
                         }).then(() => {
                           setHitlEscalated(true);
                           // alert('Enviado a revisión HITL (Biólogo)');
