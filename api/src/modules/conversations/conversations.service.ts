@@ -42,11 +42,21 @@ export class ConversationsService {
       },
     });
     
-    // Emit user message to frontend
-    this.gateway.emitNewMessage(tenantId, savedUserMessage);
+    // 2. Emit via Socket.io (Silent failure if gateway not ready)
+    try {
+      this.gateway.emitNewMessage(tenantId, savedUserMessage);
+    } catch (e) {
+      console.warn('Gateway emit failed:', e.message);
+    }
 
     // 3. Generate AI response via Router (Cost Optimized)
-    const aiResult = await this.aiRouter.route(content, tenantId);
+    let aiResult;
+    try {
+      aiResult = await this.aiRouter.route(content, tenantId);
+    } catch (e) {
+      console.error('AI Routing failed:', e.message);
+      return savedUserMessage; // Return at least the user message
+    }
 
     // 4. Save AI message
     const savedAiMessage = await this.db.mysql.message.create({

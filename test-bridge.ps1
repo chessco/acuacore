@@ -58,6 +58,11 @@ try {
     Write-Host "[SUCCESS] AcuaCore (via ngrok) accepted the forwarded message." -ForegroundColor Green
 } catch {
     Write-Host "[FAILURE] AcuaCore webhook error: $($_.Exception.Message)" -ForegroundColor Red
+    if ($_.Exception.Response) {
+        $reader = New-Object System.IO.StreamReader($_.Exception.Response.GetResponseStream())
+        $errorBody = $reader.ReadToEnd()
+        Write-Host "Error Body: $errorBody" -ForegroundColor Gray
+    }
 }
 
 Write-Host "`n--- Verification Complete ---" -ForegroundColor Cyan
