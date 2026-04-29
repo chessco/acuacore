@@ -11,7 +11,7 @@ export class WebhooksController {
     @Headers('x-tenant-id') tenantId: string,
     @Body() payload: { userId: string, content: string, externalId?: string }
   ) {
-    if (internalKey !== (process.env.INTERNAL_API_KEY || 'pitaya_internal_dev_key')) {
+    if (internalKey !== (process.env.INTERNAL_API_KEY || 'pitaya_internal_secret_2026')) {
       throw new UnauthorizedException('Invalid internal key');
     }
 
