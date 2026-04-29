@@ -19,6 +19,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useTenant } from '../../contexts/TenantContext';
 
 const standardProtocols = [
   { id: 'SOP-001', title: 'Manejo de Calidad de Agua', category: 'Producción', status: 'Verificado' },
@@ -28,6 +29,7 @@ const standardProtocols = [
 ];
 
 export function ProtocolArchitecture() {
+  const { flowApiKey, selectedTenant } = useTenant();
   const [topic, setTopic] = useState('');
   const [generating, setGenerating] = useState(false);
   const [protocol, setProtocol] = useState<string | null>(null);
@@ -42,13 +44,16 @@ export function ProtocolArchitecture() {
     if (!topic) return;
     setGenerating(true);
     try {
-      const tenantId = localStorage.getItem('selectedTenantId') || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718';
+      const tenantId = selectedTenant?.id || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718';
       const response = await axios.post('http://localhost:3014/api/ai/predictive/insight', {
         topic,
         type: 'SOP_GENERATION',
         options
       }, {
-        headers: { 'x-tenant-id': tenantId }
+        headers: { 
+          'x-tenant-id': tenantId,
+          'x-api-key': flowApiKey
+        }
       });
       // For now using the same endpoint but simulating SOP structure if it returns text
       setProtocol(response.data.insight || "Protocolo generado exitosamente.");

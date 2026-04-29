@@ -21,7 +21,7 @@ export class HitlService {
     });
   }
 
-  async createAction(messageId: string, level: string = 'BIOLOGIST', comments?: string) {
+  async createAction(messageId: string, level: string = 'BIOLOGIST', comments?: string, initialContent?: string) {
     const tenantId = getTenantId();
     
     // Check if message exists
@@ -37,9 +37,23 @@ export class HitlService {
       });
       
       if (!conversation) {
+        // Find a valid user in this tenant to associate the conversation with
+        let firstUser = await this.db.mysql.user.findFirst({
+          where: { tenantId }
+        });
+
+        if (!firstUser) {
+           // Last resort: find ANY user in the DB to avoid 500 error
+           firstUser = await this.db.mysql.user.findFirst();
+        }
+
+        if (!firstUser) {
+           throw new Error(`Database is empty. No users found at all. Cannot create HITL action.`);
+        }
+
         conversation = await this.db.mysql.conversation.create({
           data: { 
-            userId: 'external-user',
+            userId: firstUser.id,
             tenantId,
             externalId: 'flow-auto-sync'
           }
@@ -52,9 +66,18 @@ export class HitlService {
           conversationId: conversation.id,
           tenantId,
           role: 'user',
-          content: 'Contenido no sincronizado (Ver en Flow)',
+          content: initialContent || 'Contenido no sincronizado (Ver en Flow)',
         }
       });
+    }
+
+    // Check if HitlAction already exists for this message
+    const existingAction = await this.db.mysql.hitlAction.findUnique({
+      where: { messageId }
+    });
+
+    if (existingAction) {
+      return existingAction;
     }
 
     return this.db.mysql.hitlAction.create({

@@ -13,20 +13,22 @@ import {
   BookOpen,
   Link,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  CheckCircle
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
 import { useTenant } from '../../contexts/TenantContext'
 import { io, Socket } from 'socket.io-client'
 
-export function Inbox() {
+export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void }) {
   const { selectedTenant, flowUrl, flowTenantSlug, flowToken, flowApiKey } = useTenant()
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [conversations, setConversations] = useState<any[]>([])
   const [messages, setMessages] = useState<any[]>([])
   const [inputText, setInputText] = useState('')
   const [isAiAnalysisOpen, setIsAiAnalysisOpen] = useState(true)
+  const [hitlEscalated, setHitlEscalated] = useState(false)
   const [analysis, setAnalysis] = useState<any>({
     sentiment: "Neutral",
     intent: "Soporte",
@@ -38,6 +40,11 @@ export function Inbox() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
   const socketRef = useRef<Socket | null>(null)
+
+  // Reset escalation state when conversation changes
+  useEffect(() => {
+    setHitlEscalated(false);
+  }, [activeConversationId]);
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
@@ -159,7 +166,8 @@ export function Inbox() {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
-          'x-tenant-id': flowTenantSlug || 'pitaya'
+          'x-tenant-id': selectedTenant?.id || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718',
+          'x-api-key': flowApiKey
         },
         body: JSON.stringify({ messages: msgs })
       });
@@ -435,12 +443,26 @@ export function Inbox() {
                   <h4 className="text-[10px] font-black uppercase tracking-widest">Referencias KB</h4>
                 </div>
                 <div className="space-y-2">
-                   {['Protocolo Calibración v2.1', 'Manual Sensor OPT-X'].map((ref, i) => (
-                     <div key={i} className="flex items-center justify-between p-3 bg-white border border-border rounded-xl hover:border-brand-blue transition-all cursor-pointer group">
-                        <span className="text-[10px] font-bold text-slate-600">{ref}</span>
-                        <ArrowRight size={12} className="text-slate-300 group-hover:text-brand-blue group-hover:translate-x-1 transition-all" />
+                   {analysis.references && analysis.references.length > 0 ? (
+                     analysis.references.map((ref: any, i: number) => (
+                       <div 
+                         key={`${ref.id}-${i}`} 
+                         onClick={() => {
+                           // Logic to open KB entry (could be a modal or redirect)
+                           alert(`Abriendo referencia: ${ref.title}`);
+                           setActiveTab('kb');
+                         }}
+                         className="flex items-center justify-between p-3 bg-white border border-border rounded-xl hover:border-brand-blue transition-all cursor-pointer group"
+                       >
+                          <span className="text-[10px] font-bold text-slate-600">{ref.title}</span>
+                          <ArrowRight size={12} className="text-slate-300 group-hover:text-brand-blue group-hover:translate-x-1 transition-all" />
+                       </div>
+                     ))
+                   ) : (
+                     <div className="p-4 rounded-xl bg-slate-50 border border-slate-100 text-center">
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">No se encontraron referencias específicas</p>
                      </div>
-                   ))}
+                   )}
                 </div>
               </div>
 
@@ -455,21 +477,35 @@ export function Inbox() {
                   <p className="text-[10px] text-rose-600 font-medium mb-4 leading-relaxed">
                     Si la IA no puede resolver la duda técnica o el cliente solicita un experto, escala este chat.
                   </p>
-                  <button 
-                    onClick={() => {
-                      const lastMsg = messages[messages.length - 1];
-                      if (!lastMsg) return;
-                      
-                      fetch('http://localhost:3014/api/hitl/intervene', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'x-tenant-id': flowTenantSlug || 'pitaya' },
-                        body: JSON.stringify({ messageId: lastMsg.id, level: 'BIOLOGIST', comments: 'Escalado manual desde bandeja' })
-                      }).then(() => alert('Enviado a revisión HITL (Biólogo)'));
-                    }}
-                    className="w-full py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20"
-                  >
-                    Escalar a HITL
-                  </button>
+                  {hitlEscalated ? (
+                    <div className="w-full py-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest text-center flex items-center justify-center gap-2">
+                       <CheckCircle size={14} />
+                       Caso Escalado
+                    </div>
+                  ) : (
+                    <button 
+                      onClick={() => {
+                        const lastMsg = messages[messages.length - 1];
+                        if (!lastMsg) return;
+                        
+                        fetch('http://localhost:3014/api/hitl/intervene', {
+                          method: 'POST',
+                          headers: { 
+                            'Content-Type': 'application/json', 
+                            'x-tenant-id': selectedTenant?.id || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718',
+                            'x-api-key': flowApiKey
+                          },
+                          body: JSON.stringify({ messageId: lastMsg.id, level: 'BIOLOGIST', comments: 'Escalado manual desde bandeja' })
+                        }).then(() => {
+                          setHitlEscalated(true);
+                          // alert('Enviado a revisión HITL (Biólogo)');
+                        });
+                      }}
+                      className="w-full py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20"
+                    >
+                      Escalar a HITL
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

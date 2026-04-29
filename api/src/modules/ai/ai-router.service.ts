@@ -26,7 +26,7 @@ export class AiRouterService {
     private db: DatabaseService,
   ) {}
 
-  async route(userInput: string, tenantIdParam?: string): Promise<RouterResponse> {
+  async route(userInput: string, tenantIdParam?: string, skills?: any): Promise<RouterResponse> {
     const tenantId = tenantIdParam || getTenantId();
 
     // 1. Check for FAQ (Static) - Cost: $0
@@ -40,18 +40,18 @@ export class AiRouterService {
 
     // 3. Route based on complexity
     if (classification.complexity === 'low') {
-      const response = await this.ai.generateResponse(userInput, [], 'gemini-1.5-flash');
+      const response = await this.ai.generateResponse(userInput, [], 'gemini-2.5-flash-lite');
       return { decision: RouterDecision.CHEAP, ...response };
     }
 
     if (classification.complexity === 'technical') {
       // 4. Use RAG - Cost: Moderate
-      return { decision: RouterDecision.RAG, ...await this.handleRAG(userInput, tenantId) };
+      return { decision: RouterDecision.RAG, ...await this.handleRAG(userInput, tenantId, skills) };
     }
 
     if (classification.complexity === 'critical') {
       // 5. Escalate to Premium or Human
-      return { decision: RouterDecision.PREMIUM, ...await this.ai.generateResponse(userInput, [], 'gemini-1.5-pro') };
+      return { decision: RouterDecision.PREMIUM, ...await this.ai.generateResponse(userInput, [], 'gemini-2.5-flash-lite') };
     }
 
     return { decision: RouterDecision.HUMAN, content: 'Escalating to a technical advisor.', isFlagged: true, confidence: 1.0 };
@@ -73,7 +73,7 @@ export class AiRouterService {
     Options: low (greetings, simple info), technical (diseases, water parameters), critical (emergencies, high-value loss).
     Return JSON: { "complexity": "low" | "technical" | "critical" }`;
     
-    const result = await this.ai.generateRaw(prompt, 'gemini-1.5-flash');
+    const result = await this.ai.generateRaw(prompt, 'gemini-2.5-flash-lite');
     try {
       return JSON.parse(result);
     } catch {
@@ -81,13 +81,17 @@ export class AiRouterService {
     }
   }
 
-  private async handleRAG(input: string, tenantId: string) {
+  private async handleRAG(input: string, tenantId: string, skills?: any) {
     // 1. Load Persona (Don Juan Camaron)
+    let persona = 'Eres un asesor técnico experto en acuacultura.';
+    
+    if (skills?.don_juan_camaron) {
     const skill = await this.db.mysql.skill.findFirst({
       where: { name: { contains: 'Don Juan' } },
     });
 
-    const persona = skill?.prompt || 'Eres un asesor técnico experto en acuacultura.';
+      persona = skill?.prompt || persona;
+    }
 
     // 2. Retrieve context from Chunks
     const chunks = await this.db.mysql.knowledgeBaseChunk.findMany({
@@ -99,8 +103,8 @@ export class AiRouterService {
     });
 
     const context = chunks.map((c: any) => c.content).join('\n---\n');
-    const fullPrompt = `${persona}\n\nCONTEXTO TÉCNICO:\n${context}\n\nPREGUNTA DEL USUARIO: ${input}`;
+    const userPrompt = `CONTEXTO TÉCNICO:\n${context}\n\nPREGUNTA DEL USUARIO: ${input}`;
     
-    return await this.ai.generateResponse(fullPrompt, [], 'gemini-1.5-flash');
+    return await this.ai.generateResponse(userPrompt, [], 'gemini-2.5-flash-lite', persona);
   }
 }

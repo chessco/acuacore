@@ -19,6 +19,7 @@ describe('AppController (e2e)', () => {
   it('/ (GET)', () => {
     return request(app.getHttpServer())
       .get('/')
+      .set('x-api-key', 'pitaya_internal_secret_2026')
       .expect(200)
       .expect('Hello World!');
   });

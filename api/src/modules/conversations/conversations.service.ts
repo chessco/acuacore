@@ -18,7 +18,7 @@ export class ConversationsService {
     private gateway: ConversationsGateway,
   ) {}
 
-  async handleIncomingMessage(userId: string, content: string, tenantIdParam?: string, externalId?: string) {
+  async handleIncomingMessage(userId: string, content: string, tenantIdParam?: string, externalId?: string, skills?: any) {
     const tenantId = tenantIdParam || getTenantId();
 
     // 1. Find or create conversation
@@ -52,7 +52,7 @@ export class ConversationsService {
     // 3. Generate AI response via Router (Cost Optimized)
     let aiResult;
     try {
-      aiResult = await this.aiRouter.route(content, tenantId);
+      aiResult = await this.aiRouter.route(content, tenantId, skills);
     } catch (e) {
       console.error('AI Routing failed:', e.message);
       return savedUserMessage; // Return at least the user message
@@ -75,7 +75,10 @@ export class ConversationsService {
     this.gateway.emitNewMessage(tenantId, savedAiMessage);
 
     // 5. If flagged or routed to human, create HITL action
+    this.logger.log(`AI Decision: ${aiResult.decision} | isFlagged: ${aiResult.isFlagged}`);
+    
     if (aiResult.isFlagged || aiResult.decision === 'HUMAN') {
+      this.logger.log(`Creating HITL action for message ${savedAiMessage.id}`);
       await this.db.mysql.hitlAction.create({
         data: {
           messageId: savedAiMessage.id,
@@ -90,7 +93,8 @@ export class ConversationsService {
         const flowApiUrl = process.env.FLOW_API_URL || 'http://localhost:3003';
         const internalKey = process.env.INTERNAL_API_KEY || 'pitaya_internal_dev_key';
         
-        await firstValueFrom(
+        this.logger.log(`Forwarding AI response to Flow: ${flowApiUrl}/whatsapp/internal/send`);
+        const response = await firstValueFrom(
           this.httpService.post(`${flowApiUrl}/whatsapp/internal/send`, {
             tenantId,
             to: userId,
@@ -98,9 +102,12 @@ export class ConversationsService {
             key: internalKey
           })
         );
-        this.logger.log(`Sent AI response back to Flow for ${userId}`);
+        this.logger.log(`Successfully sent AI response to Flow. Status: ${response.status}`);
       } catch (error) {
         this.logger.error(`Failed to send response to Flow: ${error.message}`);
+        if (error.response) {
+          this.logger.error(`Flow API responded with: ${JSON.stringify(error.response.data)}`);
+        }
       }
     }
 

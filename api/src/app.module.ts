@@ -1,4 +1,4 @@
-import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer, RequestMethod } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { AppController } from './app.controller';
@@ -10,6 +10,9 @@ import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { ConversationsModule } from './modules/conversations/conversations.module';
 import { HitlModule } from './modules/hitl/hitl.module';
 import { AiModule } from './modules/ai/ai.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { CombinedAuthGuard } from './common/guards/combined-auth.guard';
 
@@ -22,6 +25,9 @@ import { CombinedAuthGuard } from './common/guards/combined-auth.guard';
     ConversationsModule,
     HitlModule,
     AiModule,
+    AuthModule,
+    KnowledgeBaseModule,
+    AnalyticsModule,
   ],
   controllers: [AppController],
   providers: [
@@ -37,6 +43,6 @@ export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer
       .apply(TenantMiddleware)
-      .forRoutes({ path: '(.*)', method: -1 }); // Fix for NestJS 11+ wildcards
+      .forRoutes({ path: '(.*)', method: RequestMethod.ALL });
   }
 }

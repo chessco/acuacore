@@ -22,6 +22,7 @@ import {
   Target
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useTenant } from '../../contexts/TenantContext';
 
 // Sample data for forecasting
 const forecastData = [
@@ -36,17 +37,21 @@ const forecastData = [
 ];
 
 export function PredictiveHub() {
+  const { flowApiKey, selectedTenant } = useTenant();
   const [analyzing, setAnalyzing] = useState(false);
   const [insight, setInsight] = useState<string | null>(null);
 
   const runAnalysis = async () => {
     setAnalyzing(true);
     try {
-      const tenantId = localStorage.getItem('selectedTenantId') || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718';
+      const tenantId = selectedTenant?.id || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718';
       const response = await axios.post('http://localhost:3014/api/ai/predictive/insight', {
         sensors: forecastData.filter(d => d.biomass !== null)
       }, {
-        headers: { 'x-tenant-id': tenantId }
+        headers: { 
+          'x-tenant-id': tenantId,
+          'x-api-key': flowApiKey
+        }
       });
       setInsight(response.data.insight);
     } catch (error) {

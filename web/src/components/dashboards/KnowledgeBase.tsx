@@ -2,21 +2,51 @@ import {
   Search, 
   Plus, 
   Download, 
-  Filter, 
   ChevronRight, 
   FileText, 
   CheckCircle2, 
-  Clock, 
-  MoreVertical,
-  Sparkles,
   Tag,
   History,
-  Edit3
+  Edit3,
+  Loader2,
+  RefreshCw,
+  Sparkles
 } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import axios from 'axios'
+import { useTenant } from '../../contexts/TenantContext'
 
 export function KnowledgeBase() {
+  const { flowApiKey, selectedTenant } = useTenant()
+  const [documents, setDocuments] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchDocuments()
+  }, [selectedTenant])
+
+  const fetchDocuments = async () => {
+    setLoading(true)
+    try {
+      const response = await axios.get('http://localhost:3014/api/knowledge-base', {
+        headers: { 
+          'x-tenant-id': selectedTenant?.id || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718',
+          'x-api-key': flowApiKey
+        }
+      })
+      setDocuments(response.data)
+      setError(null)
+    } catch (err) {
+      console.error('Error fetching knowledge base:', err)
+      setError('No se pudo cargar la base de conocimientos.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <div className="p-8 bg-surface min-h-[calc(100vh-80px)]">
+    <div className="p-8 bg-surface min-h-[calc(100vh-80px)] overflow-y-auto">
       {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">
         <span>Acuacore AI</span>
@@ -30,9 +60,12 @@ export function KnowledgeBase() {
           <p className="text-sm text-slate-500 mt-1">Gestiona protocolos operativos y respuestas validadas del sistema.</p>
         </div>
         <div className="flex gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-border rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
-            <Download size={16} />
-            Exportar
+          <button 
+            onClick={fetchDocuments}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-border rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+            Sincronizar
           </button>
           <button className="flex items-center gap-2 px-4 py-2 bg-brand-blue text-white font-bold rounded-xl text-xs shadow-lg shadow-brand-blue/20 hover:opacity-90 transition-all">
             <Plus size={16} />
@@ -43,134 +76,113 @@ export function KnowledgeBase() {
 
       <div className="grid grid-cols-12 gap-8">
         {/* Main Content: Table */}
-        <div className="col-span-9">
-          <div className="dashboard-card bg-white overflow-hidden">
+        <div className="col-span-12 lg:col-span-9">
+          <div className="dashboard-card bg-white overflow-hidden shadow-xl shadow-slate-200/50">
             {/* Filters Header */}
             <div className="p-4 border-b border-border flex items-center justify-between bg-slate-50/50">
               <div className="flex gap-1">
                 <TabButton label="Todos" active={true} />
                 <TabButton label="Protocolos" />
-                <TabButton label="Respuestas Validadas" />
-                <TabButton label="Correcciones" />
+                <TabButton label="Guías Técnicas" />
               </div>
               <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400">
                 <span className="uppercase tracking-widest">Ordenar por:</span>
-                <button className="text-slate-800 flex items-center gap-1">Más reciente <ChevronRight size={12} className="rotate-90" /></button>
+                <button className="text-slate-800 flex items-center gap-1 uppercase tracking-widest">Más reciente <ChevronRight size={12} className="rotate-90" /></button>
               </div>
             </div>
 
             {/* Table */}
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-border">
-                  <th className="px-6 py-4">Título</th>
-                  <th className="px-6 py-4">Tipo</th>
-                  <th className="px-6 py-4">Estado</th>
-                  <th className="px-6 py-4">Etiquetas</th>
-                  <th className="px-6 py-4">Actualizado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                <KnowledgeItem 
-                  title="Protocolo de Oxigenación de Emergencia"
-                  version="v2.4 - Manual Operativo"
-                  type="Protocolo"
-                  status="Publicado"
-                  tags={['Oxigeno', 'Bioseguridad']}
-                  updated="Hace 2 horas"
-                />
-                <KnowledgeItem 
-                  title="Guía de Alimentación Fase Juvenil"
-                  version="v1.0 - Respuesta Validada"
-                  type="Validada"
-                  status="Borrador"
-                  tags={['Alimentación']}
-                  updated="Ayer, 14:30"
-                />
-                <KnowledgeItem 
-                  title="Corrección: Sensor pH Piscina B3"
-                  version="v1.2 - Ajuste de Sistema"
-                  type="Corrección"
-                  status="Publicado"
-                  tags={['Mantenimiento']}
-                  updated="12 Oct 2023"
-                />
-              </tbody>
-            </table>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-border">
+                    <th className="px-6 py-4">Título del Documento</th>
+                    <th className="px-6 py-4 text-center">Fragmentos</th>
+                    <th className="px-6 py-4">Estado</th>
+                    <th className="px-6 py-4">Actualizado</th>
+                    <th className="px-6 py-4"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <Loader2 className="animate-spin text-brand-blue" size={32} />
+                          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Cargando documentación...</p>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : documents.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-6 py-12 text-center text-slate-400">
+                        No se encontraron documentos en la base de conocimientos.
+                      </td>
+                    </tr>
+                  ) : (
+                    documents.map((doc) => (
+                      <KnowledgeItem 
+                        key={doc.id}
+                        title={doc.title}
+                        version={`v${doc.version} - ID: ${doc.id.substring(0, 8)}`}
+                        type={doc.title.includes('Protocolo') ? 'Protocolo' : 'Guía Técnica'}
+                        chunks={doc._count?.chunks || 0}
+                        status="Publicado"
+                        updated={new Date(doc.updatedAt).toLocaleDateString()}
+                      />
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
             {/* Pagination Placeholder */}
             <div className="p-4 border-t border-border flex justify-between items-center bg-slate-50/30">
-              <span className="text-[10px] font-bold text-slate-400">Mostrando 1-3 de 48 documentos</span>
-              <div className="flex gap-1">
-                {[1, 2, 3].map(i => (
-                  <button key={i} className={`w-6 h-6 flex items-center justify-center rounded text-[10px] font-bold ${i === 1 ? 'bg-brand-blue text-white' : 'text-slate-400 hover:bg-slate-100'}`}>
-                    {i}
-                  </button>
-                ))}
-              </div>
+              <span className="text-[10px] font-bold text-slate-400">
+                Mostrando {documents.length} documentos encontrados
+              </span>
             </div>
           </div>
         </div>
 
         {/* Right Sidebar */}
-        <div className="col-span-3 space-y-6">
-          {/* Popular Categories */}
-          <div className="dashboard-card p-6 bg-white">
-            <div className="flex items-center gap-2 mb-6">
-              <Tag size={16} className="text-brand-blue" />
-              <h4 className="font-bold text-sm text-slate-800">Categorías Populares</h4>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <CategoryBadge label="Bioseguridad" count={12} active={true} />
-              <CategoryBadge label="Alimentación" count={8} />
-              <CategoryBadge label="Oxigeno" count={15} />
-              <CategoryBadge label="Sensores" count={5} />
-              <CategoryBadge label="Salud Animal" count={9} />
-              <CategoryBadge label="Estructuras" count={3} />
-            </div>
-            <button className="w-full mt-6 text-[10px] font-black text-slate-400 uppercase tracking-widest hover:text-brand-blue transition-all">Ver todas las etiquetas</button>
-          </div>
-
+        <div className="col-span-12 lg:col-span-3 space-y-6">
           {/* AI Assistant Box */}
-          <div className="bg-brand-blue p-6 rounded-[24px] text-white shadow-xl shadow-brand-blue/30 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-all">
-              <Sparkles size={60} />
+          <div className="bg-brand-deep p-8 rounded-[32px] text-white shadow-2xl shadow-brand-deep/20 relative overflow-hidden group">
+            <div className="relative z-10">
+              <h4 className="font-black text-xl mb-3 font-display flex items-center gap-2">
+                <Sparkles className="text-brand-blue" />
+                Copilot KB
+              </h4>
+              <p className="text-xs text-slate-400 leading-relaxed mb-6">
+                ¿Necesitas ayuda redactando un nuevo protocolo? Mi IA puede generar borradores técnicos basados en normativas ASC y BAP de inmediato.
+              </p>
+              <button className="w-full py-4 bg-brand-blue text-white rounded-2xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-brand-blue/30 hover:scale-[1.02] transition-all">
+                Arquitectar Nuevo MD
+              </button>
             </div>
-            <h4 className="font-black text-lg mb-3 font-display">Asistente AI</h4>
-            <p className="text-xs text-brand-blue-light leading-relaxed mb-6 opacity-90">
-              ¿Necesitas ayuda redactando un nuevo protocolo? Mi IA puede generar borradores basados en datos históricos.
-            </p>
-            <button className="w-full py-3 bg-white text-brand-blue rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-lg hover:scale-[1.02] transition-all">
-              <Sparkles size={14} />
-              Generar Borrador
-            </button>
+            <div className="absolute top-[-20px] right-[-20px] w-32 h-32 bg-brand-blue/10 rounded-full blur-3xl" />
           </div>
 
           {/* Recent Activity */}
-          <div className="dashboard-card p-6 bg-white">
+          <div className="dashboard-card p-6 bg-white border border-slate-100 shadow-xl shadow-slate-200/50 rounded-[24px]">
             <div className="flex items-center gap-2 mb-6">
               <History size={16} className="text-amber-500" />
-              <h4 className="font-bold text-sm text-slate-800">Actividad Reciente</h4>
+              <h4 className="font-black text-[10px] uppercase tracking-widest text-slate-800">Actividad Reciente</h4>
             </div>
             <div className="space-y-6">
               <ActivityItem 
                 icon={<Edit3 size={14} />}
-                user="Carlos M."
-                action="editó “Protocolo de Oxigenación”"
-                time="Hace 15 min"
+                user="Sistema"
+                action="ingestó masivamente .md"
+                time="Hace unos instantes"
               />
               <ActivityItem 
                 icon={<CheckCircle2 size={14} />}
-                user="Documento"
-                action="“Sensor pH” ha sido Validado"
-                time="Hace 2 horas"
+                user="IA"
+                action="validó 6 documentos"
+                time="Hace 5 minutos"
                 status="success"
-              />
-              <ActivityItem 
-                icon={<Plus size={14} />}
-                user="Elena R."
-                action="creó nuevo borrador “Nutrición”"
-                time="Ayer"
               />
             </div>
           </div>
@@ -182,57 +194,49 @@ export function KnowledgeBase() {
 
 function TabButton({ label, active }: any) {
   return (
-    <button className={`px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all ${active ? 'bg-white text-brand-blue shadow-sm border border-border' : 'text-slate-400 hover:text-slate-600'}`}>
+    <button className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${active ? 'bg-white text-brand-blue shadow-sm border border-slate-100' : 'text-slate-400 hover:text-slate-600'}`}>
       {label}
     </button>
   )
 }
 
-function KnowledgeItem({ title, version, type, status, tags, updated }: any) {
+function KnowledgeItem({ title, version, type, chunks, status, updated }: any) {
   const typeColors: any = {
-    'Protocolo': 'bg-brand-blue/5 text-brand-blue border-brand-blue/10',
-    'Validada': 'bg-amber-50 text-amber-600 border-amber-100',
-    'Corrección': 'bg-purple-50 text-purple-600 border-purple-100',
+    'Protocolo': 'bg-brand-blue/10 text-brand-blue border-brand-blue/20',
+    'Guía Técnica': 'bg-emerald-50 text-emerald-600 border-emerald-100',
   }
 
   return (
     <tr className="group hover:bg-slate-50/50 transition-all">
       <td className="px-6 py-5">
-        <div className="flex flex-col">
-          <span className="font-bold text-sm text-slate-800 leading-tight group-hover:text-brand-blue transition-all cursor-pointer">{title}</span>
-          <span className="text-[10px] text-slate-400 mt-1">{version}</span>
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-brand-blue-light group-hover:text-brand-blue transition-all">
+            <FileText size={20} />
+          </div>
+          <div className="flex flex-col">
+            <span className="font-black text-xs text-slate-800 leading-tight group-hover:text-brand-blue transition-all cursor-pointer">{title}</span>
+            <span className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-widest">{version}</span>
+          </div>
         </div>
       </td>
-      <td className="px-6 py-5">
-        <span className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border ${typeColors[type] || ''}`}>
-          {type}
-        </span>
+      <td className="px-6 py-5 text-center">
+        <span className="px-2.5 py-1 bg-slate-100 rounded-lg text-[9px] font-black text-slate-500">{chunks} Chunks</span>
       </td>
       <td className="px-6 py-5">
         <div className="flex items-center gap-1.5">
           <div className={`w-1.5 h-1.5 rounded-full ${status === 'Publicado' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-          <span className="text-[10px] font-bold text-slate-600">{status}</span>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">{status}</span>
         </div>
       </td>
-      <td className="px-6 py-5">
-        <div className="flex gap-1.5">
-          {tags.map((tag: string) => (
-            <span key={tag} className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[9px] font-bold">{tag}</span>
-          ))}
-        </div>
-      </td>
-      <td className="px-6 py-5 text-[10px] font-medium text-slate-400">
+      <td className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
         {updated}
       </td>
+      <td className="px-6 py-5 text-right">
+        <button className="p-2 text-slate-300 hover:text-slate-600 transition-all">
+          <ChevronRight size={18} />
+        </button>
+      </td>
     </tr>
-  )
-}
-
-function CategoryBadge({ label, count, active }: any) {
-  return (
-    <button className={`px-3 py-1.5 rounded-lg text-[10px] font-bold border transition-all ${active ? 'bg-brand-blue text-white border-brand-blue shadow-md shadow-brand-blue/20' : 'bg-slate-50 border-border text-slate-500 hover:border-brand-blue hover:text-brand-blue'}`}>
-      {label} ({count})
-    </button>
   )
 }
 
@@ -243,11 +247,12 @@ function ActivityItem({ icon, user, action, time, status }: any) {
         {icon}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[11px] leading-tight text-slate-600">
-          <span className="font-bold text-slate-800">{user}</span> {action}
+        <p className="text-[10px] font-bold leading-tight text-slate-600">
+          <span className="font-black text-slate-800 uppercase tracking-tighter">{user}</span> {action}
         </p>
-        <p className="text-[9px] text-slate-400 mt-0.5">{time}</p>
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">{time}</p>
       </div>
     </div>
   )
 }
+

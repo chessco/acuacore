@@ -1,10 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { DatabaseService } from '../../common/database/database.service';
+import { AiService } from '../ai/ai.service';
 import { getTenantId } from '../../common/tenant/tenant.middleware';
 
 @Injectable()
 export class KnowledgeBaseService {
-  constructor(private db: DatabaseService) {}
+  constructor(
+    private db: DatabaseService,
+    @Inject(forwardRef(() => AiService))
+    private aiService: AiService,
+  ) {}
 
   async addEntry(content: string, source?: string) {
     const tenantId = getTenantId();
@@ -30,7 +35,7 @@ export class KnowledgeBaseService {
     });
 
     // 3. Generate and save embedding in PostgreSQL
-    const embedding = await this.generateMockEmbedding(content);
+    const embedding = await this.aiService.getEmbedding(content);
     
     // Using raw query for pgvector since Prisma Support is limited for Vector type
     await this.db.postgres.$executeRawUnsafe(
@@ -43,23 +48,17 @@ export class KnowledgeBaseService {
 
   async search(query: string, limit: number = 5) {
     const tenantId = getTenantId();
-    const queryEmbedding = await this.generateMockEmbedding(query);
+    const queryEmbedding = await this.aiService.getEmbedding(query);
 
     // Vector similarity search using pgvector
     const results = await this.db.postgres.$queryRawUnsafe(
       `SELECT "content", "refId", "refType", ("embedding" <=> '[${queryEmbedding.join(',')}]') as distance 
        FROM "VectorRecord" 
-       WHERE "tenantId" = '${tenantId}'
+       WHERE ("tenantId" = '${tenantId}' OR "tenantId" IS NULL)
        ORDER BY distance ASC 
        LIMIT ${limit}`
     );
 
     return results;
-  }
-
-  private async generateMockEmbedding(text: string): Promise<number[]> {
-    // Mock 1536-dimensional vector
-    const vector = new Array(1536).fill(0).map(() => Math.random());
-    return vector;
   }
 }

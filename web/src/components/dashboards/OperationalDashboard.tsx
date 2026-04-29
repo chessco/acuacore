@@ -6,8 +6,6 @@ import {
   Settings, 
   TrendingUp,
   AlertCircle,
-  CheckCircle2,
-  ChevronRight,
   Fish,
   Search,
   Bell,
@@ -15,17 +13,13 @@ import {
   LogOut,
   FileText,
   Eye,
-  ChevronDown,
   Plus,
   Check,
   Sparkles,
   Users,
   BarChart3,
   Key,
-  Lock,
-  Loader2,
-  Globe,
-  Workflow
+  Loader2
 } from 'lucide-react'
 import { 
   CartesianGrid, 
@@ -57,6 +51,8 @@ const chartData = [
   { name: 'Fri', automation: 92, hitl: 3 },
 ]
 
+import axios from 'axios'
+
 export function OperationalDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
   const { 
@@ -70,6 +66,34 @@ export function OperationalDashboard() {
     flowApiKey,
     setFlowApiKey
   } = useTenant()
+
+  const [stats, setStats] = useState<any>(null)
+  const [dashboardChartData, setDashboardChartData] = useState<any[]>([])
+  const [loadingStats, setLoadingStats] = useState(true)
+
+  useEffect(() => {
+    if (activeTab === 'dashboard') {
+      fetchDashboardStats()
+    }
+  }, [activeTab, selectedTenant])
+
+  const fetchDashboardStats = async () => {
+    setLoadingStats(true)
+    try {
+      const response = await axios.get('http://localhost:3014/api/analytics/dashboard', {
+        headers: { 
+          'x-tenant-id': selectedTenant?.id || '',
+          'x-api-key': flowApiKey
+        }
+      })
+      setStats(response.data.stats)
+      setDashboardChartData(response.data.chartData)
+    } catch (err) {
+      console.error('Error fetching dashboard stats:', err)
+    } finally {
+      setLoadingStats(false)
+    }
+  }
 
   return (
     <div className="flex h-screen bg-surface text-text-main overflow-hidden font-sans">
@@ -175,7 +199,7 @@ export function OperationalDashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto relative flex flex-col">
+      <main className="flex-1 overflow-hidden relative flex flex-col">
         {/* Top Header */}
         <header className="h-20 bg-white border-b border-border flex items-center justify-between px-8 sticky top-0 z-10">
           <div className="relative w-96">
@@ -223,7 +247,9 @@ export function OperationalDashboard() {
           </div>
         </header>
 
-        {activeTab === 'dashboard' ? (
+        {/* Persistence Layers */}
+        <div className={`flex-1 overflow-y-auto ${activeTab === 'dashboard' ? 'block' : 'hidden'}`}>
+          {/* We keep the dashboard content here, but we could also extract it */}
           <div className="p-8">
             <div className="mb-8 flex justify-between items-end">
               <div>
@@ -242,31 +268,31 @@ export function OperationalDashboard() {
             </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-4 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
               <StatsCard 
                 title="TASA DE AUTOMATIZACIÓN IA" 
-                value="94.2%" 
+                value={loadingStats ? '...' : stats?.automationRate || '0%'} 
                 trend="+2.4%" 
                 icon={<Plus size={16} />}
                 color="blue"
               />
               <StatsCard 
                 title="CONVERSACIONES ACTIVAS" 
-                value="1,284" 
-                subtitle="Promedio: 4.2 min / sesión"
+                value={loadingStats ? '...' : stats?.activeConversations || '0'} 
+                subtitle="Basado en volumen real"
                 badge="EN VIVO"
                 color="amber"
               />
               <StatsCard 
                 title="REVISIONES PENDIENTES" 
-                value="28" 
+                value={loadingStats ? '...' : stats?.pendingReviews || '0'} 
                 subtitle="Requieren intervención humana"
                 badge="HITL"
                 color="purple"
               />
               <StatsCard 
                 title="USO POR INQUILINO" 
-                value="12 / 15" 
+                value={loadingStats ? '...' : stats?.tenantUsage || '0 / 15'} 
                 badge="ACTIVOS"
                 avatars={true}
                 color="slate"
@@ -286,24 +312,21 @@ export function OperationalDashboard() {
                     <button className="text-brand-blue text-xs font-bold hover:underline">Ver todas</button>
                   </div>
                   <div className="space-y-6">
-                    <AlertItem 
-                      title="Sentimiento Negativo Detectado" 
-                      desc="Inquilino: AquaTech Sur • El usuario reportó falla crítica en sensor O2." 
-                      time="Hace 2 min"
-                      status="urgent"
-                    />
-                    <AlertItem 
-                      title="Baja Confianza de IA (HITL)" 
-                      desc="Inquilino: BioMar Global • Pregunta sobre protocolos de bioseguridad fase 4." 
-                      time="Hace 15 min"
-                      status="warning"
-                    />
-                    <AlertItem 
-                      title="Escalado Manual Solicitado" 
-                      desc="Inquilino: Piscicultura Andes • Usuario solicitó hablar con un supervisor." 
-                      time="Hace 42 min"
-                      status="urgent"
-                    />
+                    {loadingStats ? (
+                      <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">Cargando alertas...</div>
+                    ) : stats?.alerts?.length > 0 ? (
+                      stats.alerts.map((alert: any) => (
+                        <AlertItem 
+                          key={alert.id}
+                          title={alert.title} 
+                          desc={`Inquilino: ${alert.tenant} • ${alert.description}`} 
+                          time={alert.time}
+                          status={alert.title.includes('Confianza') ? 'warning' : 'urgent'}
+                        />
+                      ))
+                    ) : (
+                      <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest italic">Sin alertas críticas</div>
+                    )}
                   </div>
                 </div>
 
@@ -317,19 +340,25 @@ export function OperationalDashboard() {
                     </div>
                   </div>
                   <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={chartData}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                        <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                        <Tooltip 
-                          cursor={{fill: '#f8fafc'}}
-                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                        />
-                        <Bar dataKey="automation" fill="#377DFF" radius={[4, 4, 0, 0]} barSize={40} />
-                        <Bar dataKey="hitl" fill="#E2E8F0" radius={[4, 4, 0, 0]} barSize={40} />
-                      </BarChart>
-                    </ResponsiveContainer>
+                    {loadingStats ? (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Loader2 className="animate-spin text-slate-200" size={40} />
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={dashboardChartData.length > 0 ? dashboardChartData : chartData}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                          <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                          <Tooltip 
+                            cursor={{fill: '#f8fafc'}}
+                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                          />
+                          <Bar dataKey="automation" fill="#377DFF" radius={[4, 4, 0, 0]} barSize={40} />
+                          <Bar dataKey="hitl" fill="#E2E8F0" radius={[4, 4, 0, 0]} barSize={40} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    )}
                   </div>
                 </div>
               </div>
@@ -339,42 +368,37 @@ export function OperationalDashboard() {
                 <div className="dashboard-card p-6 h-full flex flex-col">
                   <h3 className="font-bold text-lg mb-8">Actividad Reciente</h3>
                   <div className="space-y-8 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                    <ActivityItem 
-                      icon={<Fish className="text-brand-blue" />}
-                      title="IA AcuaCore resolvió consulta técnica"
-                      meta="INQUILINO: OCEANPULSE • 14:22"
-                      quote="“Los niveles de salinidad recomendados para la etapa 2 son...”"
-                      color="blue"
-                    />
-                    <ActivityItem 
-                      icon={<Settings className="text-purple-500" />}
-                      title="Admin Carlos intervino en chat"
-                      meta="INQUILINO: AQUATECH • 13:58"
-                      color="purple"
-                    />
-                    <ActivityItem 
-                      icon={<CheckCircle2 className="text-emerald-500" />}
-                      title="Habilidad 'Soporte' actualizada"
-                      meta="INQUILINO: SISTEMA • 12:30"
-                      color="emerald"
-                    />
-                    <ActivityItem 
-                      icon={<Database className="text-amber-500" />}
-                      title="Dra. Elena creó nueva entrada en Base de Conocimiento"
-                      meta="INQUILINO: GLOBAL BIO • 11:15"
-                      color="amber"
-                    />
+                    {loadingStats ? (
+                      <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">Cargando actividad...</div>
+                    ) : stats?.activity?.length > 0 ? (
+                      stats.activity.map((item: any) => (
+                        <ActivityItem 
+                          key={item.id}
+                          icon={item.type === 'check' ? <Fish className="text-brand-blue" /> : <Settings className="text-purple-500" />}
+                          title={item.title}
+                          meta={`INQUILINO: ${item.tenant} • ${item.time}`}
+                          quote={item.description}
+                          color={item.type === 'check' ? 'blue' : 'purple'}
+                        />
+                      ))
+                    ) : (
+                      <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest italic">Sin actividad reciente</div>
+                    )}
                   </div>
                   <button className="mt-8 py-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-400 uppercase tracking-widest hover:bg-slate-50 transition-all">
-                    Cargar Más
+                    Refrescar
                   </button>
                 </div>
               </div>
             </div>
           </div>
-        ) : activeTab === 'conversations' ? (
-          <Inbox />
-        ) : activeTab === 'predictive' ? (
+        </div>
+
+        <div className={`flex-1 h-full ${activeTab === 'conversations' ? 'block' : 'hidden'}`}>
+          <Inbox setActiveTab={setActiveTab} />
+        </div>
+
+        {activeTab === 'predictive' ? (
           <PredictiveHub />
         ) : activeTab === 'protocols' ? (
           <ProtocolArchitecture />
@@ -585,14 +609,14 @@ export function OperationalDashboard() {
               </div>
             </div>
           </div>
-        ) : (
+        ) : activeTab !== 'dashboard' && activeTab !== 'conversations' ? (
           <div className="p-8 flex items-center justify-center h-full">
             <div className="text-center">
               <h2 className="text-xl font-bold text-slate-400 uppercase tracking-widest">{activeTab} Section</h2>
               <p className="text-slate-400 mt-2 italic">Coming soon...</p>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Floating Action Button */}
         <button className="fixed bottom-8 right-8 w-14 h-14 bg-brand-blue text-white rounded-full flex items-center justify-center shadow-xl shadow-brand-blue/40 hover:scale-110 transition-all z-20">

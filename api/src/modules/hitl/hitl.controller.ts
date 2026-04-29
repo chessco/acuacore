@@ -11,8 +11,8 @@ export class HitlController {
   }
 
   @Post('intervene')
-  async intervene(@Body() body: { messageId: string, level?: string, comments?: string }) {
-    return this.hitlService.createAction(body.messageId, body.level, body.comments);
+  async intervene(@Body() body: { messageId: string, level?: string, comments?: string, content?: string }) {
+    return this.hitlService.createAction(body.messageId, body.level, body.comments, body.content);
   }
 
   @Put(':id/approve')
