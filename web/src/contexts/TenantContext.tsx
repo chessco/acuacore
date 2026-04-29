@@ -44,7 +44,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   });
 
   const [flowUrl, setFlowUrlState] = useState<string>(() => {
-    return localStorage.getItem('flowUrl') || 'https://flow.pitayacode.io';
+    return localStorage.getItem('flowUrl') || 'https://flow-api.pitayacode.io';
   });
 
   const [flowTenantSlug, setFlowTenantSlugState] = useState<string>(() => {

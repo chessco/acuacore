@@ -2,14 +2,9 @@
 $apiKey = "pitaya_internal_secret_2026"
 $tenantSlug = "pitaya"
 
-# Try to find the correct Flow domain
+# Production Flow API
 Write-Host "Connecting to Production Flow..." -ForegroundColor Yellow
 $flowUrl = "https://flow-api.pitayacode.io"
-try { 
-    Invoke-RestMethod -Uri "$flowUrl/whatsapp/webhook" -ErrorAction Stop | Out-Null 
-} catch { 
-    $flowUrl = "https://flow.pitayacode.io" 
-}
 Write-Host "Using Flow API at: $flowUrl" -ForegroundColor Gray
 
 # Use ngrok URL for AcuaCore Local
