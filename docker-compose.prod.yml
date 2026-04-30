@@ -20,13 +20,8 @@ services:
       dockerfile: Dockerfile
     container_name: acua-core-api
     restart: always
-    environment:
-      DATABASE_URL: "mysql://root:luxury_pass@luxury-mysql-prod:3306/acuacore_db"
-      VECTOR_DATABASE_URL: "postgresql://acuacore_user:acuacore_pass@acua-core-postgres:5432/acuacore_vectors"
-      PORT: 3014
-      FLOW_API_URL: "http://localhost:3003"
-      INTERNAL_API_KEY: "pitaya_internal_secret_2026"
-      GEMINI_API_KEY: ${GEMINI_API_KEY}
+    env_file:
+      - ./api/.env
     ports:
       - "3014:3014"
     networks:

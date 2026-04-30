@@ -1,12 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getTenantId } from '../../common/tenant/tenant.middleware';
 import { DatabaseService } from '../../common/database/database.service';
 
 @Injectable()
 export class AiService {
-  private client: any;
+  private readonly logger = new Logger(AiService.name);
+  private genAI: GoogleGenerativeAI;
 
   constructor(
     private configService: ConfigService,
@@ -16,10 +17,11 @@ export class AiService {
     if (!apiKey) {
       throw new Error('GEMINI_API_KEY is not defined in environment variables');
     }
-    this.client = new GoogleGenAI({ apiKey });
+    this.logger.log(`Initializing Gemini with key: ${apiKey.substring(0, 5)}...`);
+    this.genAI = new GoogleGenerativeAI(apiKey);
   }
 
-  async generateResponse(userMessage: string, history: any[] = [], modelName: string = 'gemini-2.5-flash-lite', systemInstruction?: string) {
+  async generateResponse(userMessage: string, history: any[] = [], modelName: string = 'gemini-2.5-flash', systemInstruction?: string) {
     const tenantId = getTenantId();
     const defaultSystemPrompt = `You are AcuaCore AI, an expert advisor in aquaculture.
 Your goal is to provide precise, technical, and helpful advice based on the conversation context.
@@ -40,16 +42,13 @@ If you need to provide a recommended response for the agent, keep it professiona
 
     try {
       console.log(`[AiService] Generating response with model ${modelName}...`);
-      const result = await this.client.models.generateContent({
-        model: modelName,
+      const model = this.genAI.getGenerativeModel({ model: modelName });
+      
+      const result = await model.generateContent({
         contents: contents
       });
 
-      if (!result.candidates || result.candidates.length === 0) {
-        throw new Error('No candidates returned from Gemini');
-      }
-
-      const responseText = result.candidates[0].content.parts[0].text;
+      const responseText = result.response.text();
       const confidence = this.calculateConfidence(responseText);
 
       // Track Cost (Simple simulation)
@@ -66,13 +65,11 @@ If you need to provide a recommended response for the agent, keep it professiona
     }
   }
 
-  async generateRaw(prompt: string, modelName: string = 'gemini-2.5-flash-lite') {
+  async generateRaw(prompt: string, modelName: string = 'gemini-2.5-flash') {
     try {
-      const result = await this.client.models.generateContent({
-        model: modelName,
-        contents: [{ role: 'user', parts: [{ text: prompt }] }]
-      });
-      return result.candidates[0]?.content?.parts[0]?.text || '';
+      const model = this.genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      return result.response.text();
     } catch (error) {
       console.error(`[AiService] Error in generateRaw: ${error.message}`);
       return '';
@@ -81,11 +78,12 @@ If you need to provide a recommended response for the agent, keep it professiona
 
   async getEmbedding(text: string) {
     try {
-        const result = await this.client.models.embedContent({
-          model: "text-embedding-004",
-          content: { parts: [{ text }] }
-        });
-        return result.embeddings[0].values;
+        const model = this.genAI.getGenerativeModel({ model: "gemini-embedding-001" });
+        const result = await model.embedContent({
+          content: { role: 'user', parts: [{ text }] },
+          outputDimensionality: 768,
+        } as any);
+        return result.embedding.values;
     } catch(e) {
         console.error("Embedding API failed, using mock embedding (768 dims)");
         return Array(768).fill(0.1);

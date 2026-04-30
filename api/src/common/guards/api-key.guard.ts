@@ -10,7 +10,7 @@ export class ApiKeyGuard implements CanActivate {
     context: ExecutionContext,
   ): boolean | Promise<boolean> | Observable<boolean> {
     const request = context.switchToHttp().getRequest();
-    const apiKey = request.headers['x-api-key'];
+    const apiKey = request.headers['x-api-key'] || request.headers['x-internal-key'];
 
     const validApiKey = this.configService.get<string>('INTERNAL_API_KEY') || 'pitaya_internal_secret_2026';
 

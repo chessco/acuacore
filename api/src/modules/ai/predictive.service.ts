@@ -56,12 +56,18 @@ export class PredictiveService {
       };
     }
     const lastMessage = messages[messages.length - 1]?.content || '';
-    const context = messages.slice(-5).map(m => `${m.role === 'user' ? 'CLIENTE' : 'AI'}: ${m.content}`).join('\n');
+    // Use the full conversation context for search, not just the last message
+    const recentMessages = messages.slice(-15);
+    const context = recentMessages.map(m => `${m.role === 'user' ? 'CLIENTE' : 'AI'}: ${m.content}`).join('\n');
+    
+    // Build a search query from recent user messages to capture the real topic
+    const userMessages = recentMessages.filter(m => m.role === 'user').map(m => m.content);
+    const searchQuery = userMessages.slice(-3).join(' '); // Last 3 user messages for KB search
     
     let references: any[] = [];
     try {
-      // Search real references
-      const realRefs = await this.kbService.search(lastMessage, 2) as any[];
+      // Search using combined context from recent user messages
+      const realRefs = await this.kbService.search(searchQuery, 3) as any[];
       if (realRefs && realRefs.length > 0) {
         references = await Promise.all(realRefs.map(async (ref: any) => {
           const kb = await this.db.mysql.knowledgeBase.findUnique({ where: { id: ref.refId } });
@@ -114,7 +120,7 @@ export class PredictiveService {
       const result = await this.aiService.generateResponse(
         prompt, 
         [], 
-        'gemini-2.5-flash-lite', 
+        'gemini-2.5-flash', 
         activeSkill?.prompt
       );
       

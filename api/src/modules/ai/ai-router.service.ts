@@ -40,7 +40,7 @@ export class AiRouterService {
 
     // 3. Route based on complexity
     if (classification.complexity === 'low') {
-      const response = await this.ai.generateResponse(userInput, [], 'gemini-2.5-flash-lite');
+      const response = await this.ai.generateResponse(userInput, [], 'gemini-2.5-flash');
       return { decision: RouterDecision.CHEAP, ...response };
     }
 
@@ -51,7 +51,7 @@ export class AiRouterService {
 
     if (classification.complexity === 'critical') {
       // 5. Escalate to Premium or Human
-      return { decision: RouterDecision.PREMIUM, ...await this.ai.generateResponse(userInput, [], 'gemini-2.5-flash-lite') };
+      return { decision: RouterDecision.PREMIUM, ...await this.ai.generateResponse(userInput, [], 'gemini-2.5-flash') };
     }
 
     return { decision: RouterDecision.HUMAN, content: 'Escalating to a technical advisor.', isFlagged: true, confidence: 1.0 };
@@ -73,7 +73,7 @@ export class AiRouterService {
     Options: low (greetings, simple info), technical (diseases, water parameters), critical (emergencies, high-value loss).
     Return JSON: { "complexity": "low" | "technical" | "critical" }`;
     
-    const result = await this.ai.generateRaw(prompt, 'gemini-2.5-flash-lite');
+    const result = await this.ai.generateRaw(prompt, 'gemini-2.5-flash');
     try {
       return JSON.parse(result);
     } catch {
@@ -105,6 +105,6 @@ export class AiRouterService {
     const context = chunks.map((c: any) => c.content).join('\n---\n');
     const userPrompt = `CONTEXTO TÉCNICO:\n${context}\n\nPREGUNTA DEL USUARIO: ${input}`;
     
-    return await this.ai.generateResponse(userPrompt, [], 'gemini-2.5-flash-lite', persona);
+    return await this.ai.generateResponse(userPrompt, [], 'gemini-2.5-flash', persona);
   }
 }
