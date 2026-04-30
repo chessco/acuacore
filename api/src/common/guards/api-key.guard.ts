@@ -12,7 +12,7 @@ export class ApiKeyGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const apiKey = request.headers['x-api-key'] || request.headers['x-internal-key'];
 
-    const validApiKey = this.configService.get<string>('INTERNAL_API_KEY') || 'pitaya_internal_secret_2026';
+    const validApiKey = this.configService.get<string>('INTERNAL_API_KEY');
 
     if (apiKey && apiKey === validApiKey) {
       // Mock a system user for the request if authenticated via API key

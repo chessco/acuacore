@@ -56,3 +56,8 @@ prisma/dev.db-journal
 
 # Docker
 .docker/
+
+# Local Scratch and Tests
+api/scratch/
+api/test/smoke.e2e-spec.ts
+deploy_acuacore_api.tar.gz
