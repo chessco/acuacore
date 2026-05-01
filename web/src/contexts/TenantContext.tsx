@@ -17,8 +17,10 @@ interface TenantContextType {
   setFlowTenantSlug: (slug: string) => void;
   flowToken: string | null;
   setFlowToken: (token: string | null) => void;
-  flowApiKey: string;
-  setFlowApiKey: (key: string) => void;
+  role: 'system' | 'tenant' | 'operator';
+  setRole: (role: 'system' | 'tenant' | 'operator') => void;
+  tenantLanguages: Record<string, 'es' | 'en'>;
+  setTenantLanguage: (tenantId: string, lang: 'es' | 'en') => void;
 }
 
 const tenants: Tenant[] = [
@@ -59,6 +61,26 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem('flowApiKey') || 'pitaya_internal_secret_2026';
   });
 
+  const [role, setRoleState] = useState<'system' | 'tenant' | 'operator'>(() => {
+    return (localStorage.getItem('acuacore_role') as any) || 'tenant';
+  });
+
+  const setRole = (newRole: 'system' | 'tenant' | 'operator') => {
+    setRoleState(newRole);
+    localStorage.setItem('acuacore_role', newRole);
+  };
+
+  const [tenantLanguages, setTenantLanguages] = useState<Record<string, 'es' | 'en'>>(() => {
+    const saved = localStorage.getItem('tenantLanguages');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const setTenantLanguage = (tenantId: string, lang: 'es' | 'en') => {
+    const newLangs = { ...tenantLanguages, [tenantId]: lang };
+    setTenantLanguages(newLangs);
+    localStorage.setItem('tenantLanguages', JSON.stringify(newLangs));
+  };
+
   const setSelectedTenant = (tenant: Tenant) => {
     setSelectedTenantState(tenant);
     localStorage.setItem('selectedTenant', JSON.stringify(tenant));
@@ -97,7 +119,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       flowToken,
       setFlowToken,
       flowApiKey,
-      setFlowApiKey
+      setFlowApiKey,
+      role,
+      setRole,
+      tenantLanguages,
+      setTenantLanguage
     }}>
       {children}
     </TenantContext.Provider>

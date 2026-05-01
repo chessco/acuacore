@@ -19,7 +19,9 @@ import {
   Users,
   BarChart3,
   Key,
-  Loader2
+  Loader2,
+  Zap,
+  MessageSquareQuote
 } from 'lucide-react'
 import { 
   CartesianGrid, 
@@ -32,16 +34,20 @@ import {
 } from 'recharts'
 import { useState, useRef, useEffect } from 'react'
 import { Inbox } from './Inbox'
+import { SystemStatus } from './SystemStatus'
 import { KnowledgeBase } from './KnowledgeBase'
 import { Analytics } from './Analytics'
 import { HITL } from './HITL'
 import { SkillsManager } from './SkillsManager'
+import { AgentsManager } from './AgentsManager'
 import { TenantManager } from './TenantManager'
 import { useTenant } from '../../contexts/TenantContext'
 import { PredictiveHub } from './PredictiveHub'
 import { ProtocolArchitecture } from './ProtocolArchitecture'
 import { VisionLab } from './VisionLab'
+import { CorrectionsManager } from './CorrectionsManager'
 import { motion, AnimatePresence } from 'motion/react'
+import { useTranslation } from 'react-i18next'
 
 const chartData = [
   { name: 'Mon', automation: 65, hitl: 12 },
@@ -54,7 +60,11 @@ const chartData = [
 import axios from 'axios'
 
 export function OperationalDashboard() {
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [activeTab, setActiveTab] = useState(() => {
+    const role = localStorage.getItem('acuacore_role');
+    return role === 'operator' ? 'conversations' : 'dashboard';
+  })
+  const userEmail = localStorage.getItem('acuacore_user_email');
   const { 
     selectedTenant, 
     setSelectedTenant, 
@@ -64,8 +74,19 @@ export function OperationalDashboard() {
     flowTenantSlug, 
     setFlowTenantSlug,
     flowApiKey,
-    setFlowApiKey
+    setFlowApiKey,
+    role,
+    tenantLanguages,
+    setTenantLanguage
   } = useTenant()
+  const { t, i18n } = useTranslation()
+
+  const changeLanguage = (lng: 'es' | 'en') => {
+    if (selectedTenant) {
+      setTenantLanguage(selectedTenant.id, lng);
+    }
+    i18n.changeLanguage(lng);
+  };
 
   const [stats, setStats] = useState<any>(null)
   const [dashboardChartData, setDashboardChartData] = useState<any[]>([])
@@ -83,7 +104,8 @@ export function OperationalDashboard() {
       const response = await axios.get('http://localhost:3014/api/analytics/dashboard', {
         headers: { 
           'x-tenant-id': selectedTenant?.id || '',
-          'x-api-key': flowApiKey
+          'x-api-key': flowApiKey,
+          'x-operator-email': userEmail || ''
         }
       })
       setStats(response.data.stats)
@@ -124,48 +146,64 @@ export function OperationalDashboard() {
             active={activeTab === 'conversations'} 
             onClick={() => setActiveTab('conversations')}
           />
-          <NavItem 
-            icon={<TrendingUp size={20} />} 
-            label="Hub Predictivo" 
-            active={activeTab === 'predictive'} 
-            onClick={() => setActiveTab('predictive')}
-          />
-          <NavItem 
-            icon={<FileText size={20} />} 
-            label="Arq. Protocolos" 
-            active={activeTab === 'protocols'} 
-            onClick={() => setActiveTab('protocols')}
-          />
-          <NavItem 
-            icon={<Eye size={20} />} 
-            label="Lab Visión" 
-            active={activeTab === 'vision'} 
-            onClick={() => setActiveTab('vision')}
-          />
-          <NavItem 
-            icon={<ShieldCheck size={20} />} 
-            label="HITL" 
-            active={activeTab === 'hitl'} 
-            onClick={() => setActiveTab('hitl')}
-          />
-          <NavItem 
-            icon={<TrendingUp size={20} />} 
-            label="Habilidades" 
-            active={activeTab === 'skills'} 
-            onClick={() => setActiveTab('skills')}
-          />
-          <NavItem 
-            icon={<Database size={20} />} 
-            label="Conocimiento" 
-            active={activeTab === 'kb'} 
-            onClick={() => setActiveTab('kb')}
-          />
-          <NavItem 
-            icon={<BarChart3 size={20} />} 
-            label="Analíticas" 
-            active={activeTab === 'analytics'} 
-            onClick={() => setActiveTab('analytics')}
-          />
+          {role !== 'operator' && (
+            <>
+              <NavItem 
+                icon={<ShieldCheck size={20} />} 
+                label="HITL" 
+                active={activeTab === 'hitl'} 
+                onClick={() => setActiveTab('hitl')}
+              />
+              <NavItem 
+                icon={<MessageSquareQuote size={20} />} 
+                label="Correcciones" 
+                active={activeTab === 'corrections'} 
+                onClick={() => setActiveTab('corrections')}
+              />
+              <NavItem 
+                icon={<Database size={20} />} 
+                label="Conocimiento" 
+                active={activeTab === 'kb'} 
+                onClick={() => setActiveTab('kb')}
+              />
+              <NavItem 
+                icon={<Sparkles size={20} />} 
+                label={t('agents')} 
+                active={activeTab === 'agents'} 
+                onClick={() => setActiveTab('agents')} 
+              />
+              <NavItem 
+                icon={<Zap size={20} />} 
+                label={t('skills')} 
+                active={activeTab === 'skills'} 
+                onClick={() => setActiveTab('skills')} 
+              />
+              <NavItem 
+                icon={<TrendingUp size={20} />} 
+                label="Hub Predictivo" 
+                active={activeTab === 'predictive'} 
+                onClick={() => setActiveTab('predictive')}
+              />
+              <NavItem 
+                icon={<FileText size={20} />} 
+                label="Arq. Protocolos" 
+                active={activeTab === 'protocols'} 
+                onClick={() => setActiveTab('protocols')}
+              />
+              <NavItem 
+                icon={<Eye size={20} />} 
+                label="Lab Visión" 
+                active={activeTab === 'vision'} 
+                onClick={() => setActiveTab('vision')}
+              />
+              <NavItem 
+                icon={<BarChart3 size={20} />} 
+                label="Analíticas" 
+                active={activeTab === 'analytics'} 
+                onClick={() => setActiveTab('analytics')}
+              />
+            </>
+          )}
           <NavItem 
             icon={<Settings size={20} />} 
             label="Configuración" 
@@ -199,7 +237,7 @@ export function OperationalDashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden relative flex flex-col">
+      <main className="flex-1 overflow-hidden relative flex flex-col h-screen">
         {/* Top Header */}
         <header className="h-20 bg-white border-b border-border flex items-center justify-between px-8 sticky top-0 z-10">
           <div className="relative w-96">
@@ -247,376 +285,312 @@ export function OperationalDashboard() {
           </div>
         </header>
 
-        {/* Persistence Layers */}
-        <div className={`flex-1 overflow-y-auto ${activeTab === 'dashboard' ? 'block' : 'hidden'}`}>
-          {/* We keep the dashboard content here, but we could also extract it */}
-          <div className="p-8">
-            <div className="mb-8 flex justify-between items-end">
-              <div>
-                <h2 className="text-2xl font-black font-display text-slate-800">
-                  Panel: <span className="text-brand-blue">{selectedTenant?.name || 'Vista Global'}</span>
-                </h2>
-                <div className="flex items-center gap-2 mt-1">
-                  <div className="w-2 h-2 bg-emerald-500 rounded-full" />
-                  <p className="text-xs font-bold text-emerald-600">Estado del sistema: Todos los sistemas operativos</p>
-                </div>
-              </div>
-              <button className="flex items-center gap-2 px-3 py-1.5 bg-white border border-border rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-50 transition-all shadow-sm">
-                <Settings size={14} />
-                Últimos 7 días
-              </button>
-            </div>
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-              <StatsCard 
-                title="TASA DE AUTOMATIZACIÓN IA" 
-                value={loadingStats ? '...' : stats?.automationRate || '0%'} 
-                trend="+2.4%" 
-                icon={<Plus size={16} />}
-                color="blue"
-              />
-              <StatsCard 
-                title="CONVERSACIONES ACTIVAS" 
-                value={loadingStats ? '...' : stats?.activeConversations || '0'} 
-                subtitle="Basado en volumen real"
-                badge="EN VIVO"
-                color="amber"
-              />
-              <StatsCard 
-                title="REVISIONES PENDIENTES" 
-                value={loadingStats ? '...' : stats?.pendingReviews || '0'} 
-                subtitle="Requieren intervención humana"
-                badge="HITL"
-                color="purple"
-              />
-              <StatsCard 
-                title="USO POR INQUILINO" 
-                value={loadingStats ? '...' : stats?.tenantUsage || '0 / 15'} 
-                badge="ACTIVOS"
-                avatars={true}
-                color="slate"
-              />
-            </div>
-
-            <div className="grid grid-cols-12 gap-8">
-              {/* Left Column: Alerts and Chart */}
-              <div className="col-span-8 space-y-8">
-                {/* Alerts Card */}
-                <div className="dashboard-card p-6">
-                  <div className="flex justify-between items-center mb-6">
-                    <div className="flex items-center gap-2 text-rose-500">
-                      <AlertCircle size={20} />
-                      <h3 className="font-bold">Alertas y Conversaciones Marcadas</h3>
-                    </div>
-                    <button className="text-brand-blue text-xs font-bold hover:underline">Ver todas</button>
-                  </div>
-                  <div className="space-y-6">
-                    {loadingStats ? (
-                      <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">Cargando alertas...</div>
-                    ) : stats?.alerts?.length > 0 ? (
-                      stats.alerts.map((alert: any) => (
-                        <AlertItem 
-                          key={alert.id}
-                          title={alert.title} 
-                          desc={`Inquilino: ${alert.tenant} • ${alert.description}`} 
-                          time={alert.time}
-                          status={alert.title.includes('Confianza') ? 'warning' : 'urgent'}
-                        />
-                      ))
-                    ) : (
-                      <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest italic">Sin alertas críticas</div>
-                    )}
+        {/* Tab Content Wrapper */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar">
+          {activeTab === 'dashboard' && (
+            <div className="p-8">
+              <div className="mb-8 flex justify-between items-end">
+                <div>
+                  <h2 className="text-2xl font-black font-display text-slate-800">
+                    Panel: <span className="text-brand-blue">{selectedTenant?.name || 'Vista Global'}</span>
+                  </h2>
+                  <div className="flex items-center gap-2 mt-1">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                    <p className="text-xs font-bold text-emerald-600">Estado del sistema: Todos los sistemas operativos</p>
                   </div>
                 </div>
-
-                {/* Volume Chart */}
-                <div className="dashboard-card p-6">
-                  <div className="flex justify-between items-center mb-8">
-                    <h3 className="font-bold text-lg">Volumen de Conversaciones</h3>
-                    <div className="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                      <span className="flex items-center gap-1"><div className="w-2 h-2 bg-brand-blue rounded-full" /> AUTOMATIZADO</span>
-                      <span className="flex items-center gap-1"><div className="w-2 h-2 bg-slate-300 rounded-full" /> HITL</span>
-                    </div>
-                  </div>
-                  <div className="h-[300px]">
-                    {loadingStats ? (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <Loader2 className="animate-spin text-slate-200" size={40} />
-                      </div>
-                    ) : (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <BarChart data={dashboardChartData.length > 0 ? dashboardChartData : chartData}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                          <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                          <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                          <Tooltip 
-                            cursor={{fill: '#f8fafc'}}
-                            contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                          />
-                          <Bar dataKey="automation" fill="#377DFF" radius={[4, 4, 0, 0]} barSize={40} />
-                          <Bar dataKey="hitl" fill="#E2E8F0" radius={[4, 4, 0, 0]} barSize={40} />
-                        </BarChart>
-                      </ResponsiveContainer>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Activity Feed */}
-              <div className="col-span-4">
-                <div className="dashboard-card p-6 h-full flex flex-col">
-                  <h3 className="font-bold text-lg mb-8">Actividad Reciente</h3>
-                  <div className="space-y-8 flex-1 overflow-y-auto pr-2 custom-scrollbar">
-                    {loadingStats ? (
-                      <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">Cargando actividad...</div>
-                    ) : stats?.activity?.length > 0 ? (
-                      stats.activity.map((item: any) => (
-                        <ActivityItem 
-                          key={item.id}
-                          icon={item.type === 'check' ? <Fish className="text-brand-blue" /> : <Settings className="text-purple-500" />}
-                          title={item.title}
-                          meta={`INQUILINO: ${item.tenant} • ${item.time}`}
-                          quote={item.description}
-                          color={item.type === 'check' ? 'blue' : 'purple'}
-                        />
-                      ))
-                    ) : (
-                      <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest italic">Sin actividad reciente</div>
-                    )}
-                  </div>
-                  <button className="mt-8 py-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-400 uppercase tracking-widest hover:bg-slate-50 transition-all">
-                    Refrescar
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className={`flex-1 h-full ${activeTab === 'conversations' ? 'block' : 'hidden'}`}>
-          <Inbox setActiveTab={setActiveTab} />
-        </div>
-
-        {activeTab === 'predictive' ? (
-          <PredictiveHub />
-        ) : activeTab === 'protocols' ? (
-          <ProtocolArchitecture />
-        ) : activeTab === 'vision' ? (
-          <VisionLab />
-        ) : activeTab === 'kb' ? (
-          <KnowledgeBase />
-        ) : activeTab === 'analytics' ? (
-          <Analytics />
-        ) : activeTab === 'hitl' ? (
-          <HITL />
-        ) : activeTab === 'skills' ? (
-          <SkillsManager />
-        ) : activeTab === 'tenants' ? (
-          <TenantManager />
-        ) : activeTab === 'settings' ? (
-          <div className="p-8 max-w-4xl mx-auto w-full">
-            <div className="mb-8">
-              <h2 className="text-2xl font-black text-slate-800">Configuración Global</h2>
-              <p className="text-sm text-slate-500 mt-1">Personaliza tu experiencia y gestiona el contexto de la aplicación.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {/* Tenant Selection */}
-              <div className="dashboard-card p-6">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
-                    <Users size={20} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-800">Inquilino Activo</h3>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cambiar Contexto</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  {tenants.map((tenant) => (
-                    <button
-                      key={tenant.id}
-                      onClick={() => setSelectedTenant(tenant)}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm transition-all border-2 ${
-                        selectedTenant?.id === tenant.id 
-                          ? 'border-brand-blue bg-brand-blue-light/30 text-brand-blue font-bold shadow-sm' 
-                          : 'border-transparent bg-slate-50 text-slate-600 hover:bg-slate-100'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${
-                          selectedTenant?.id === tenant.id ? 'bg-brand-blue text-white' : 'bg-slate-200 text-slate-500'
-                        }`}>
-                          {tenant.name.split(' ').map(n => n[0]).join('')}
-                        </div>
-                        <div className="text-left">
-                          <p className="text-xs font-bold leading-tight">{tenant.name}</p>
-                          <p className="text-[9px] font-medium opacity-60">{tenant.plan}</p>
-                        </div>
-                      </div>
-                      {selectedTenant?.id === tenant.id && <Check size={14} />}
-                    </button>
-                  ))}
-                </div>
-
-                <button 
-                  onClick={() => setActiveTab('tenants')}
-                  className="mt-6 w-full flex items-center justify-center gap-2 py-3 bg-white border border-border text-slate-500 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all"
-                >
-                  <Users size={16} />
-                  Administración de Inquilinos
+                <button className="flex items-center gap-2 px-3 py-1.5 bg-white border border-border rounded-lg text-xs font-bold text-slate-500 hover:bg-slate-50 transition-all shadow-sm">
+                  <Settings size={14} />
+                  Últimos 7 días
                 </button>
               </div>
 
-              {/* Appearance & Other Settings */}
-              <div className="space-y-8">
-                <div className="dashboard-card p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-500">
-                      <Eye size={20} />
+              {/* Stats Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <StatsCard 
+                  title="TASA DE AUTOMATIZACIÓN IA" 
+                  value={loadingStats ? '...' : stats?.automationRate || '0%'} 
+                  trend="+2.4%" 
+                  icon={<Plus size={16} />}
+                  color="blue"
+                />
+                <StatsCard 
+                  title="CONVERSACIONES ACTIVAS" 
+                  value={loadingStats ? '...' : stats?.activeConversations || '0'} 
+                  subtitle="Basado en volumen real"
+                  badge="EN VIVO"
+                  color="amber"
+                />
+                <StatsCard 
+                  title="REVISIONES PENDIENTES" 
+                  value={loadingStats ? '...' : stats?.pendingReviews || '0'} 
+                  subtitle="Requieren intervención humana"
+                  badge="HITL"
+                  color="purple"
+                />
+                <StatsCard 
+                  title="USO POR INQUILINO" 
+                  value={loadingStats ? '...' : stats?.tenantUsage || '0 / 15'} 
+                  badge="ACTIVOS"
+                  avatars={true}
+                  color="slate"
+                />
+              </div>
+
+              <div className="grid grid-cols-12 gap-8">
+                <div className="col-span-8 space-y-8">
+                  <div className="dashboard-card p-6">
+                    <div className="flex justify-between items-center mb-6">
+                      <div className="flex items-center gap-2 text-rose-500">
+                        <AlertCircle size={20} />
+                        <h3 className="font-bold">Alertas y Conversaciones Marcadas</h3>
+                      </div>
+                      <button className="text-brand-blue text-xs font-bold hover:underline">Ver todas</button>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-slate-800">Apariencia</h3>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Tema Visual</p>
+                    <div className="space-y-6">
+                      {loadingStats ? (
+                        <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">Cargando alertas...</div>
+                      ) : stats?.alerts?.length > 0 ? (
+                        stats.alerts.map((alert: any) => (
+                          <AlertItem 
+                            key={alert.id}
+                            title={alert.title} 
+                            desc={`Inquilino: ${alert.tenant} • ${alert.description}`} 
+                            time={alert.time}
+                            status={alert.title.includes('Confianza') ? 'warning' : 'urgent'}
+                          />
+                        ))
+                      ) : (
+                        <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest italic">Sin alertas críticas</div>
+                      )}
                     </div>
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    <button className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-brand-blue text-white ring-4 ring-brand-blue/10">
-                      <div className="w-full h-12 bg-white/20 rounded-lg" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Claro</span>
-                    </button>
-                    <button className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-slate-50 border border-border text-slate-400 grayscale hover:grayscale-0 transition-all">
-                      <div className="w-full h-12 bg-slate-800 rounded-lg" />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Oscuro</span>
-                    </button>
+
+                  <div className="dashboard-card p-6">
+                    <div className="flex justify-between items-center mb-8">
+                      <h3 className="font-bold text-lg">Volumen de Conversaciones</h3>
+                      <div className="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                        <span className="flex items-center gap-1"><div className="w-2 h-2 bg-brand-blue rounded-full" /> AUTOMATIZADO</span>
+                        <span className="flex items-center gap-1"><div className="w-2 h-2 bg-slate-300 rounded-full" /> HITL</span>
+                      </div>
+                    </div>
+                    <div className="h-[300px]">
+                      {loadingStats ? (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Loader2 className="animate-spin text-slate-200" size={40} />
+                        </div>
+                      ) : (
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={dashboardChartData.length > 0 ? dashboardChartData : chartData}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                            <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                            <Tooltip 
+                              cursor={{fill: '#f8fafc'}}
+                              contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                            />
+                            <Bar dataKey="automation" fill="#377DFF" radius={[4, 4, 0, 0]} barSize={40} />
+                            <Bar dataKey="hitl" fill="#E2E8F0" radius={[4, 4, 0, 0]} barSize={40} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                <div className="dashboard-card p-6">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-500">
-                      <BarChart3 size={20} />
+                <div className="col-span-4">
+                  <div className="dashboard-card p-6 h-full flex flex-col">
+                    <h3 className="font-bold text-lg mb-8">Actividad Reciente</h3>
+                    <div className="space-y-8 flex-1 overflow-y-auto pr-2 custom-scrollbar">
+                      {loadingStats ? (
+                        <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">Cargando actividad...</div>
+                      ) : stats?.activity?.length > 0 ? (
+                        stats.activity.map((item: any) => (
+                          <ActivityItem 
+                            key={item.id}
+                            icon={
+                              item.type === 'check' ? <Fish className="text-brand-blue" /> : 
+                              item.type === 'user' ? <Users className="text-emerald-500" /> :
+                              <Settings className="text-purple-500" />
+                            }
+                            title={item.title}
+                            meta={`INQUILINO: ${item.tenant} • ${item.time}`}
+                            quote={item.description}
+                            color={
+                              item.type === 'check' ? 'blue' : 
+                              item.type === 'user' ? 'emerald' : 
+                              'purple'
+                            }
+                          />
+                        ))
+                      ) : (
+                        <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest italic">Sin actividad reciente</div>
+                      )}
                     </div>
-                    <div>
-                      <h3 className="font-bold text-slate-800">Conexión Flow</h3>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Entorno de Mensajería</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={() => setFlowUrl('http://localhost:3014')}
-                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                          flowUrl === 'http://localhost:3014' 
-                            ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' 
-                            : 'bg-slate-50 border border-border text-slate-400 hover:bg-slate-100'
-                        }`}
-                      >
-                        Local
-                      </button>
-                      <button 
-                        onClick={() => setFlowUrl('https://flow.pitayacode.io')}
-                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                          flowUrl.includes('pitayacode.io') 
-                            ? 'bg-brand-blue text-white shadow-lg shadow-brand-blue/20' 
-                            : 'bg-slate-50 border border-border text-slate-400 hover:bg-slate-100'
-                        }`}
-                      >
-                        Producción
-                      </button>
-                    </div>
-                    
-                    <div className="relative">
-                      <input 
-                        type="text" 
-                        value={flowUrl}
-                        onChange={(e) => setFlowUrl(e.target.value)}
-                        placeholder="URL de API Flow"
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-brand-blue transition-all"
-                      />
-                      <div className="absolute right-4 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    </div>
-
-                    <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100">
-                      <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
-                        <Users size={16} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">Slug del Inquilino (Flow)</p>
-                        <input 
-                          type="text" 
-                          value={flowTenantSlug}
-                          onChange={(e) => setFlowTenantSlug(e.target.value)}
-                          placeholder="e.g. pitaya"
-                          className="w-full px-0 py-1 bg-transparent border-b border-transparent focus:border-brand-blue text-xs font-bold text-slate-700 focus:outline-none transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-100">
-                      <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400">
-                        <Key size={16} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-1">API Key (Flow)</p>
-                        <input 
-                          type="password" 
-                          value={flowApiKey}
-                          onChange={(e) => setFlowApiKey(e.target.value)}
-                          placeholder="Paste your Flow API Key here"
-                          className="w-full px-0 py-1 bg-transparent border-b border-transparent focus:border-brand-blue text-xs font-bold text-slate-700 focus:outline-none transition-all"
-                        />
-                      </div>
-                    </div>
-
-                    <button 
-                      onClick={() => {
-                        const btn = document.getElementById('save-btn');
-                        if (btn) {
-                          btn.innerText = '¡Guardado!';
-                          btn.classList.add('bg-emerald-500');
-                          setTimeout(() => {
-                            btn.innerText = 'Guardar Cambios';
-                            btn.classList.remove('bg-emerald-500');
-                          }, 2000);
-                        }
-                      }}
-                      id="save-btn"
-                      className="w-full mt-6 py-3 bg-brand-blue text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-blue/20 hover:opacity-90 transition-all flex items-center justify-center gap-2"
-                    >
-                      <Check size={14} />
-                      Guardar Cambios
+                    <button className="mt-8 py-3 border border-slate-200 rounded-xl text-xs font-bold text-slate-400 uppercase tracking-widest hover:bg-slate-50 transition-all">
+                      Refrescar
                     </button>
                   </div>
-                </div>
-
-                <div className="dashboard-card p-6">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-500">
-                      <Sparkles size={20} />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-slate-800">AI Copilot</h3>
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Preferencias</p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-slate-500 leading-relaxed">Configura el nivel de asistencia y las sugerencias automáticas de la IA en tu flujo de trabajo.</p>
                 </div>
               </div>
             </div>
-          </div>
-        ) : activeTab !== 'dashboard' && activeTab !== 'conversations' ? (
-          <div className="p-8 flex items-center justify-center h-full">
-            <div className="text-center">
-              <h2 className="text-xl font-bold text-slate-400 uppercase tracking-widest">{activeTab} Section</h2>
-              <p className="text-slate-400 mt-2 italic">Coming soon...</p>
+          )}
+
+          {activeTab === 'conversations' && (
+            <div className="h-full">
+              <Inbox setActiveTab={setActiveTab} />
             </div>
-          </div>
-        ) : null}
+          )}
+
+          {activeTab === 'predictive' && <PredictiveHub />}
+          {activeTab === 'protocols' && <ProtocolArchitecture />}
+          {activeTab === 'vision' && <VisionLab />}
+          {activeTab === 'kb' && <KnowledgeBase />}
+          {activeTab === 'analytics' && <Analytics />}
+          {activeTab === 'hitl' && <HITL />}
+          {activeTab === 'corrections' && <CorrectionsManager />}
+          {activeTab === 'agents' && <AgentsManager />}
+          {activeTab === 'skills' && <SkillsManager />}
+          {activeTab === 'tenants' && <TenantManager />}
+          
+          {activeTab === 'settings' && (
+            <div className="p-8 max-w-4xl mx-auto w-full">
+              <div className="mb-8">
+                <h2 className="text-2xl font-black text-slate-800">{t('global_config')}</h2>
+                <p className="text-sm text-slate-500 mt-1">{t('global_config_subtitle')}</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {role === 'system' ? (
+                  <div className="dashboard-card p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
+                        <Users size={20} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-800">Inquilino Activo</h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cambiar Contexto</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      {tenants.map((tenant) => (
+                        <button
+                          key={tenant.id}
+                          onClick={() => setSelectedTenant(tenant)}
+                          className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm transition-all border-2 ${
+                            selectedTenant?.id === tenant.id 
+                              ? 'border-brand-blue bg-brand-blue-light/30 text-brand-blue font-bold shadow-sm' 
+                              : 'border-transparent bg-slate-50 text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black ${
+                              selectedTenant?.id === tenant.id ? 'bg-brand-blue text-white' : 'bg-slate-200 text-slate-500'
+                            }`}>
+                              {tenant.name.substring(0,1)}
+                            </div>
+                            <span className="font-bold">{tenant.name}</span>
+                          </div>
+                          {selectedTenant?.id === tenant.id && <Check size={16} />}
+                        </button>
+                      ))}
+                    </div>
+
+                    <button 
+                      onClick={() => setActiveTab('tenants')}
+                      className="mt-6 w-full flex items-center justify-center gap-2 py-3 bg-white border border-border text-slate-500 rounded-xl text-xs font-bold hover:bg-slate-50 transition-all"
+                    >
+                      <Users size={16} />
+                      Administración de Inquilinos
+                    </button>
+                  </div>
+                ) : (
+                  <div className="dashboard-card p-8 bg-slate-50 flex flex-col items-center justify-center text-center">
+                    <ShieldCheck size={48} className="text-slate-300 mb-4" />
+                    <h3 className="font-bold text-slate-800 mb-2">Perfil Administrador</h3>
+                    <p className="text-xs text-slate-500 max-w-[200px]">Estás operando en {selectedTenant?.name}. Los cambios de inquilino son gestionados por el Administrador de Sistema.</p>
+                  </div>
+                )}
+
+                <div className="space-y-8">
+                  <SystemStatus flowApiKey={flowApiKey} />
+                  
+                  <div className="dashboard-card p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-500">
+                        <Search size={20} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-800">{t('language')}</h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">{t('language_desc')}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <button 
+                        onClick={() => changeLanguage('es')}
+                        className={`py-3 px-4 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all border-2 ${
+                          i18n.language === 'es' 
+                            ? 'border-brand-blue bg-brand-blue-light/20 text-brand-blue' 
+                            : 'border-slate-100 bg-slate-50 text-slate-400 hover:bg-slate-100'
+                        }`}
+                      >
+                        Español
+                      </button>
+                      <button 
+                        onClick={() => changeLanguage('en')}
+                        className={`py-3 px-4 rounded-xl font-bold text-[10px] uppercase tracking-widest transition-all border-2 ${
+                          i18n.language === 'en' 
+                            ? 'border-brand-blue bg-brand-blue-light/20 text-brand-blue' 
+                            : 'border-slate-100 bg-slate-50 text-slate-400 hover:bg-slate-100'
+                        }`}
+                      >
+                        English
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="dashboard-card p-6">
+                    <div className="flex items-center gap-3 mb-6">
+                      <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center text-purple-500">
+                        <Eye size={20} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-slate-800">Apariencia</h3>
+                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Tema Visual</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                      <button className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-brand-blue text-white ring-4 ring-brand-blue/10">
+                        <div className="w-full h-12 bg-white/20 rounded-lg" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Claro</span>
+                      </button>
+                      <button className="flex flex-col items-center gap-2 p-4 rounded-2xl bg-slate-50 border border-border text-slate-400 grayscale hover:grayscale-0 transition-all">
+                        <div className="w-full h-12 bg-slate-800 rounded-lg" />
+                        <span className="text-[10px] font-black uppercase tracking-widest">Oscuro</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Fallback for other tabs */}
+          {![
+            'dashboard', 'conversations', 'predictive', 'protocols', 'vision', 
+            'kb', 'analytics', 'hitl', 'corrections', 'agents', 'skills', 
+            'tenants', 'settings'
+          ].includes(activeTab) && (
+            <div className="p-8 flex items-center justify-center h-full">
+              <div className="text-center">
+                <h2 className="text-xl font-bold text-slate-400 uppercase tracking-widest">{activeTab} Section</h2>
+                <p className="text-slate-400 mt-2 italic">Coming soon...</p>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Floating Action Button */}
         <button className="fixed bottom-8 right-8 w-14 h-14 bg-brand-blue text-white rounded-full flex items-center justify-center shadow-xl shadow-brand-blue/40 hover:scale-110 transition-all z-20">

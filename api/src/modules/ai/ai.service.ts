@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import axios from 'axios';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getTenantId } from '../../common/tenant/tenant.middleware';
 import { DatabaseService } from '../../common/database/database.service';
@@ -8,6 +9,7 @@ import { DatabaseService } from '../../common/database/database.service';
 export class AiService {
   private readonly logger = new Logger(AiService.name);
   private genAI: GoogleGenerativeAI;
+  private activeModel: string = 'gemini-2.5-flash';
 
   constructor(
     private configService: ConfigService,
@@ -21,14 +23,17 @@ export class AiService {
     this.genAI = new GoogleGenerativeAI(apiKey);
   }
 
-  async generateResponse(userMessage: string, history: any[] = [], modelName: string = 'gemini-2.5-flash', systemInstruction?: string) {
+  async generateResponse(userMessage: string, history: any[] = [], modelName?: string, systemInstruction?: string, channel: string = 'whatsapp') {
+    const selectedModel = modelName || this.activeModel;
     const tenantId = getTenantId();
-    const defaultSystemPrompt = `You are AcuaCore AI, an expert advisor in aquaculture.
-Your goal is to provide precise, technical, and helpful advice based on the conversation context.
-Always respond in the same language as the user.
-If you need to provide a recommended response for the agent, keep it professional and action-oriented.`;
-
-    const activeSystemPrompt = systemInstruction || defaultSystemPrompt;
+    const globalRules = `REGLA CRÍTICA DE IDIOMA: Responde SIEMPRE en el mismo idioma que el usuario. Si el usuario habla español, NO uses términos en inglés como "DIAGNOSTIC", "ROOT CAUSE" o "ACTION PLAN". Usa exclusivamente sus equivalentes en español.
+    
+ADAPTACIÓN DE CANAL: Estás respondiendo a través de: ${channel.toUpperCase()}. 
+- Si es WHATSAPP: Sé conciso, usa párrafos cortos y emojis si es apropiado.
+- Si es WEB/APP: Sé más estructurado, usa negritas y listas si es necesario.
+- Si es API: Entrega información técnica pura y directa.`;
+    const basePersona = systemInstruction || `Eres AcuaCore AI, un asesor experto en acuacultura. Tu objetivo es proporcionar consejos precisos, técnicos y útiles.`;
+    const activeSystemPrompt = `${basePersona}\n\n${globalRules}`;
 
     const contents = [
       { role: 'user', parts: [{ text: activeSystemPrompt }] },
@@ -41,8 +46,8 @@ If you need to provide a recommended response for the agent, keep it professiona
     ];
 
     try {
-      console.log(`[AiService] Generating response with model ${modelName}...`);
-      const model = this.genAI.getGenerativeModel({ model: modelName });
+      console.log(`[AiService] Generating response with model ${selectedModel}...`);
+      const model = this.genAI.getGenerativeModel({ model: selectedModel });
       
       const result = await model.generateContent({
         contents: contents
@@ -52,7 +57,7 @@ If you need to provide a recommended response for the agent, keep it professiona
       const confidence = this.calculateConfidence(responseText);
 
       // Track Cost (Simple simulation)
-      await this.trackCost(tenantId, modelName, userMessage.length / 4, responseText.length / 4);
+      await this.trackCost(tenantId, selectedModel, userMessage.length / 4, responseText.length / 4);
 
       return {
         content: responseText,
@@ -90,6 +95,42 @@ If you need to provide a recommended response for the agent, keep it professiona
     }
   }
 
+  async analyzeVision(imageUrl: string, prompt: string) {
+    try {
+      this.logger.log(`[AiService] Analyzing image from URL: ${imageUrl.substring(0, 50)}...`);
+      const model = this.genAI.getGenerativeModel({ model: this.activeModel });
+      
+      let base64Data: string;
+      let mimeType: string;
+
+      if (imageUrl.startsWith('data:')) {
+        const parts = imageUrl.split(',');
+        base64Data = parts[1];
+        mimeType = parts[0].split(';')[0].split(':')[1];
+      } else {
+        const response = await axios.get(imageUrl, { responseType: 'arraybuffer' });
+        base64Data = Buffer.from(response.data).toString('base64');
+        mimeType = (response.headers['content-type'] as string) || 'image/jpeg';
+      }
+
+      const result = await model.generateContent([
+        prompt,
+        {
+          inlineData: {
+            data: base64Data,
+            mimeType
+          }
+        }
+      ]);
+
+      const responseText = result.response.text();
+      return responseText;
+    } catch (error) {
+      this.logger.error(`[AiService] Error in analyzeVision: ${error.message}`);
+      throw error;
+    }
+  }
+
   private async trackCost(tenantId: string, model: string, tokensIn: number, tokensOut: number) {
     try {
       const pricePer1k = model.includes('pro') ? 0.0035 : 0.0001;
@@ -120,5 +161,15 @@ If you need to provide a recommended response for the agent, keep it professiona
       }
     });
     return Math.max(0, score);
+  }
+
+  getActiveModel() {
+    return this.activeModel;
+  }
+
+  setActiveModel(model: string) {
+    this.logger.log(`[AiService] Switching global model to: ${model}`);
+    this.activeModel = model;
+    return { status: 'ok', model: this.activeModel };
   }
 }

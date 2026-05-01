@@ -13,14 +13,16 @@ import {
   AlertCircle,
   CheckCircle2,
   RefreshCw,
-  Camera
+  Camera,
+  Search
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import axios from 'axios';
 
 const feeds = [
-  { id: 1, name: 'Tanque 04-B', url: '/shrimp_vision_scan_1777455529815.png' },
-  { id: 2, name: 'Estanque Principal', url: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&q=80&w=800' },
-  { id: 3, name: 'Zona de Cría', url: 'https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?auto=format&fit=crop&q=80&w=800' },
+  { id: 1, name: 'Patología WSSV', url: '/wssv_sample.png' },
+  { id: 2, name: 'Enfermedad Peces', url: '/fish_sample.png' },
+  { id: 3, name: 'Espécimen Sano', url: '/healthy_sample.png' },
 ];
 
 export function VisionLab() {
@@ -29,28 +31,71 @@ export function VisionLab() {
   const [progress, setProgress] = useState(0);
   const [results, setResults] = useState<any>(null);
 
-  const startAnalysis = () => {
+  const startAnalysis = async () => {
     setAnalyzing(true);
-    setProgress(0);
+    setProgress(30);
     setResults(null);
     
-    const interval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setAnalyzing(false);
-          setResults({
-            specie: 'Litopenaeus vannamei',
-            confidence: 98.4,
-            health: 'Óptimo',
-            biomass_est: '1.24g avg',
-            anomalies: 'Ninguna detectada'
-          });
-          return 100;
-        }
-        return prev + 5;
+    try {
+      const prompt = `Analiza esta imagen como un experto en patología acuícola. 
+      Busca específicamente signos de enfermedades como Mancha Blanca (WSSV), Necrosis, parásitos o estrés.
+      Responde EXCLUSIVAMENTE en formato JSON válido (sin markdown) con esta estructura:
+      {
+        "specie": "especie",
+        "health": "Óptimo | Alerta | Crítico",
+        "confidence": número,
+        "biomass_est": "estimación",
+        "anomalies": "Descripción detallada del signo clínico o enfermedad detectada"
+      }`;
+
+      let imageUrl = activeFeed.url;
+      // Prepend origin if relative path
+      if (!imageUrl.startsWith('http') && !imageUrl.startsWith('data:')) {
+        imageUrl = window.location.origin + imageUrl;
+      }
+
+      const response = await axios.post('http://localhost:3014/api/ai/vision/analyze', {
+        imageUrl,
+        prompt
       });
-    }, 100);
+
+      setProgress(80);
+
+      const analysisText = response.data.analysis;
+      const jsonStr = analysisText.replace(/```json\n?|\n?```/g, '').trim();
+      const parsed = JSON.parse(jsonStr);
+      
+      setResults(parsed);
+      setProgress(100);
+    } catch (err) {
+      console.error('Error analyzing image:', err);
+      // Fallback a mock en caso de error de red o API
+      setTimeout(() => {
+        setResults({
+          specie: 'Análisis fallido (Mock)',
+          health: 'Alerta',
+          confidence: 0,
+          biomass_est: 'N/A',
+          anomalies: 'Error en conexión con el motor de visión.'
+        });
+        setProgress(100);
+      }, 1000);
+    } finally {
+      setTimeout(() => setAnalyzing(false), 500);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64 = reader.result as string;
+      const newFeed = { id: Date.now(), name: file.name, url: base64 };
+      setActiveFeed(newFeed);
+    };
+    reader.readAsDataURL(file);
   };
 
   return (
@@ -147,10 +192,20 @@ export function VisionLab() {
                 <img src={feed.url} alt={feed.name} className="w-full h-full object-cover" />
               </button>
             ))}
-            <button className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-brand-blue hover:text-brand-blue transition-all group">
+            <input 
+              type="file" 
+              id="vision-upload" 
+              className="hidden" 
+              accept="image/*"
+              onChange={handleFileUpload}
+            />
+            <label 
+              htmlFor="vision-upload"
+              className="w-24 h-24 rounded-2xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-2 text-slate-400 hover:border-brand-blue hover:text-brand-blue transition-all group cursor-pointer"
+            >
                <Upload size={20} className="group-hover:-translate-y-1 transition-transform" />
                <span className="text-[10px] font-black uppercase tracking-widest">CARGAR</span>
-            </button>
+            </label>
           </div>
         </div>
 
@@ -229,8 +284,10 @@ export function VisionLab() {
                           </div>
                        </div>
                        <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">ESTIMACIÓN BIOMASA</p>
-                          <p className="font-bold">{results.biomass_est}</p>
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">DIAGNÓSTICO PATOLÓGICO</p>
+                          <p className={`font-bold ${results.anomalies?.toLowerCase() !== 'ninguna' ? 'text-rose-400' : 'text-slate-200'}`}>
+                            {results.anomalies}
+                          </p>
                        </div>
                     </div>
                     <button 

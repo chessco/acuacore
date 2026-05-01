@@ -26,6 +26,8 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null)
   const [conversations, setConversations] = useState<any[]>([])
   const [messages, setMessages] = useState<any[]>([])
+  const [messageCache, setMessageCache] = useState<Record<string, any[]>>({})
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false)
   const [inputText, setInputText] = useState('')
   const [isAiAnalysisOpen, setIsAiAnalysisOpen] = useState(true)
   const [hitlEscalated, setHitlEscalated] = useState(false)
@@ -37,6 +39,9 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
     confidence: 0
   })
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [operators, setOperators] = useState<any[]>([])
+  const [selectedOperatorId, setSelectedOperatorId] = useState<string>('')
+  const [isAssigning, setIsAssigning] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   
   const socketRef = useRef<Socket | null>(null)
@@ -48,18 +53,29 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
 
   // Auto-scroll to bottom of messages
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Only smooth scroll if we are already seeing some messages
+    const behavior = messages.length > 5 ? 'smooth' : 'auto';
+    messagesEndRef.current?.scrollIntoView({ behavior })
   }, [messages])
+
+  // Instant scroll on conversation change
+  useEffect(() => {
+    if (activeConversationId) {
+      // Use requestAnimationFrame to ensure DOM is updated
+      requestAnimationFrame(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' })
+      });
+    }
+  }, [activeConversationId])
 
   // Fetch Conversations and Setup Socket
   useEffect(() => {
-    const flowId = flowTenantSlug || 'pitaya';
+    const tid = selectedTenant?.id || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718';
     
-    // Fetch initial conversations
-    fetch(`${flowUrl}/whatsapp/conversations`, {
+    // Fetch conversations from AcuaCore API (which has the assignments)
+    fetch(`http://localhost:3014/api/conversations`, {
       headers: { 
-        'x-tenant-id': flowId,
-        'Authorization': flowToken ? `Bearer ${flowToken}` : '',
+        'x-tenant-id': tid,
         'x-api-key': flowApiKey
       }
     })
@@ -68,61 +84,106 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
         return res.json();
       })
       .then(data => {
-        const mapped = data.map((c: any) => ({
+        const role = localStorage.getItem('acuacore_role');
+        const userEmail = localStorage.getItem('acuacore_user_email');
+
+        let filtered = data.map((c: any) => ({
           ...c,
-          userId: c.contact?.name || c.lead?.name || c.contact?.phone || 'Usuario',
-          updatedAt: c.updatedAt || c.lastCustomerMessageAt || new Date().toISOString(),
-          snippet: c.lastMessage?.content || "Nueva conversación"
-        }))
-        setConversations(mapped)
-        if (mapped.length > 0 && !activeConversationId) {
-          setActiveConversationId(mapped[0].id)
+          userId: c.userId || 'Usuario',
+          updatedAt: c.updatedAt || new Date().toISOString(),
+          snippet: c.messages?.[0]?.content || "Nueva conversación"
+        }));
+
+        if (role === 'operator' && userEmail) {
+          // Only show chats assigned to this specific operator email
+          filtered = filtered.filter((c: any) => c.assignedTo?.email === userEmail);
+        }
+
+        setConversations(filtered)
+        if (filtered.length > 0 && !activeConversationId) {
+          setActiveConversationId(filtered[0].id)
         }
       })
       .catch(err => {
         console.error("[Inbox] Error cargando conversaciones:", err);
       })
 
-    // Setup Socket
-    socketRef.current = io(flowUrl, {
+    // Setup Socket (Connecting to Acuacore Backend)
+    const ACUACORE_API_URL = 'http://localhost:3014';
+    socketRef.current = io(ACUACORE_API_URL, {
       extraHeaders: {
-        'Authorization': flowToken ? `Bearer ${flowToken}` : '',
         'x-api-key': flowApiKey
       }
     })
     
     socketRef.current.on('connect', () => {
-      socketRef.current?.emit('joinTenant', flowId)
+      console.log("[Inbox] Connected to Acuacore Socket. Joining room:", tid);
+      socketRef.current?.emit('joinTenant', tid)
     })
 
     socketRef.current.on('newMessage', (newMsg: any) => {
+      console.log("[Inbox] New message received:", newMsg);
+      
+      const mappedMsg = {
+        ...newMsg,
+        role: (newMsg.senderType === 'STAFF' || newMsg.senderType === 'AGENT' || newMsg.senderType === 'AI') ? 'assistant' : 'user'
+      };
+
+      // Update Cache
+      setMessageCache(prev => {
+        const convMsgs = prev[newMsg.conversationId] || [];
+        if (convMsgs.find(m => m.id === newMsg.id)) return prev;
+        return {
+          ...prev,
+          [newMsg.conversationId]: [...convMsgs, mappedMsg]
+        };
+      });
+
+      // Update Active View
       setActiveConversationId(currentActiveId => {
         if (newMsg.conversationId === currentActiveId) {
-          setMessages(prev => [...prev, newMsg])
+          setMessages(prev => {
+            if (prev.find(m => m.id === newMsg.id)) return prev;
+            return [...prev, mappedMsg];
+          });
         }
         return currentActiveId
       })
 
-      setConversations(prev => {
-        const index = prev.findIndex(c => c.id === newMsg.conversationId)
-        if (index > -1) {
-          const updatedConv = { ...prev[index], messages: [newMsg], updatedAt: new Date().toISOString() }
-          const newList = [...prev]
-          newList.splice(index, 1)
-          return [updatedConv, ...newList]
+      // Actualizar snippet en la lista de conversaciones
+      setConversations(prev => prev.map(c => {
+        if (c.id === newMsg.conversationId) {
+          return { ...c, snippet: newMsg.content, updatedAt: new Date().toISOString() };
         }
-        // Refetch for new conversations
-        fetch(`${flowUrl}/whatsapp/conversations`, { 
-          headers: { 
-            'x-tenant-id': flowId,
-            'x-api-key': flowApiKey
-          } 
-        })
-          .then(res => res.json())
-          .then(setConversations)
-        return prev
-      })
+        return c;
+      }));
     })
+
+    socketRef.current.on('conversationUpdate', (updatedConv: any) => {
+      setConversations(prev => prev.map(c => c.id === updatedConv.id ? { ...c, ...updatedConv } : c));
+    })
+
+
+    // Fetch Operators
+    fetch('http://localhost:3014/api/conversations/operators', {
+      headers: {
+        'x-tenant-id': selectedTenant?.id || '',
+        'x-api-key': flowApiKey
+      }
+    })
+      .then(res => res.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          setOperators(data);
+        } else {
+          // Mock data for demo if no operators found
+          setOperators([
+            { id: 'op-1', name: 'Soporte Nivel 1' },
+            { id: 'op-2', name: 'Biólogo de Turno' }
+          ]);
+        }
+      })
+      .catch(err => console.error("[Inbox] Error fetching operators:", err));
 
     return () => {
       socketRef.current?.disconnect()
@@ -132,6 +193,18 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
   // Fetch Messages when active conversation changes
   useEffect(() => {
     if (!activeConversationId) return;
+    
+    // Check cache first to avoid flickering
+    if (messageCache[activeConversationId]) {
+      setMessages(messageCache[activeConversationId]);
+      setIsMessagesLoading(false);
+      // Background sync will happen below
+    } else {
+      // Only show loading if we don't have cached data
+      setIsMessagesLoading(true);
+      // Optional: don't clear messages immediately to avoid jump
+    }
+
     const flowId = flowTenantSlug || 'pitaya';
     
     fetch(`${flowUrl}/whatsapp/history/${activeConversationId}`, {
@@ -150,12 +223,22 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
           ...m,
           role: (m.senderType === 'STAFF' || m.senderType === 'AGENT' || m.senderType === 'AI') ? 'assistant' : 'user'
         }))
-        setMessages(mapped)
-        runAnalysis(mapped)
+        
+        // Update state and cache
+        setMessages(prev => {
+          // If we are switching, we just use the new data
+          // If we are on the same one, we could merge (but fetch is full history usually)
+          return mapped;
+        });
+        setMessageCache(prev => ({ ...prev, [activeConversationId]: mapped }));
+        runAnalysis(mapped);
       })
       .catch(err => {
         console.error("[Inbox] Error cargando historial:", err);
       })
+      .finally(() => {
+        setIsMessagesLoading(false);
+      });
   }, [activeConversationId, flowUrl, flowTenantSlug, flowToken, flowApiKey])
 
   const runAnalysis = async (msgs: any[]) => {
@@ -183,12 +266,12 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
   const handleSendMessage = () => {
     if (!inputText.trim() || !activeConversationId) return;
 
-    const flowId = flowTenantSlug || 'pitaya';
+    const tid = selectedTenant?.id || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718';
     const activeConv = conversations.find(c => c.id === activeConversationId);
-    const to = activeConv?.contact?.phone || activeConv?.lead?.phone || '';
+    const to = activeConv?.externalId || activeConv?.userId || '';
 
     if (!to) {
-      console.error('[Inbox] No phone number found');
+      console.error('[Inbox] No destination (phone/externalId) found');
       return;
     }
 
@@ -205,7 +288,7 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'x-tenant-id': flowId,
+        'x-tenant-id': tid,
         'x-api-key': flowApiKey
       },
       body: JSON.stringify(messageData)
@@ -268,9 +351,19 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
             <div>
               <h3 className="font-bold text-sm text-slate-800">{activeConversation?.userId || 'Selecciona un chat'}</h3>
               {activeConversation && (
-                <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> Activo
-                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> Activo
+                  </p>
+                  {activeConversation.assignedTo && (
+                    <>
+                      <span className="text-slate-200 text-xs">•</span>
+                      <p className="text-[10px] text-brand-blue font-bold flex items-center gap-1">
+                        ASIGNADO A: {activeConversation.assignedTo.name}
+                      </p>
+                    </>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -312,9 +405,9 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
                   isAI={msg.role === 'assistant'}
                 />
               ))}
-              <div ref={messagesEndRef} />
             </>
           )}
+          <div ref={messagesEndRef} />
         </div>
 
         <div className="p-4 border-t border-border bg-white">
@@ -373,12 +466,12 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
               <div className="bg-white p-4 rounded-2xl border border-border shadow-sm">
                 <div className="flex justify-between items-end mb-2">
                   <p className="text-xs font-bold text-slate-500">Puntaje de Confianza</p>
-                  <p className="text-xl font-black text-brand-blue">{(analysis.confidence * 100).toFixed(1)}%</p>
+                  <p className="text-xl font-black text-brand-blue">{((analysis.confidence || 0) * 100).toFixed(1)}%</p>
                 </div>
                 <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <motion.div 
                     initial={{ width: 0 }}
-                    animate={{ width: `${analysis.confidence * 100}%` }}
+                    animate={{ width: `${(analysis.confidence || 0) * 100}%` }}
                     className="h-full bg-brand-blue" 
                   />
                 </div>
@@ -473,10 +566,52 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
                     <h4 className="text-[10px] font-black uppercase tracking-widest">Intervención Humana</h4>
                   </div>
                 </div>
-                <div className="bg-rose-50 border border-rose-100 rounded-2xl p-4">
-                  <p className="text-[10px] text-rose-600 font-medium mb-4 leading-relaxed">
-                    Si la IA no puede resolver la duda técnica o el cliente solicita un experto, escala este chat.
-                  </p>
+                <div className="bg-white border border-border rounded-2xl p-4 shadow-sm">
+                  <p className="text-[10px] text-slate-500 font-bold mb-3 uppercase tracking-tight">Seleccionar Operador:</p>
+                  <select 
+                    value={selectedOperatorId}
+                    onChange={(e) => setSelectedOperatorId(e.target.value)}
+                    className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-700 mb-4 outline-none focus:border-brand-blue transition-all"
+                  >
+                    <option value="">Seleccionar...</option>
+                    {operators.map(op => (
+                      <option key={op.id} value={op.id}>{op.name}</option>
+                    ))}
+                  </select>
+
+                  <button 
+                    disabled={!selectedOperatorId || !activeConversationId || isAssigning}
+                    onClick={() => {
+                      setIsAssigning(true);
+                      fetch(`http://localhost:3014/api/conversations/${activeConversationId}/assign`, {
+                        method: 'PATCH',
+                        headers: { 
+                          'Content-Type': 'application/json',
+                          'x-tenant-id': selectedTenant?.id || '',
+                          'x-api-key': flowApiKey
+                        },
+                        body: JSON.stringify({ 
+                          operatorId: selectedOperatorId,
+                          userId: activeConversation?.contact?.phone || activeConversation?.lead?.phone || 'unknown'
+                        })
+                      })
+                      .then(() => {
+                        setIsAssigning(false);
+                      })
+                      .catch(err => {
+                        console.error("Assignment failed:", err);
+                        setIsAssigning(false);
+                      });
+                    }}
+                    className="w-full py-3 bg-white border-2 border-brand-blue text-brand-blue rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-brand-blue hover:text-white transition-all flex items-center justify-center gap-2 disabled:opacity-30"
+                  >
+                    <RefreshCw size={12} className={isAssigning ? 'animate-spin' : ''} />
+                    {isAssigning ? 'Asignando...' : 'Transferir a Humano'}
+                  </button>
+
+                  <div className="h-px bg-slate-100 my-4" />
+                  
+                  <p className="text-[10px] text-rose-500 font-bold mb-3 uppercase tracking-tight">Escalación Crítica:</p>
                   {hitlEscalated ? (
                     <div className="w-full py-3 bg-rose-500/10 border border-rose-500/20 text-rose-600 rounded-xl text-[10px] font-black uppercase tracking-widest text-center flex items-center justify-center gap-2">
                        <CheckCircle size={14} />
@@ -492,7 +627,7 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
                           method: 'POST',
                           headers: { 
                             'Content-Type': 'application/json', 
-                            'x-tenant-id': selectedTenant?.id || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718',
+                            'x-tenant-id': selectedTenant?.id || '',
                             'x-api-key': flowApiKey
                           },
                           body: JSON.stringify({ 
@@ -502,7 +637,6 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
                           }),
                         }).then(() => {
                           setHitlEscalated(true);
-                          // alert('Enviado a revisión HITL (Biólogo)');
                         });
                       }}
                       className="w-full py-3 bg-rose-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 transition-all shadow-lg shadow-rose-500/20"
@@ -510,6 +644,35 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
                       Escalar a HITL
                     </button>
                   )}
+                </div>
+              </div>
+
+              {/* Asset Context - New Section */}
+              <div className="mt-8 border-t border-slate-100 pt-8">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Contexto de Activo</h4>
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-400 font-bold">Activo:</span>
+                    <span className="text-xs text-slate-800 font-black">Tanque 4 - Tilapia</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-400 font-bold">Biomasa Est:</span>
+                    <span className="text-xs text-slate-800 font-black">1,240 kg</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-slate-400 font-bold">Última Alerta:</span>
+                    <span className="text-xs text-rose-500 font-black tracking-tight">Hace 15 min</span>
+                  </div>
+                </div>
+                
+                <div className="mt-6 p-4 rounded-2xl bg-amber-50 border border-amber-100">
+                  <div className="flex items-center gap-2 mb-2">
+                     <RefreshCw size={12} className="text-amber-600" />
+                     <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Resumen Semanal</span>
+                  </div>
+                  <p className="text-[10px] text-amber-800 font-medium leading-relaxed">
+                    El usuario ha reportado 3 incidentes similares en los últimos 7 días. Posible fatiga de equipo de aireación.
+                  </p>
                 </div>
               </div>
             </div>

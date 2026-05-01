@@ -28,6 +28,12 @@ async function bootstrap() {
   });
 
   app.setGlobalPrefix('api');
+  
+  // Aumentar el límite de tamaño para recibir payloads de Flow (ej. base64 o skills grandes)
+  const { json, urlencoded } = require('express');
+  app.use(json({ limit: '10mb' }));
+  app.use(urlencoded({ extended: true, limit: '10mb' }));
+
   await app.listen(process.env.PORT ?? 3014);
 }
 bootstrap();

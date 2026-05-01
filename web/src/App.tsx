@@ -2,22 +2,42 @@ import { useState, useEffect } from 'react'
 import { SystemDashboard } from './components/dashboards/SystemDashboard'
 import { OperationalDashboard } from './components/dashboards/OperationalDashboard'
 import { Login } from './components/dashboards/Login'
+import { useTenant } from './contexts/TenantContext'
+import { useTranslation } from 'react-i18next'
 
 function App() {
+  const { selectedTenant, tenantLanguages } = useTenant();
+  const { i18n } = useTranslation();
+
+  useEffect(() => {
+    if (selectedTenant && tenantLanguages[selectedTenant.id]) {
+      i18n.changeLanguage(tenantLanguages[selectedTenant.id]);
+    }
+  }, [selectedTenant, tenantLanguages, i18n]);
+
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     return localStorage.getItem('acuacore_auth') === 'true';
   });
   
-  const [role, setRole] = useState<'system' | 'tenant'>(() => {
-    return (localStorage.getItem('acuacore_role') as 'system' | 'tenant') || 'tenant';
+  const [role, setRole] = useState<'system' | 'tenant' | 'operator'>(() => {
+    return (localStorage.getItem('acuacore_role') as any) || 'tenant';
+  });
+  
+  const [userEmail, setUserEmail] = useState<string | null>(() => {
+    return localStorage.getItem('acuacore_user_email');
   });
 
   const handleLogin = (email: string) => {
-    const userRole = email.includes('system') ? 'system' : 'tenant';
+    let userRole: 'system' | 'tenant' | 'operator' = 'tenant';
+    if (email.includes('system')) userRole = 'system';
+    if (email.includes('operador')) userRole = 'operator';
+
     setIsAuthenticated(true);
     setRole(userRole);
+    setUserEmail(email);
     localStorage.setItem('acuacore_auth', 'true');
     localStorage.setItem('acuacore_role', userRole);
+    localStorage.setItem('acuacore_user_email', email);
   };
 
   const handleLogout = () => {
@@ -34,27 +54,7 @@ function App() {
 
   return (
     <>
-      {/* Role Switcher (Temporary for development) */}
-      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex gap-1 p-1 bg-white/80 backdrop-blur-md border border-slate-200 rounded-full shadow-xl shadow-slate-200/50">
-        <button 
-          onClick={() => {
-            setRole('tenant');
-            localStorage.setItem('acuacore_role', 'tenant');
-          }}
-          className={`px-6 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${role === 'tenant' ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/30' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-          OPERATIONAL
-        </button>
-        <button 
-          onClick={() => {
-            setRole('system');
-            localStorage.setItem('acuacore_role', 'system');
-          }}
-          className={`px-6 py-2 rounded-full text-[10px] font-black tracking-widest transition-all ${role === 'system' ? 'bg-brand-blue text-white shadow-md shadow-brand-blue/30' : 'text-slate-400 hover:text-slate-600'}`}
-        >
-          SYSTEM
-        </button>
-      </div>
+
 
       {role === 'system' ? <SystemDashboard /> : <OperationalDashboard />}
     </>

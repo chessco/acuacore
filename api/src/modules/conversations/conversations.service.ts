@@ -18,7 +18,7 @@ export class ConversationsService {
     private gateway: ConversationsGateway,
   ) {}
 
-  async handleIncomingMessage(userId: string, content: string, tenantIdParam?: string, externalId?: string, skills?: any) {
+  async handleIncomingMessage(userId: string, content: string, tenantIdParam?: string, externalId?: string, skills?: any, agentSlug?: string, channel: string = 'whatsapp') {
     const tenantId = tenantIdParam || getTenantId();
 
     // 1. Find or create conversation
@@ -52,7 +52,13 @@ export class ConversationsService {
     // 3. Generate AI response via Router (Cost Optimized)
     let aiResult;
     try {
-      aiResult = await this.aiRouter.route(content, tenantId, skills);
+      aiResult = await this.aiRouter.route(content, tenantId, skills, agentSlug, channel);
+      
+      // Security Trim: Meta/WhatsApp limit is 4096. We clip at 4000 for safety.
+      if (aiResult.content && aiResult.content.length > 4000) {
+        this.logger.warn(`AI response truncated from ${aiResult.content.length} to 4000 chars.`);
+        aiResult.content = aiResult.content.substring(0, 4000);
+      }
     } catch (e) {
       console.error('AI Routing failed:', e.message);
       return savedUserMessage; // Return at least the user message
@@ -90,10 +96,14 @@ export class ConversationsService {
     } else {
       // Send AI Response to Flow
       try {
-        const flowApiUrl = process.env.FLOW_API_URL || 'http://localhost:3003';
-        const internalKey = process.env.INTERNAL_API_KEY || 'pitaya_internal_dev_key';
+        const flowApiUrl = process.env.FLOW_API_URL || 'https://flow-api.pitayacode.io';
+        const internalKey = process.env.INTERNAL_API_KEY;
         
-        this.logger.log(`Forwarding AI response to Flow: ${flowApiUrl}/whatsapp/internal/send`);
+        if (!internalKey) {
+          throw new Error('INTERNAL_API_KEY not defined in environment');
+        }
+        
+        this.logger.log(`[Flow Forward] Sending response to ${userId} via Flow...`);
         const response = await firstValueFrom(
           this.httpService.post(`${flowApiUrl}/whatsapp/internal/send`, {
             tenantId,
@@ -119,6 +129,9 @@ export class ConversationsService {
     return this.db.mysql.conversation.findMany({
       where: { tenantId },
       include: {
+        assignedTo: {
+          select: { id: true, name: true, role: true, email: true }
+        },
         messages: {
           orderBy: { createdAt: 'desc' },
           take: 1,
@@ -134,6 +147,45 @@ export class ConversationsService {
       where: { conversationId, tenantId },
       orderBy: { createdAt: 'asc' },
     });
+  }
+
+  async getOperators(tenantId?: string) {
+    const tid = tenantId || getTenantId();
+    return this.db.mysql.user.findMany({
+      where: { 
+        tenantId: tid,
+        role: 'OPERATOR' 
+      },
+      select: { id: true, name: true, role: true }
+    });
+  }
+
+  async assignToOperator(conversationId: string, operatorId: string, userId?: string) {
+    const tenantId = getTenantId();
+    
+    const updated = await this.db.mysql.conversation.upsert({
+      where: { id: conversationId },
+      update: { 
+        assignedToId: operatorId,
+        tenantId // Ensure tenantId is correct
+      },
+      create: {
+        id: conversationId,
+        tenantId,
+        userId: userId || 'unknown',
+        assignedToId: operatorId,
+      },
+      include: {
+        assignedTo: {
+          select: { id: true, name: true, role: true }
+        }
+      }
+    });
+
+    // Notify via socket
+    this.gateway.server.to(tenantId).emit('conversationUpdate', updated);
+
+    return updated;
   }
 }
 

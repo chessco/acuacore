@@ -26,6 +26,7 @@ enum Role {
   TECHNICAL_ADVISOR
   DIRECTOR
   ADMIN
+  OPERATOR
 }
 
 model Tenant {
@@ -39,35 +40,55 @@ model Tenant {
   users         User[]
   conversations Conversation[]
   skills        Skill[]
+  agents        Agent[]
   knowledge     KnowledgeBase[]
   costLogs      AiCostLog[]
+  corrections   HumanCorrection[]
+}
+
+model HumanCorrection {
+  id        String   @id @default(uuid())
+  tenantId  String
+  trigger   String   @db.VarChar(255) // The user pattern to match
+  response  String   @db.Text        // The verified human response
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
 }
 
 model User {
   id        String   @id @default(uuid())
   tenantId  String
   email     String   @unique
+  password  String?
   name      String
   role      Role
   status    Status   @default(ACTIVE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id])
-  conversations Conversation[]
+  tenant                Tenant         @relation(fields: [tenantId], references: [id])
+  conversations         Conversation[] @relation("ConversationOwner")
+  assignedConversations Conversation[] @relation("AssignedTo")
 }
 
 model Conversation {
-  id         String   @id @default(uuid())
-  tenantId   String
-  userId     String
-  externalId String? // WhatsApp ID
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id           String   @id @default(uuid())
+  tenantId     String
+  userId       String
+  assignedToId String?
+  externalId   String? // WhatsApp ID
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  tenant   Tenant    @relation(fields: [tenantId], references: [id])
-  user     User      @relation(fields: [userId], references: [id])
-  messages Message[]
+  tenant     Tenant    @relation(fields: [tenantId], references: [id])
+  user       User      @relation("ConversationOwner", fields: [userId], references: [id])
+  assignedTo User?     @relation("AssignedTo", fields: [assignedToId], references: [id])
+  messages   Message[]
 }
 
 model Message {
@@ -99,6 +120,12 @@ model HitlAction {
   message Message @relation(fields: [messageId], references: [id])
 }
 
+enum SkillStatus {
+  PRE_PRODUCTION
+  PRODUCTION
+  INACTIVE
+}
+
 model Skill {
   id          String   @id @default(uuid())
   tenantId    String
@@ -106,6 +133,7 @@ model Skill {
   description String?
   prompt      String   @db.Text
   version     String   @default("1.0")
+  status      SkillStatus @default(PRE_PRODUCTION)
   config      Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -160,6 +188,36 @@ model PromptVersion {
   createdAt DateTime @default(now())
 
   skill Skill @relation(fields: [skillId], references: [id])
+}
+
+
+model Agent {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  slug        String   @unique
+  description String?
+  prompt      String   @db.Text
+  isActive    Boolean  @default(true)
+  config      Json?
+  version     String   @default("1.0")
+  status      String   @default("PRE_PRODUCTION") // PRE_PRODUCTION, PRODUCTION
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  versions    AgentVersion[]
+}
+
+model AgentVersion {
+  id        String   @id @default(uuid())
+  agentId   String
+  prompt    String   @db.Text
+  version   String
+  status    String   // PRE_PRODUCTION, PRODUCTION
+  createdAt DateTime @default(now())
+
+  agent     Agent    @relation(fields: [agentId], references: [id])
 }
 
 model AuditLog {

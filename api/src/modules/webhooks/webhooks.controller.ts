@@ -1,17 +1,22 @@
-import { Controller, Post, Body, Headers, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, Headers, UnauthorizedException, Logger } from '@nestjs/common';
 import { ConversationsService } from '../conversations/conversations.service';
 
 @Controller('webhooks')
 export class WebhooksController {
+  private readonly logger = new Logger(WebhooksController.name);
+
   constructor(private conversationsService: ConversationsService) {}
 
   @Post('flow/incoming')
   async handleFlowIncoming(
     @Headers('x-internal-key') internalKey: string,
     @Headers('x-tenant-id') tenantId: string,
-    @Body() payload: { userId: string, content: string, externalId?: string, skills?: any }
+    @Body() payload: { userId: string, content: string, externalId?: string, skills?: any, agentSlug?: string, channel?: string }
   ) {
-    if (internalKey !== (process.env.INTERNAL_API_KEY || 'pitaya_internal_secret_2026')) {
+    const channel = payload.channel || 'whatsapp';
+    const validKey = process.env.INTERNAL_API_KEY;
+    if (!validKey || internalKey !== validKey) {
+      this.logger.error(`Unauthorized access attempt with key: ${internalKey?.substring(0, 5)}...`);
       throw new UnauthorizedException('Invalid internal key');
     }
 
@@ -25,7 +30,9 @@ export class WebhooksController {
       payload.content,
       tenantId,
       payload.externalId,
-      payload.skills
+      payload.skills,
+      payload.agentSlug,
+      channel
     );
   }
 }

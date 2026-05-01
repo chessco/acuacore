@@ -21,4 +21,20 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     await this.mysql.$disconnect();
     await this.postgres.$disconnect();
   }
+
+  async logAction(data: {
+    tenantId?: string;
+    userId?: string;
+    action: string;
+    entity: string;
+    entityId: string;
+    changes?: any;
+  }) {
+    return this.mysql.auditLog.create({
+      data: {
+        ...data,
+        changes: data.changes || undefined,
+      },
+    });
+  }
 }

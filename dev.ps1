@@ -9,7 +9,7 @@ docker-compose up -d mysql postgres
 
 # 2. Inicializar Skills (Don Juan Camaron)
 Write-Host "🧠 Inicializando Skills..." -ForegroundColor Cyan
-cd api; npx ts-node init-skills.ts; cd ..
+cd api; npx ts-node init-skills-fixed.ts; cd ..
 
 # 2. Iniciar API (NestJS) en ventana externa
 Write-Host "🔌 Iniciando Backend API..." -ForegroundColor Green

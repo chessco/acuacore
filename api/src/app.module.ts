@@ -13,6 +13,8 @@ import { AiModule } from './modules/ai/ai.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { SkillsModule } from './modules/skills/skills.module';
+import { AgentsModule } from './modules/agents/agents.module';
 import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { CombinedAuthGuard } from './common/guards/combined-auth.guard';
 
@@ -28,6 +30,8 @@ import { CombinedAuthGuard } from './common/guards/combined-auth.guard';
     AuthModule,
     KnowledgeBaseModule,
     AnalyticsModule,
+    SkillsModule,
+    AgentsModule,
   ],
   controllers: [AppController],
   providers: [

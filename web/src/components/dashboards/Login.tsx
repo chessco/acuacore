@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, Mail, ArrowRight, Loader2, Sparkles, ShieldCheck } from 'lucide-react';
 import { motion } from 'motion/react';
+import axios from 'axios';
 
 interface LoginProps {
   onLogin: (email: string) => void;
@@ -18,11 +19,28 @@ export function Login({ onLogin }: LoginProps) {
     setError(null);
 
     // Mock authentication
-    setTimeout(() => {
-      if (
-        (email === 'admin@pitayacode.io' && password === 'pitaya123') ||
-        (email === 'system@pitayacode.io' && password === 'pitaya123')
-      ) {
+    setTimeout(async () => {
+      const validUsers: Record<string, { role: string, tenantId: string }> = {
+        'admin@pitayacode.io': { role: 'tenant', tenantId: 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718' },
+        'system@pitayacode.io': { role: 'system', tenantId: 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718' },
+        'operador1@pitayacode.io': { role: 'operator', tenantId: 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718' },
+        'operador2@pitayacode.io': { role: 'operator', tenantId: '2' }
+      };
+
+      const user = validUsers[email];
+
+      if (user && password === 'pitaya123') {
+        try {
+          // Log login event to backend
+          await axios.post('http://localhost:3014/api/auth/login-event', {
+            email,
+            tenantId: user.tenantId,
+            role: user.role
+          });
+        } catch (err) {
+          console.error('Failed to log login event:', err);
+        }
+        
         onLogin(email);
       } else {
         setError('Credenciales inválidas. Por favor intente de nuevo.');

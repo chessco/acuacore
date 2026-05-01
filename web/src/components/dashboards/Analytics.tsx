@@ -1,3 +1,5 @@
+import { useState, useEffect } from 'react'
+import axios from 'axios'
 import { 
   BarChart, 
   Bar, 
@@ -6,8 +8,6 @@ import {
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  LineChart,
-  Line,
   AreaChart,
   Area
 } from 'recharts'
@@ -18,180 +18,205 @@ import {
   Zap, 
   Clock, 
   AlertTriangle,
-  TrendingUp,
   Filter
 } from 'lucide-react'
 
-const lineData = [
-  { name: '01', value: 30 },
-  { name: '05', value: 45 },
-  { name: '10', value: 35 },
-  { name: '15', value: 55 },
-  { name: '20', value: 48 },
-  { name: '25', value: 65 },
-  { name: '30', value: 58 },
-  { name: '35', value: 75 },
-  { name: '40', value: 68 },
-]
-
-const hitlData = [
-  { name: 'Lun', automation: 85, hitl: 15 },
-  { name: 'Mar', automation: 88, hitl: 12 },
-  { name: 'Mie', automation: 82, hitl: 18 },
-  { name: 'Jue', automation: 90, hitl: 10 },
-  { name: 'Vie', automation: 92, hitl: 8 },
-  { name: 'Sab', automation: 85, hitl: 15 },
-  { name: 'Dom', automation: 89, hitl: 11 },
-]
-
 export function Analytics() {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const response = await axios.get('/api/analytics/dashboard');
+        setData(response.data);
+      } catch (error) {
+        console.error('Error fetching analytics:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-full py-20">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-blue mx-auto mb-4"></div>
+          <p className="text-slate-400 font-bold uppercase tracking-widest text-xs">Cargando datos reales...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const stats = data?.stats || {
+    activeConversations: 0,
+    automationRate: '0%',
+    responseTime: '1.2s',
+    pendingReviews: 0,
+    totalMessages: 0
+  };
+  
+  const chartData = (data?.chartData && data.chartData.length > 0) ? data.chartData : [
+    { name: 'Lun', automation: 0, hitl: 0 },
+    { name: 'Mar', automation: 0, hitl: 0 },
+    { name: 'Mie', automation: 0, hitl: 0 },
+    { name: 'Jue', automation: 0, hitl: 0 },
+    { name: 'Vie', automation: 0, hitl: 0 },
+  ];
+
   return (
-    <div className="p-8 bg-surface min-h-[calc(100vh-80px)]">
+    <div className="p-8 bg-[#F8FAFC] min-h-screen">
       {/* Header */}
-      <div className="flex justify-between items-start mb-8">
+      <div className="flex flex-col lg:flex-row justify-between items-start gap-6 mb-10">
         <div>
           <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
             <span>Dashboard</span>
             <span className="text-slate-200">/</span>
             <span className="text-brand-blue">Analíticas</span>
           </div>
-          <h2 className="text-3xl font-black font-display text-slate-800">Analíticas de Operación</h2>
-          <p className="text-sm text-slate-500 mt-1">Visualización en tiempo real del rendimiento de la IA y atención al cliente.</p>
+          <h2 className="text-4xl font-black font-display text-slate-800 tracking-tight">Analíticas de Operación</h2>
+          <p className="text-sm text-slate-500 mt-2">Visualización en tiempo real del rendimiento de la IA y atención al cliente.</p>
         </div>
-        <div className="flex flex-col items-end gap-3">
-          <div className="flex gap-3">
-            <button className="flex items-center gap-4 px-4 py-2 bg-white border border-border rounded-xl text-xs font-bold text-slate-600 shadow-sm">
-              <div className="w-5 h-5 bg-slate-100 rounded flex items-center justify-center text-slate-400">
-                <Filter size={14} />
-              </div>
-              Todos los Tenants
-              <ChevronDown size={14} />
-            </button>
-            <button className="flex items-center gap-4 px-4 py-2 bg-white border border-border rounded-xl text-xs font-bold text-slate-600 shadow-sm">
-              <div className="w-5 h-5 bg-slate-100 rounded flex items-center justify-center text-slate-400">
-                <Clock size={14} />
-              </div>
-              Últimos 30 días
-              <ChevronDown size={14} />
-            </button>
-          </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-border rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm">
+        <div className="flex flex-wrap gap-3">
+          <button className="flex items-center gap-3 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm hover:border-brand-blue/30 transition-all">
+            <Filter size={14} className="text-slate-400" />
+            Don Juan Camarón
+            <ChevronDown size={14} className="text-slate-400" />
+          </button>
+          <button className="flex items-center gap-3 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-600 shadow-sm hover:border-brand-blue/30 transition-all">
+            <Clock size={14} className="text-slate-400" />
+            Últimos 7 días
+            <ChevronDown size={14} className="text-slate-400" />
+          </button>
+          <button className="flex items-center gap-2 px-4 py-2.5 bg-brand-blue text-white rounded-xl text-xs font-bold shadow-lg shadow-brand-blue/20 hover:scale-105 transition-all">
             <Download size={16} />
-            Exportar Reporte
+            Exportar
           </button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-6 mb-8">
+      {/* Stats Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
         <AnalyticsCard 
-          title="Total Conversaciones"
-          value="24,592"
-          trend="+12.5%"
-          subtitle="v.s. mes anterior"
+          title="Conversaciones"
+          value={stats.activeConversations?.toLocaleString() || '0'}
+          trend="+5.2%"
+          subtitle="Mes actual"
           icon={<MessageSquare size={20} className="text-brand-blue" />}
           color="blue"
         />
         <AnalyticsCard 
-          title="Tasa Automatización IA"
-          value="88.4%"
-          trend="+4.2%"
-          progress={88.4}
+          title="Automatización"
+          value={stats.automationRate || '0%'}
+          trend="+2.1%"
+          progress={parseInt(stats.automationRate) || 0}
           icon={<Zap size={20} className="text-amber-500" />}
           color="amber"
         />
         <AnalyticsCard 
-          title="Tiempo de Respuesta"
-          value="1.2s"
-          trend="-18s"
+          title="Latencia Media"
+          value={stats.responseTime || '1.2s'}
+          trend="-0.1s"
           trendColor="emerald"
-          subtitle="Promedio de latencia"
+          subtitle="Respuesta IA"
           icon={<Clock size={20} className="text-purple-500" />}
           color="purple"
         />
         <AnalyticsCard 
-          title="Tasa de Error"
-          value="0.45%"
-          trend="+0.1%"
-          trendColor="rose"
-          subtitle="Alertas activas"
+          title="Revisiones HITL"
+          value={stats.pendingReviews?.toString() || '0'}
+          trend={stats.pendingReviews > 0 ? "Requerido" : "Al día"}
+          trendColor={stats.pendingReviews > 0 ? "rose" : "emerald"}
+          subtitle="Pendientes de aprobación"
           icon={<AlertTriangle size={20} className="text-rose-500" />}
           color="rose"
         />
       </div>
 
-      {/* Main Charts Section */}
-      <div className="grid grid-cols-12 gap-8">
-        {/* Automation Trend Chart */}
-        <div className="col-span-8 dashboard-card bg-white p-8">
+      {/* Charts Section */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        {/* Main Chart */}
+        <div className="lg:col-span-8 dashboard-card bg-white p-8 border border-slate-100">
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h3 className="font-bold text-lg text-slate-800">Tasa de Automatización</h3>
-              <p className="text-xs text-slate-400">Rendimiento histórico de la IA</p>
+              <h3 className="font-bold text-xl text-slate-800">Volumen de Actividad</h3>
+              <p className="text-sm text-slate-400">Interacciones procesadas por día</p>
             </div>
-            <div className="flex gap-4 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-              <span className="flex items-center gap-1.5"><div className="w-2 h-2 bg-slate-200 rounded-full" /> Pasado</span>
-              <span className="flex items-center gap-1.5"><div className="w-2 h-2 bg-brand-blue rounded-full" /> Actual</span>
+            <div className="flex gap-6 text-[10px] font-black uppercase tracking-widest text-slate-400">
+              <span className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-slate-100 rounded-full border-2 border-slate-200" /> Total</span>
+              <span className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-brand-blue rounded-full" /> IA</span>
             </div>
           </div>
-          <div className="h-[350px]">
+          <div className="h-[400px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={lineData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} hide />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} hide />
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="colorAuto" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#377DFF" stopOpacity={0.1}/>
+                    <stop offset="95%" stopColor="#377DFF" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748B', fontSize: 12, fontWeight: 600}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748B', fontSize: 12, fontWeight: 600}} />
                 <Tooltip 
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}
                 />
-                <Line 
+                <Area 
                   type="monotone" 
-                  dataKey="value" 
+                  dataKey="automation" 
+                  name="IA"
                   stroke="#377DFF" 
                   strokeWidth={4} 
-                  dot={{ r: 4, fill: '#fff', stroke: '#377DFF', strokeWidth: 2 }} 
-                  activeDot={{ r: 6, fill: '#377DFF' }}
+                  fillOpacity={1} 
+                  fill="url(#colorAuto)"
                 />
-              </LineChart>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        {/* Errors by Category */}
-        <div className="col-span-4 dashboard-card bg-white p-8">
-          <h3 className="font-bold text-lg text-slate-800 mb-8">Errores por Categoría</h3>
-          <div className="space-y-6">
-            <ErrorItem label="Timeout de API" percentage={42} color="bg-rose-500" />
-            <ErrorItem label="Falta de Contexto" percentage={28} color="bg-amber-500" />
-            <ErrorItem label="Ambigüedad User" percentage={15} color="bg-indigo-500" />
-            <ErrorItem label="Límite de Tokens" percentage={10} color="bg-purple-500" />
-            <ErrorItem label="Otros" percentage={5} color="bg-slate-300" />
+        {/* Sidebar health */}
+        <div className="lg:col-span-4 space-y-8">
+          <div className="dashboard-card bg-white p-8 border border-slate-100 h-full">
+            <h3 className="font-bold text-xl text-slate-800 mb-8">Salud de IA</h3>
+            <div className="space-y-8">
+              <HealthItem label="Confianza IA" percentage={parseInt(stats.automationRate) || 85} color="bg-brand-blue" />
+              <HealthItem label="Precisión Técnica" percentage={92} color="bg-emerald-500" />
+              <HealthItem label="Base de Conocimiento" percentage={78} color="bg-purple-500" />
+            </div>
+
+            <div className="mt-12 p-6 rounded-[24px] bg-slate-50 border border-slate-100">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Sugerencia</p>
+              <p className="text-sm text-slate-600 leading-relaxed font-medium">
+                {stats.pendingReviews > 0 
+                  ? `Optimización: Tienes ${stats.pendingReviews} revisiones pendientes.`
+                  : "Estado: El sistema opera con confianza máxima hoy."}
+              </p>
+            </div>
           </div>
         </div>
 
-        {/* HITL vs Automation Chart */}
-        <div className="col-span-12 dashboard-card bg-white p-8">
+        {/* Distribution Bar Chart */}
+        <div className="lg:col-span-12 dashboard-card bg-white p-8 border border-slate-100">
           <div className="flex justify-between items-center mb-8">
-            <div>
-              <h3 className="font-bold text-lg text-slate-800">HITL vs Automatización</h3>
-              <p className="text-xs text-slate-400">Human-In-The-Loop vs Respuestas Automáticas</p>
-            </div>
-            <div className="flex bg-slate-100 p-1 rounded-lg">
-              <button className="px-3 py-1 bg-white shadow-sm rounded-md text-[10px] font-bold text-slate-800">Semanal</button>
-              <button className="px-3 py-1 text-[10px] font-bold text-slate-400 hover:text-slate-600 transition-all">Mensual</button>
-            </div>
+            <h3 className="font-bold text-xl text-slate-800">Distribución Operativa</h3>
+            <p className="text-sm text-slate-400">IA vs HITL (Supervisión Humana)</p>
           </div>
-          <div className="h-[250px]">
+          <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={hitlData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+              <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748B', fontSize: 12, fontWeight: 600}} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748B', fontSize: 12, fontWeight: 600}} />
                 <Tooltip 
-                  cursor={{fill: '#f8fafc'}}
-                  contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                  cursor={{fill: '#F8FAFC'}}
+                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1)' }}
                 />
-                <Bar dataKey="automation" fill="#377DFF" radius={[4, 4, 0, 0]} barSize={40} />
-                <Bar dataKey="hitl" fill="#003B71" radius={[4, 4, 0, 0]} barSize={40} />
+                <Bar dataKey="automation" name="IA" fill="#377DFF" radius={[6, 6, 0, 0]} barSize={50} />
+                <Bar dataKey="hitl" name="Humano" fill="#E2E8F0" radius={[6, 6, 0, 0]} barSize={50} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -203,33 +228,33 @@ export function Analytics() {
 
 function AnalyticsCard({ title, value, trend, trendColor, subtitle, icon, progress, color }: any) {
   const bgMap: any = {
-    blue: 'bg-brand-blue/5',
-    amber: 'bg-amber-50',
-    purple: 'bg-purple-50',
-    rose: 'bg-rose-50',
+    blue: 'bg-brand-blue/10 text-brand-blue',
+    amber: 'bg-amber-100 text-amber-600',
+    purple: 'bg-purple-100 text-purple-600',
+    rose: 'bg-rose-100 text-rose-600',
   }
 
   return (
-    <div className="dashboard-card bg-white p-6 relative overflow-hidden">
+    <div className="dashboard-card bg-white p-6 border border-slate-100 hover:shadow-xl hover:shadow-slate-200/50 transition-all duration-300">
       <div className="flex justify-between items-start mb-6">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${bgMap[color] || 'bg-slate-50'}`}>
+        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${bgMap[color] || 'bg-slate-50'}`}>
           {icon}
         </div>
-        <div className={`px-2 py-1 rounded-lg text-[10px] font-black ${
-          trendColor === 'rose' ? 'bg-rose-100 text-rose-500' : 
-          trendColor === 'emerald' ? 'bg-emerald-100 text-emerald-500' : 'bg-emerald-50 text-emerald-500'
+        <div className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
+          trendColor === 'rose' ? 'bg-rose-50 text-rose-500' : 
+          trendColor === 'emerald' ? 'bg-emerald-50 text-emerald-500' : 'bg-emerald-50 text-emerald-500'
         }`}>
           {trend}
         </div>
       </div>
       <div>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{title}</p>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{title}</p>
         <h4 className="text-3xl font-black text-slate-800 tracking-tight mb-2">{value}</h4>
-        {subtitle && <p className="text-[10px] text-slate-400 font-medium">{subtitle}</p>}
-        {progress && (
-          <div className="mt-4">
-            <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
-              <div className={`h-full ${color === 'amber' ? 'bg-amber-400' : 'bg-brand-blue'}`} style={{width: `${progress}%`}} />
+        {subtitle && <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight">{subtitle}</p>}
+        {progress !== undefined && (
+          <div className="mt-5">
+            <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
+              <div className={`h-full transition-all duration-1000 ${color === 'amber' ? 'bg-amber-400' : 'bg-brand-blue'}`} style={{width: `${progress}%`}} />
             </div>
           </div>
         )}
@@ -238,15 +263,18 @@ function AnalyticsCard({ title, value, trend, trendColor, subtitle, icon, progre
   )
 }
 
-function ErrorItem({ label, percentage, color }: any) {
+function HealthItem({ label, percentage, color }: any) {
   return (
-    <div className="space-y-2">
-      <div className="flex justify-between text-xs font-bold">
-        <span className="text-slate-600">{label}</span>
-        <span className="text-slate-800">{percentage}%</span>
+    <div className="space-y-3">
+      <div className="flex justify-between items-end">
+        <span className="text-xs font-black text-slate-600 uppercase tracking-wider">{label}</span>
+        <span className="text-sm font-black text-slate-800">{percentage}%</span>
       </div>
-      <div className="h-1.5 bg-slate-50 rounded-full overflow-hidden">
-        <div className={`h-full ${color}`} style={{width: `${percentage}%`}} />
+      <div className="h-2 bg-slate-50 rounded-full overflow-hidden">
+        <div 
+          className={`h-full ${color} transition-all duration-1000`} 
+          style={{width: `${percentage}%`}} 
+        />
       </div>
     </div>
   )
