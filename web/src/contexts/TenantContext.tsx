@@ -21,6 +21,8 @@ interface TenantContextType {
   setRole: (role: 'system' | 'tenant' | 'operator') => void;
   tenantLanguages: Record<string, 'es' | 'en'>;
   setTenantLanguage: (tenantId: string, lang: 'es' | 'en') => void;
+  flowApiKey: string;
+  setFlowApiKey: (key: string) => void;
 }
 
 const tenants: Tenant[] = [

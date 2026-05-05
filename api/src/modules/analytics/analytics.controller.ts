@@ -128,7 +128,7 @@ export class AnalyticsController {
         tenant: login.tenantId === 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718' ? 'Acuaequipos' : (login.tenantId || 'SISTEMA'),
         time: login.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         timestamp: login.createdAt.getTime(),
-        description: `Conexión establecida desde ${JSON.parse(login.changes || '{}').role || 'usuario'}`
+        description: `Conexión establecida desde ${(login.changes as any)?.role || 'usuario'}`
       }))
     ].sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
 

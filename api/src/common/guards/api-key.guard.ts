@@ -11,6 +11,7 @@ export class ApiKeyGuard implements CanActivate {
   ): boolean | Promise<boolean> | Observable<boolean> {
     const request = context.switchToHttp().getRequest();
     const apiKey = request.headers['x-api-key'] || request.headers['x-internal-key'];
+    const tenantId = request.headers['x-tenant-id'];
 
     const validApiKey = this.configService.get<string>('INTERNAL_API_KEY');
 
@@ -19,7 +20,8 @@ export class ApiKeyGuard implements CanActivate {
       request.user = {
         userId: 'system-api',
         email: 'system@acuacore.ai',
-        role: 'SYSTEM_ADMIN'
+        role: 'SYSTEM_ADMIN',
+        tenantId: tenantId // Pass the tenant ID from header
       };
       return true;
     }

@@ -15,8 +15,10 @@ import { KnowledgeBaseModule } from './modules/knowledge-base/knowledge-base.mod
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { AgentsModule } from './modules/agents/agents.module';
+import { CapsulesModule } from './modules/capsules/capsules.module';
 import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { CombinedAuthGuard } from './common/guards/combined-auth.guard';
+import { MailModule } from './common/mail/mail.module';
 
 @Module({
   imports: [
@@ -32,6 +34,8 @@ import { CombinedAuthGuard } from './common/guards/combined-auth.guard';
     AnalyticsModule,
     SkillsModule,
     AgentsModule,
+    CapsulesModule,
+    MailModule,
   ],
   controllers: [AppController],
   providers: [

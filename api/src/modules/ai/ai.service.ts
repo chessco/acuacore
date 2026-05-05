@@ -133,6 +133,11 @@ ADAPTACIÓN DE CANAL: Estás respondiendo a través de: ${channel.toUpperCase()}
 
   private async trackCost(tenantId: string, model: string, tokensIn: number, tokensOut: number) {
     try {
+      if (!tenantId) {
+        this.logger.warn(`Skipping cost tracking: No tenantId provided`);
+        return;
+      }
+      
       const pricePer1k = model.includes('pro') ? 0.0035 : 0.0001;
       const cost = ((tokensIn + tokensOut) / 1000) * pricePer1k;
 

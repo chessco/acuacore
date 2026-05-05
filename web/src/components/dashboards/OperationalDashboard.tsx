@@ -166,6 +166,15 @@ export function OperationalDashboard() {
                 active={activeTab === 'kb'} 
                 onClick={() => setActiveTab('kb')}
               />
+              <a 
+                href="/app/capsules"
+                className="w-full flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+              >
+                <div className="text-slate-400">
+                  <Zap size={20} />
+                </div>
+                <span className="text-sm">Cápsulas</span>
+              </a>
               <NavItem 
                 icon={<Sparkles size={20} />} 
                 label={t('agents')} 

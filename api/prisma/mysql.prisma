@@ -44,6 +44,9 @@ model Tenant {
   knowledge     KnowledgeBase[]
   costLogs      AiCostLog[]
   corrections   HumanCorrection[]
+  capsules      Capsule[]
+  tenantFeatures TenantFeature[]
+  campaigns     Campaign[]
 }
 
 model HumanCorrection {
@@ -89,6 +92,7 @@ model Conversation {
   user       User      @relation("ConversationOwner", fields: [userId], references: [id])
   assignedTo User?     @relation("AssignedTo", fields: [assignedToId], references: [id])
   messages   Message[]
+  leads      Lead[]
 }
 
 model Message {
@@ -207,6 +211,7 @@ model Agent {
 
   tenant      Tenant   @relation(fields: [tenantId], references: [id])
   versions    AgentVersion[]
+  capsules    Capsule[]
 }
 
 model AgentVersion {
@@ -229,4 +234,77 @@ model AuditLog {
   entityId  String
   changes   Json?
   createdAt DateTime @default(now())
+}
+
+model Capsule {
+  id            String   @id @default(uuid())
+  tenantId      String?  // Nullable for global capsules
+  agentId       String
+  title         String
+  slug          String   @unique
+  description   String?  @db.Text
+  topic         String
+  status        String   @default("DRAFT") // DRAFT, PUBLISHED
+  contentBlocks Json     // Array of blocks (hero, features, etc)
+  knowledgeIds  Json?    // Optional specific KB IDs
+  promptConfig  Json?    // Overrides for agent prompt
+  ctaConfig     Json?    // Lead form config
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant? @relation(fields: [tenantId], references: [id])
+  agent  Agent   @relation(fields: [agentId], references: [id])
+  leads  Lead[]
+  campaigns Campaign[]
+}
+
+model Lead {
+  id             String   @id @default(uuid())
+  capsuleId      String
+  conversationId String?
+  name           String
+  email          String
+  phone          String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  capsule      Capsule       @relation(fields: [capsuleId], references: [id])
+  conversation Conversation? @relation(fields: [conversationId], references: [id])
+}
+
+model Feature {
+  id        String   @id @default(uuid())
+  name      String   @unique // e.g. "capsules"
+  createdAt DateTime @default(now())
+
+  tenantFeatures TenantFeature[]
+}
+
+model TenantFeature {
+  id        String  @id @default(uuid())
+  tenantId  String
+  featureId String
+  enabled   Boolean @default(false)
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  feature Feature @relation(fields: [featureId], references: [id])
+
+  @@unique([tenantId, featureId])
+}
+
+model Campaign {
+  id          String    @id @default(uuid())
+  tenantId    String
+  capsuleId   String
+  name        String
+  audience    String?   @db.Text
+  subject     String
+  content     String    @db.Text
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  capsule Capsule @relation(fields: [capsuleId], references: [id])
 }

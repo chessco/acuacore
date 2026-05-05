@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { SystemDashboard } from './components/dashboards/SystemDashboard'
 import { OperationalDashboard } from './components/dashboards/OperationalDashboard'
 import { Login } from './components/dashboards/Login'
 import { useTenant } from './contexts/TenantContext'
 import { useTranslation } from 'react-i18next'
+import { CapsuleLanding } from './modules/capsules/CapsuleLanding'
+import { CapsuleCatalog } from './modules/capsules/CapsuleCatalog'
+import { CapsuleStudioLayout } from './modules/capsules/Studio/CapsuleStudioLayout'
+import { CapsuleList } from './modules/capsules/Studio/CapsuleList'
+import { CampaignManager } from './modules/capsules/Studio/CampaignManager'
+import { CapsuleEditor } from './modules/capsules/Studio/CapsuleEditor'
 
-function App() {
+function AppContent() {
   const { selectedTenant, tenantLanguages } = useTenant();
   const { i18n } = useTranslation();
 
@@ -48,17 +55,46 @@ function App() {
     window.location.reload();
   };
 
-  if (!isAuthenticated) {
-    return <Login onLogin={handleLogin} />;
-  }
-
   return (
-    <>
+    <Routes>
+      {/* Public Routes */}
+      <Route path="/capsules/:slug" element={<CapsuleLanding />} />
+      <Route path="/capsules" element={<CapsuleCatalog />} />
+      
+      {/* Auth Routes */}
+      <Route 
+        path="/" 
+        element={
+          !isAuthenticated ? (
+            <Login onLogin={handleLogin} />
+          ) : (
+            role === 'system' ? <SystemDashboard /> : <OperationalDashboard />
+          )
+        } 
+      />
 
+      {/* Capsule Studio */}
+      <Route path="/app/capsules" element={isAuthenticated ? <CapsuleStudioLayout /> : <Navigate to="/" />}>
+        <Route index element={<CapsuleList />} />
+        <Route path="campaigns" element={<CampaignManager />} />
+        <Route path="leads" element={<div className="p-8 text-slate-500 font-medium">Lead Management (Coming Soon)</div>} />
+        <Route path="analytics" element={<div className="p-8 text-slate-500 font-medium">Analytics Dashboard (Coming Soon)</div>} />
+      </Route>
 
-      {role === 'system' ? <SystemDashboard /> : <OperationalDashboard />}
-    </>
-  )
+      <Route path="/app/capsules/edit/:id" element={isAuthenticated ? <CapsuleEditor /> : <Navigate to="/" />} />
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+  );
 }
 
-export default App
+function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
+  );
+}
+
+export default App;

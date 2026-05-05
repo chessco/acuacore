@@ -1,5 +1,6 @@
 # Integration Test: AcuaCore <-> Flow Bridge
-$apiKey = "pitaya_internal_secret_2026"
+$apiKey = $env:PITAYA_INTERNAL_KEY # Set this in your environment for security
+if (-not $apiKey) { $apiKey = "YOUR_INTERNAL_KEY_HERE" }
 $tenantSlug = "pitaya"
 
 # Production Flow API
@@ -8,7 +9,7 @@ $flowUrl = "https://flow-api.pitayacode.io"
 Write-Host "Using Flow API at: $flowUrl" -ForegroundColor Gray
 
 # Use ngrok URL for AcuaCore Local
-$ACUACORE_TUNNEL = "https://90da-2806-263-481-978-70b8-7239-c287-87c8.ngrok-free.app"
+$ACUACORE_TUNNEL = "https://67a1-2806-263-481-978-a0ac-f952-680f-bfb9.ngrok-free.app"
 $acuacoreUrl = $ACUACORE_TUNNEL
 Write-Host "Using AcuaCore Tunnel at: $acuacoreUrl" -ForegroundColor Gray
 
