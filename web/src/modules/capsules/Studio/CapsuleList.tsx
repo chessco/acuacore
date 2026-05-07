@@ -29,6 +29,24 @@ export const CapsuleList: React.FC = () => {
     if (selectedTenant) fetchCapsules();
   }, [selectedTenant, flowApiKey]);
 
+  const toggleStatus = async (capsule: any) => {
+    const newStatus = capsule.status.toUpperCase() === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
+    try {
+      await axios.patch(`http://localhost:3014/api/capsule-studio/capsules/${capsule.id}/status`, 
+        { status: newStatus },
+        {
+          headers: {
+            'x-tenant-id': selectedTenant?.id || '',
+            'x-api-key': flowApiKey,
+          }
+        }
+      );
+      setCapsules(prev => prev.map(c => c.id === capsule.id ? { ...c, status: newStatus } : c));
+    } catch (err) {
+      console.error('Error toggling status:', err);
+    }
+  };
+
   return (
     <div className="p-8 space-y-8">
       <div className="flex justify-between items-end">
@@ -116,9 +134,16 @@ export const CapsuleList: React.FC = () => {
                   <div className="space-y-1">
                     <h3 className="font-black text-[#001A41] flex items-center gap-2">
                       {capsule.title}
-                      <span className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-tighter ${capsule.status === 'PUBLISHED' ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-500'}`}>
+                      <button 
+                        onClick={() => toggleStatus(capsule)}
+                        className={`text-[10px] px-2 py-0.5 rounded-full uppercase tracking-tighter transition-all hover:scale-105 active:scale-95 ${
+                          capsule.status.toUpperCase() === 'PUBLISHED' 
+                            ? 'bg-green-100 text-green-600 hover:bg-green-200' 
+                            : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                        }`}
+                      >
                         {capsule.status}
-                      </span>
+                      </button>
                     </h3>
                     <div className="flex items-center gap-4 text-xs font-bold text-slate-400">
                       <span className="flex items-center gap-1.5"><LayoutGrid size={12} /> {capsule.topic}</span>

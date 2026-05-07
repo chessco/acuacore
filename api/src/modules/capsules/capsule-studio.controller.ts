@@ -34,6 +34,11 @@ export class CapsuleStudioController {
     return this.capsulesService.update(id, req.user.tenantId, body);
   }
 
+  @Patch('capsules/:id/status')
+  updateStatus(@Request() req: any, @Param('id') id: string, @Body() body: { status: string }) {
+    return this.capsulesService.updateStatus(id, req.user.tenantId, body.status);
+  }
+
   @Delete('capsules/:id')
   remove(@Request() req: any, @Param('id') id: string) {
     return this.capsulesService.remove(id, req.user.tenantId);
@@ -57,5 +62,15 @@ export class CapsuleStudioController {
   @Get('analytics')
   getAnalytics(@Request() req: any) {
     return this.capsulesService.getAnalytics(req.user.tenantId);
+  }
+ 
+  @Get('branding')
+  getBranding(@Request() req: any) {
+    return this.capsulesService.getBranding(req.user.tenantId);
+  }
+ 
+  @Post('branding')
+  updateBranding(@Request() req: any, @Body() body: any) {
+    return this.capsulesService.updateBranding(req.user.tenantId, body);
   }
 }

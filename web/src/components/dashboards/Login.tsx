@@ -13,40 +13,39 @@ export function Login({ onLogin }: LoginProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     setError(null);
 
-    // Mock authentication
-    setTimeout(async () => {
-      const validUsers: Record<string, { role: string, tenantId: string }> = {
-        'admin@pitayacode.io': { role: 'tenant', tenantId: 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718' },
-        'system@pitayacode.io': { role: 'system', tenantId: 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718' },
-        'operador1@pitayacode.io': { role: 'operator', tenantId: 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718' },
-        'operador2@pitayacode.io': { role: 'operator', tenantId: '2' }
-      };
+    // Real authentication call
+    try {
+      const response = await axios.post('http://localhost:3014/api/auth/login', {
+        email,
+        password
+      });
 
-      const user = validUsers[email];
+      const { token, user } = response.data;
 
-      if (user && password === 'pitaya123') {
-        try {
-          // Log login event to backend
-          await axios.post('http://localhost:3014/api/auth/login-event', {
-            email,
-            tenantId: user.tenantId,
-            role: user.role
-          });
-        } catch (err) {
-          console.error('Failed to log login event:', err);
-        }
-        
-        onLogin(email);
-      } else {
-        setError('Credenciales inválidas. Por favor intente de nuevo.');
-        setIsLoading(false);
-      }
-    }, 1200);
+      // Save to local storage for persistence
+      localStorage.setItem('token', token);
+      localStorage.setItem('user', JSON.stringify(user));
+      localStorage.setItem('role', user.role);
+      localStorage.setItem('tenantId', user.tenantId);
+
+      // Log login event
+      await axios.post('http://localhost:3014/api/auth/login-event', {
+        email,
+        tenantId: user.tenantId,
+        role: user.role
+      });
+
+      onLogin(email);
+    } catch (err: any) {
+      console.error('Login failed:', err);
+      setError(err.response?.data?.message || 'Credenciales inválidas. Por favor intente de nuevo.');
+      setIsLoading(false);
+    }
   };
 
   return (

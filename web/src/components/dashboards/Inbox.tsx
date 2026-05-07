@@ -14,7 +14,8 @@ import {
   Link,
   ArrowRight,
   RefreshCw,
-  CheckCircle
+  CheckCircle,
+  Zap
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
@@ -87,16 +88,28 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
         const role = localStorage.getItem('acuacore_role');
         const userEmail = localStorage.getItem('acuacore_user_email');
 
-        let filtered = data.map((c: any) => ({
-          ...c,
-          userId: c.userId || 'Usuario',
-          updatedAt: c.updatedAt || new Date().toISOString(),
-          snippet: c.messages?.[0]?.content || "Nueva conversación"
-        }));
+        let filtered = data.map((c: any) => {
+          const rawId = c.userId || c.externalId || 'Anónimo';
+          const isAnon = String(rawId).startsWith('anon-');
+          const metadataName = c.metadata?.userName;
+          const shortId = String(rawId).split('-')[1]?.substring(0, 5) || '';
+          
+          let displayName = isAnon ? `Sesión ${shortId}` : rawId;
+          if (metadataName) {
+            displayName = `${metadataName} [${shortId}]`;
+          }
+          
+          return {
+            ...c,
+            userId: displayName,
+            updatedAt: c.updatedAt || new Date().toISOString(),
+            snippet: c.messages?.[0]?.content || "Nueva conversación"
+          };
+        });
 
         if (role === 'operator' && userEmail) {
-          // Only show chats assigned to this specific operator email
-          filtered = filtered.filter((c: any) => c.assignedTo?.email === userEmail);
+          // Show chats assigned to this operator OR unassigned chats
+          filtered = filtered.filter((c: any) => !c.assignedTo || c.assignedTo?.email === userEmail);
         }
 
         setConversations(filtered)
@@ -108,9 +121,8 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
         console.error("[Inbox] Error cargando conversaciones:", err);
       })
 
-    // Setup Socket (Connecting to Acuacore Backend)
-    const ACUACORE_API_URL = 'http://localhost:3014';
-    socketRef.current = io(ACUACORE_API_URL, {
+    // Setup Socket (Connecting to Acuacore Backend via Proxy)
+    socketRef.current = io({
       extraHeaders: {
         'x-api-key': flowApiKey
       }
@@ -126,7 +138,7 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
       
       const mappedMsg = {
         ...newMsg,
-        role: (newMsg.senderType === 'STAFF' || newMsg.senderType === 'AGENT' || newMsg.senderType === 'AI') ? 'assistant' : 'user'
+        role: newMsg.role === 'assistant' ? 'assistant' : 'user'
       };
 
       // Update Cache
@@ -150,17 +162,55 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
         return currentActiveId
       })
 
-      // Actualizar snippet en la lista de conversaciones
-      setConversations(prev => prev.map(c => {
-        if (c.id === newMsg.conversationId) {
-          return { ...c, snippet: newMsg.content, updatedAt: new Date().toISOString() };
+      // Actualizar lista de conversaciones (mover al principio o añadir si es nueva)
+      setConversations(prev => {
+        const exists = prev.find(c => c.id === newMsg.conversationId);
+        if (exists) {
+          return [
+            { ...exists, snippet: newMsg.content, updatedAt: new Date().toISOString() },
+            ...prev.filter(c => c.id !== newMsg.conversationId)
+          ];
+        } else {
+          // Si es nueva, la añadimos al principio (placeholder básico)
+          const newConv = {
+            id: newMsg.conversationId,
+            userId: newMsg.role === 'user' ? (newMsg.senderId || 'Nuevo Usuario') : 'Usuario',
+            snippet: newMsg.content,
+            updatedAt: new Date().toISOString(),
+            source: 'CAPSULE', // Asumimos cápsula si no la conocemos, o esperamos conversationUpdate
+            messages: [newMsg]
+          };
+          return [newConv, ...prev];
         }
-        return c;
-      }));
+      });
     })
 
     socketRef.current.on('conversationUpdate', (updatedConv: any) => {
-      setConversations(prev => prev.map(c => c.id === updatedConv.id ? { ...c, ...updatedConv } : c));
+      setConversations(prev => {
+        const rawId = updatedConv.userId || updatedConv.externalId || 'Anónimo';
+        const isAnon = String(rawId).startsWith('anon-');
+        const metadataName = updatedConv.metadata?.userName;
+        const shortId = String(rawId).split('-')[1]?.substring(0, 5) || '';
+        
+        let displayName = isAnon ? `Sesión ${shortId}` : rawId;
+        if (metadataName) {
+          displayName = `${metadataName} [${shortId}]`;
+        }
+        
+        const formatted = {
+          ...updatedConv,
+          userId: displayName,
+          snippet: updatedConv.messages?.[0]?.content || "Nueva conversación",
+          updatedAt: updatedConv.updatedAt || new Date().toISOString()
+        };
+
+        const exists = prev.find(c => c.id === updatedConv.id);
+        if (exists) {
+          return prev.map(c => c.id === updatedConv.id ? { ...c, ...formatted } : c);
+        } else {
+          return [formatted, ...prev];
+        }
+      });
     })
 
 
@@ -205,11 +255,16 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
       // Optional: don't clear messages immediately to avoid jump
     }
 
-    const flowId = flowTenantSlug || 'pitaya';
+    const activeConv = conversations.find(c => c.id === activeConversationId);
+    const isCapsule = activeConv?.source === 'CAPSULE';
     
-    fetch(`${flowUrl}/whatsapp/history/${activeConversationId}`, {
+    const fetchUrl = isCapsule 
+      ? `http://localhost:3014/api/conversations/${activeConversationId}/messages`
+      : `${flowUrl}/whatsapp/history/${activeConversationId}`;
+
+    fetch(fetchUrl, {
       headers: { 
-        'x-tenant-id': flowId,
+        'x-tenant-id': isCapsule ? (selectedTenant?.id || '') : (flowTenantSlug || 'pitaya'),
         'Authorization': flowToken ? `Bearer ${flowToken}` : '',
         'x-api-key': flowApiKey
       }
@@ -221,7 +276,7 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
       .then(data => {
         const mapped = data.map((m: any) => ({
           ...m,
-          role: (m.senderType === 'STAFF' || m.senderType === 'AGENT' || m.senderType === 'AI') ? 'assistant' : 'user'
+          role: m.role === 'assistant' ? 'assistant' : 'user'
         }))
         
         // Update state and cache
@@ -284,14 +339,20 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
     setMessages(prev => [...prev, { ...messageData, id: 'temp-' + Date.now(), role: 'assistant', createdAt: new Date().toISOString() }]);
     setInputText('');
 
-    fetch(`${flowUrl}/whatsapp/send`, {
+    const isCapsuleConv = activeConv?.source === 'CAPSULE';
+
+    const sendUrl = isCapsuleConv
+      ? `http://localhost:3014/api/conversations/${activeConversationId}/reply`
+      : `${flowUrl}/whatsapp/send`;
+
+    fetch(sendUrl, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
-        'x-tenant-id': tid,
+        'x-tenant-id': isCapsuleConv ? tid : tid, // Both use tid for now
         'x-api-key': flowApiKey
       },
-      body: JSON.stringify(messageData)
+      body: JSON.stringify(isCapsuleConv ? { content: inputText } : messageData)
     })
     .catch(err => {
       console.error('[Inbox] Error enviando mensaje:', err);
@@ -301,7 +362,7 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
   const activeConversation = conversations.find(c => c.id === activeConversationId)
 
   return (
-    <div className="flex h-[calc(100vh-80px)] bg-white overflow-hidden relative">
+    <div className="flex h-full bg-white overflow-hidden relative">
       <div className="w-80 border-r border-border flex flex-col bg-slate-50/30">
         <div className="p-6">
           <div className="mb-1 flex items-center gap-2">
@@ -327,11 +388,11 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
             <ConversationItem 
               key={conv.id}
               name={conv.userId}
-              location="General"
+              location={conv.metadata?.capsuleTitle || 'General'}
               time={new Date(conv.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               snippet={conv.snippet}
               risk={conv.riskLevel || 'BAJO'}
-              channel="WhatsApp"
+              channel={conv.source === 'CAPSULE' ? 'Capsula' : 'WhatsApp'}
               active={activeConversationId === conv.id}
               onClick={() => setActiveConversationId(conv.id)}
             />
@@ -355,6 +416,14 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
                   <p className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
                     <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full" /> Activo
                   </p>
+                  {activeConversation.metadata?.capsuleTitle && (
+                    <>
+                      <span className="text-slate-200 text-xs">•</span>
+                      <p className="text-[10px] text-brand-blue font-black uppercase tracking-widest">
+                        Cápsula: {activeConversation.metadata.capsuleTitle}
+                      </p>
+                    </>
+                  )}
                   {activeConversation.assignedTo && (
                     <>
                       <span className="text-slate-200 text-xs">•</span>
@@ -368,6 +437,32 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
             </div>
           </div>
           <div className="flex items-center gap-4 text-slate-400">
+            {/* Autopilot Toggle */}
+            {activeConversation && (
+              <button 
+                onClick={() => {
+                  const isCurrentlyHuman = activeConversation.metadata?.humanActiveUntil && 
+                                         new Date(activeConversation.metadata.humanActiveUntil) > new Date();
+                  
+                  if (isCurrentlyHuman) {
+                    // Turn on Autopilot
+                    fetch(`http://localhost:3014/api/conversations/${activeConversationId}/autopilot`, {
+                      method: 'PATCH',
+                      headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey }
+                    }).catch(err => console.error("Failed to enable autopilot:", err));
+                  }
+                }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                  !(activeConversation.metadata?.humanActiveUntil && new Date(activeConversation.metadata.humanActiveUntil) > new Date())
+                    ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' 
+                    : 'bg-slate-100 text-slate-400 border border-slate-200 hover:bg-slate-200'
+                }`}
+              >
+                <Zap size={14} className={!(activeConversation.metadata?.humanActiveUntil && new Date(activeConversation.metadata.humanActiveUntil) > new Date()) ? 'animate-pulse' : ''} />
+                {!(activeConversation.metadata?.humanActiveUntil && new Date(activeConversation.metadata.humanActiveUntil) > new Date()) ? 'Autopilot: ON' : 'Autopilot: OFF'}
+              </button>
+            )}
+
             <button 
               onClick={() => setIsAiAnalysisOpen(!isAiAnalysisOpen)}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
@@ -416,7 +511,15 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
             <input 
               type="text" 
               value={inputText}
-              onChange={(e) => setInputText(e.target.value)}
+              onChange={(e) => {
+                setInputText(e.target.value);
+                if (activeConversationId) {
+                  fetch(`http://localhost:3014/api/conversations/${activeConversationId}/typing`, { 
+                    method: 'POST',
+                    headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey }
+                  }).catch(() => {});
+                }
+              }}
               onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
               placeholder="Escribe un mensaje..." 
               className="flex-1 bg-transparent border-none outline-none text-sm py-2"
@@ -443,7 +546,7 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className="w-80 border-l border-border bg-white flex flex-col overflow-hidden z-30"
           >
-            <div className={`p-6 space-y-8 overflow-y-auto custom-scrollbar ${isAnalyzing ? 'opacity-50' : ''}`}>
+            <div className={`flex-1 p-6 space-y-8 overflow-y-auto custom-scrollbar ${isAnalyzing ? 'opacity-50' : ''}`}>
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2 text-slate-400">
                   <BarChart3 size={16} />
@@ -683,16 +786,17 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
   )
 }
 
-function ConversationItem({ name, time, snippet, risk, channel, active, onClick }: any) {
+function ConversationItem({ name, time, snippet, risk, channel, location, active, onClick }: any) {
   return (
     <div 
       onClick={onClick}
       className={`p-4 border-b border-border cursor-pointer hover:bg-white transition-all ${active ? 'bg-white shadow-sm z-10 relative border-l-4 border-l-brand-blue' : ''}`}
     >
-      <div className="flex justify-between items-start mb-1">
+      <div className="flex justify-between items-start mb-0.5">
         <h5 className="font-bold text-sm text-slate-800">{name}</h5>
         <span className="text-[10px] text-slate-400">{time}</span>
       </div>
+      <p className="text-[10px] font-black text-brand-blue uppercase tracking-widest mb-2 opacity-70">{location}</p>
       <p className="text-xs text-slate-500 line-clamp-2 mb-3 leading-relaxed">{snippet}</p>
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-1.5">

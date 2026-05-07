@@ -33,13 +33,34 @@ export class CampaignService {
   }
 
   async sendCampaign(tenantId: string, id: string) {
-    const campaign = await this.getCampaign(tenantId, id);
+    const campaign = await this.db.mysql.campaign.findFirst({
+      where: { id, tenantId },
+      include: { 
+        capsule: true,
+        tenant: true 
+      },
+    });
     if (!campaign) throw new Error('Campaign not found');
+
+    const tenantBranding = (campaign.tenant?.brandingConfig as any) || {};
+    const campaignConfig = (campaign.templateConfig as any) || {};
+    
+    // Merge: campaign config overrides tenant branding
+    const config = { ...tenantBranding, ...campaignConfig };
+    
+    const primaryColor = config.primaryColor || '#001A41';
+    const accentColor = config.accentColor || '#2563eb';
+    const logoUrl = config.logoUrl || 'https://acuacore.io/logo-white.png';
+    const ctaText = config.ctaText || 'Explorar Cápsula Interactiva';
+    const footerText = config.footerText || '© 2026 AcuaCore Studio. Todos los derechos reservados.';
+    const heroImage = config.heroImage || null;
 
     // Send emails to the audience
     if (campaign.audience) {
       const emails = campaign.audience.split(/[,|\n]/).filter((e: string) => e.trim());
+      console.log(`Sending campaign "${campaign.name}" to ${emails.length} recipients: ${emails.join(', ')}`);
       for (const email of emails) {
+        console.log(`Attempting to send email to: ${email.trim()}`);
         await this.mailService.sendMail(
           email.trim(),
           campaign.subject,
@@ -58,18 +79,27 @@ export class CampaignService {
                 <table border="0" cellpadding="0" cellspacing="0" width="600" style="background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.05);">
                     <!-- Header with Gradient -->
                     <tr>
-                        <td align="center" style="background: linear-gradient(135deg, #001A41 0%, #0044CC 100%); padding: 60px 40px;">
-                            <img src="https://acuacore.io/logo-white.png" alt="AcuaCore" width="120" style="margin-bottom: 24px; display: block;">
+                        <td align="center" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0044CC 100%); padding: 60px 40px;">
+                            <img src="${logoUrl}" alt="Logo" width="120" style="margin-bottom: 24px; display: block;">
                             <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.2;">
                                 ${campaign.name}
                             </h1>
                         </td>
                     </tr>
 
+                    <!-- Optional Hero Image -->
+                    ${heroImage ? `
+                    <tr>
+                        <td style="padding: 0;">
+                            <img src="${heroImage}" alt="Hero" width="600" style="width: 100%; display: block;">
+                        </td>
+                    </tr>
+                    ` : ''}
+
                     <!-- Body Content -->
                     <tr>
                         <td style="padding: 48px 40px;">
-                            <div style="background-color: #f1f5f9; width: 40px; height: 4px; border-radius: 2px; margin-bottom: 32px;"></div>
+                            <div style="background-color: ${accentColor}; width: 40px; height: 4px; border-radius: 2px; margin-bottom: 32px;"></div>
                             
                             <p style="color: #334155; font-size: 18px; line-height: 1.6; margin: 0 0 24px 0; font-weight: 500;">
                                 Hola,
@@ -78,14 +108,14 @@ export class CampaignService {
                             <p style="color: #475569; font-size: 16px; line-height: 1.7; margin: 0 0 40px 0;">
                                 ${campaign.content}
                             </p>
-
+ 
                             <!-- CTA Section -->
                             <table border="0" cellpadding="0" cellspacing="0" width="100%">
                                 <tr>
                                     <td align="center">
-                                        <a href="https://acuacore.io/capsule/${campaign.capsuleId}" 
-                                           style="background-color: #2563eb; color: #ffffff; padding: 20px 40px; border-radius: 16px; text-decoration: none; font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; display: inline-block; box-shadow: 0 8px 16px rgba(37, 99, 235, 0.2);">
-                                            Explorar Cápsula Interactiva
+                                        <a href="http://localhost:3000/capsules/${campaign.capsule?.slug || ''}" 
+                                           style="background-color: ${accentColor}; color: #ffffff; padding: 20px 40px; border-radius: 16px; text-decoration: none; font-weight: 900; font-size: 14px; text-transform: uppercase; letter-spacing: 0.1em; display: inline-block; box-shadow: 0 8px 16px rgba(37, 99, 235, 0.2);">
+                                            ${ctaText}
                                         </a>
                                     </td>
                                 </tr>
@@ -107,7 +137,7 @@ export class CampaignService {
                                             Conectando la Acuacultura
                                         </div>
                                         <div style="color: #94a3b8; font-size: 12px;">
-                                            © 2026 AcuaCore Studio. Todos los derechos reservados.
+                                            ${footerText}
                                         </div>
                                     </td>
                                 </tr>

@@ -9,8 +9,10 @@ import { ApiKeyGuard } from '../../common/guards/api-key.guard';
 import { CombinedAuthGuard } from '../../common/guards/combined-auth.guard';
 import { FeatureFlagGuard } from '../../common/guards/feature-flag.guard';
 
+import { ConversationsModule } from '../conversations/conversations.module';
+
 @Module({
-  imports: [DatabaseModule, AiModule],
+  imports: [DatabaseModule, AiModule, ConversationsModule],
   controllers: [CapsulesController, CapsuleStudioController],
   providers: [
     CapsulesService, 

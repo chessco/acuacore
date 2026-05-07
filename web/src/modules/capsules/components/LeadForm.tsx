@@ -16,6 +16,7 @@ export const LeadForm: React.FC<LeadFormProps> = ({ capsuleId, onSuccess }) => {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [userId] = useState(() => localStorage.getItem('capsule_user_id'));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,6 +27,7 @@ export const LeadForm: React.FC<LeadFormProps> = ({ capsuleId, onSuccess }) => {
       await axios.post('/api/capsules/leads', {
         ...formData,
         capsuleId,
+        userId,
       });
       onSuccess();
     } catch (err: any) {

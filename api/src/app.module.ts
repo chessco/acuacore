@@ -16,13 +16,21 @@ import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { SkillsModule } from './modules/skills/skills.module';
 import { AgentsModule } from './modules/agents/agents.module';
 import { CapsulesModule } from './modules/capsules/capsules.module';
+import { UsersModule } from './modules/users/users.module';
 import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { CombinedAuthGuard } from './common/guards/combined-auth.guard';
 import { MailModule } from './common/mail/mail.module';
 
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', '..', 'public'),
+      serveRoot: '/static',
+    }),
     DatabaseModule,
     TenantsModule,
     WebhooksModule,
@@ -35,6 +43,7 @@ import { MailModule } from './common/mail/mail.module';
     SkillsModule,
     AgentsModule,
     CapsulesModule,
+    UsersModule,
     MailModule,
   ],
   controllers: [AppController],

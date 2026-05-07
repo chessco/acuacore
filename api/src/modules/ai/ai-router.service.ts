@@ -32,7 +32,7 @@ export class AiRouterService {
     private agentsService: AgentsService,
   ) {}
 
-  async route(userInput: string, tenantIdParam?: string, skills?: any, agentSlug?: string, channel: string = 'whatsapp'): Promise<RouterResponse> {
+  async route(userInput: string, tenantIdParam?: string, skills?: any, agentSlug?: string, channel: string = 'whatsapp', metadata?: any): Promise<RouterResponse> {
     const tenantId = tenantIdParam || getTenantId();
     console.log(`[AiRouter] Routing message. Skills received:`, skills);
     
@@ -69,7 +69,7 @@ export class AiRouterService {
     }
 
     if (classification.complexity === 'technical') {
-      return { decision: RouterDecision.RAG, ...await this.handleRAG(userInput, tenantId, skills, formattedHistory, agentSlug, channel) };
+      return { decision: RouterDecision.RAG, ...await this.handleRAG(userInput, tenantId, skills, formattedHistory, agentSlug, channel, metadata) };
     }
 
     if (classification.complexity === 'critical') {
@@ -85,6 +85,7 @@ export class AiRouterService {
       where: {
         tenantId,
         content: { contains: input }, // In reality, use Full-text index or high-threshold similarity
+        kb: { status: 'ACTIVE' }
       },
     });
   }
@@ -113,7 +114,7 @@ export class AiRouterService {
     }
   }
 
-  private async handleRAG(input: string, tenantId: string, skills?: any, history: any[] = [], agentSlug?: string, channel: string = 'whatsapp') {
+  private async handleRAG(input: string, tenantId: string, skills?: any, history: any[] = [], agentSlug?: string, channel: string = 'whatsapp', metadata?: any) {
     // 1. Load Agent Persona
     let persona = `Eres AcuaCore AI, un asesor experto en acuacultura.`;
     
@@ -134,8 +135,31 @@ export class AiRouterService {
     // 2. SEMANTIC SEARCH (RAG 2.0)
     let context = '';
     try {
-      const results = await this.kb.search(input, 3) as any[];
-      context = results.map((r: any) => r.content).join('\n---\n');
+      let filterIds: string[] | undefined = undefined;
+      
+      if (channel.toUpperCase() === 'CAPSULE' && (metadata?.capsuleId || metadata?.capsuleTitle)) {
+        const capsule = await this.db.mysql.capsule.findFirst({
+          where: metadata?.capsuleId ? { id: metadata.capsuleId } : { title: metadata.capsuleTitle }
+        });
+        if (capsule) {
+          // 2.a Add capsule's OWN content (Landing page info) to context
+          const landingContent = `
+DATOS DE LA LANDING PAGE (Contexto inmediato):
+Título: ${capsule.title}
+Descripción General: ${capsule.description}
+Bloques de Contenido: ${JSON.stringify(capsule.contentBlocks)}
+`;
+          context += landingContent + "\n---\n";
+
+          if (capsule.knowledgeIds) {
+            filterIds = capsule.knowledgeIds as string[];
+            this.logger.log(`[AiRouter] Restricting search to capsule knowledge: ${filterIds.join(', ')}`);
+          }
+        }
+      }
+
+      const results = await this.kb.search(input, 3, filterIds) as any[];
+      context += results.map((r: any) => r.content).join('\n---\n');
       console.log(`[AiRouter] Semantic search found ${results.length} relevant chunks.`);
     } catch (e) {
       this.logger.error(`Semantic search failed: ${e.message}`);

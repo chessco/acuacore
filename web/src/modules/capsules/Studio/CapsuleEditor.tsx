@@ -30,6 +30,24 @@ export const CapsuleEditor: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
+  const [availableKBs, setAvailableKBs] = useState<any[]>([]);
+
+  useEffect(() => {
+    const fetchKBs = async () => {
+      try {
+        const res = await axios.get('http://localhost:3014/api/knowledge-base', {
+          headers: {
+            'x-tenant-id': selectedTenant?.id || '',
+            'x-api-key': flowApiKey,
+          }
+        });
+        setAvailableKBs(res.data);
+      } catch (err) {
+        console.error('Error fetching KBs:', err);
+      }
+    };
+    if (selectedTenant) fetchKBs();
+  }, [selectedTenant, flowApiKey]);
 
   useEffect(() => {
     const fetchCapsule = async () => {
@@ -482,6 +500,40 @@ export const CapsuleEditor: React.FC = () => {
                             placeholder="Ej: ¡Hola! Soy Don Juan, experto en cultivo..."
                           />
                         </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-6 pt-6 border-t border-slate-50">
+                      <h3 className="text-sm font-black text-[#001A41] uppercase tracking-widest border-b border-slate-50 pb-4 flex items-center gap-2">
+                        <BookOpen size={16} className="text-blue-600" /> Vinculación de Conocimiento
+                      </h3>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-4">Selecciona los documentos que alimentan esta cápsula</p>
+                      <div className="space-y-3">
+                        {availableKBs.filter(kb => kb.status === 'ACTIVE').map(kb => (
+                          <div key={kb.id} className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-blue-200 transition-all cursor-pointer" onClick={() => {
+                            const currentIds = capsule.knowledgeIds || [];
+                            let newIds;
+                            if (currentIds.includes(kb.id)) {
+                              newIds = currentIds.filter((id: string) => id !== kb.id);
+                            } else {
+                              newIds = [...currentIds, kb.id];
+                            }
+                            setCapsule({ ...capsule, knowledgeIds: newIds });
+                          }}>
+                            <input 
+                              type="checkbox"
+                              checked={capsule.knowledgeIds?.includes(kb.id)}
+                              readOnly
+                              className="w-5 h-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                            />
+                            <div className="flex-1">
+                              <div className="text-sm font-bold text-slate-700">{kb.title}</div>
+                              <div className={`text-[9px] font-black uppercase tracking-widest ${kb.status === 'ACTIVE' ? 'text-green-500' : 'text-slate-400'}`}>
+                                {kb.status}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
 

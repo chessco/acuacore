@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, Star, CheckCircle, Bot, User, Clock, MessageSquare, Thermometer, Database, Fish, Eye } from 'lucide-react';
 import axios from 'axios';
+import { io, Socket as SocketIO } from 'socket.io-client';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -35,15 +36,109 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({ slug, agentName, agent
 
   const chips = ['Ajuste por temperatura', 'Cálculo de ración', 'Comportamiento de nado', 'Signos de saciedad'];
 
+  const [userId] = useState(() => {
+    const saved = localStorage.getItem('capsule_user_id');
+    if (saved) return saved;
+    const newId = `anon-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    localStorage.setItem('capsule_user_id', newId);
+    return newId;
+  });
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
 
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isEscalating, setIsEscalating] = useState(false);
+  const socketRef = useRef<SocketIO | null>(null);
+
+  // Setup Socket for Real-time human replies
+  useEffect(() => {
+    let tid: string | null = null;
+    const socket = io('http://localhost:3014');
+    socketRef.current = socket;
+
+    socket.on('connect', () => {
+      console.log("[CapsuleChat] Connected to socket:", socket.id);
+      // Fetch tenantId to join room
+      axios.get(`/api/capsules/${slug}`).then(res => {
+        tid = res.data.tenantId || 'DEFAULT_TENANT';
+        if (tid) socket.emit('joinTenant', tid);
+        if (conversationId) socket.emit('joinConversation', conversationId);
+      });
+    });
+
+    socket.on('newMessage', (newMsg: any) => {
+      console.log("[CapsuleChat] New socket message received:", newMsg);
+      if (newMsg.role === 'assistant') {
+        setMessages(prev => {
+          if (prev.find(m => m.id === newMsg.id || (m.content === newMsg.content && m.role === 'assistant'))) return prev;
+          return [...prev, {
+            role: 'assistant',
+            content: newMsg.content,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }];
+        });
+      }
+    });
+
+    socket.on('connect_error', (err) => {
+      console.error("[CapsuleChat] Socket connection error:", err);
+    });
+
+    return () => {
+      console.log("[CapsuleChat] Disconnecting socket");
+      socket.disconnect();
+    };
+  }, [slug]);
+
+  // Join conversation room when ID becomes available
+  useEffect(() => {
+    if (conversationId && socketRef.current?.connected) {
+      console.log("[CapsuleChat] Joining conversation room:", conversationId);
+      socketRef.current.emit('joinConversation', conversationId);
+    }
+  }, [conversationId]);
+
+  const escalateToHuman = async () => {
+    if (loading || isEscalating) return;
+    
+    setIsEscalating(true);
+    try {
+      let currentConvId = conversationId;
+      if (!currentConvId) {
+        const res = await handleSend("Me gustaría hablar con un asesor humano.");
+        if (res && res.conversationId) {
+          currentConvId = res.conversationId;
+        }
+      }
+
+      if (currentConvId) {
+        await axios.post(`http://localhost:3014/api/conversations/${currentConvId}/request-agent`);
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: 'He solicitado la intervención de un asesor humano. En breve se pondrán en contacto contigo aquí mismo.',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        }]);
+      }
+    } catch (err) {
+      console.error("Error escalating:", err);
+    } finally {
+      setIsEscalating(false);
+    }
+  };
+
+  useEffect(() => {
+    const handler = () => escalateToHuman();
+    window.addEventListener('escalate-request', handler);
+    return () => window.removeEventListener('escalate-request', handler);
+  }, [conversationId, loading, isEscalating, messages]);
+
   const handleSend = async (textOverride?: string) => {
     const text = textOverride || input;
-    if (!text.trim() || loading) return;
+    if (!text.trim() || loading) return null;
 
     const userMsg = text.trim();
     if (!textOverride) setInput('');
@@ -58,16 +153,17 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({ slug, agentName, agent
     try {
       const res = await axios.post(`/api/capsules/${slug}/chat`, {
         message: userMsg,
+        userId: userId,
         history: messages.map(m => ({ role: m.role, content: m.content }))
       });
 
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: res.data.content,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      }]);
+      if (res.data.conversationId) {
+        setConversationId(res.data.conversationId);
+      }
+      return res.data;
     } catch (err) {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Problema de conexión. Reintenta.', time: 'Ahora' }]);
+      return null;
     } finally {
       setLoading(false);
     }

@@ -188,6 +188,21 @@ export function KnowledgeBase() {
     }
   }
 
+  const handleToggleStatus = async (id: string) => {
+    try {
+      await axios.patch(`${API_BASE}/${id}/status`, {}, {
+        headers: { 
+          'x-tenant-id': selectedTenant?.id,
+          'x-api-key': flowApiKey
+        }
+      })
+      fetchDocuments()
+    } catch (err) {
+      console.error('Error toggling status:', err)
+      alert('Error al cambiar el estado.')
+    }
+  }
+
   const handleCopyMarkdown = () => {
     if (!selectedDoc) return
     const md = `# ${selectedDoc.title}\n\n${selectedDoc.content || ''}`
@@ -280,11 +295,12 @@ export function KnowledgeBase() {
                         title={doc.title}
                         version={`v${doc.version} - ID: ${doc.id.substring(0, 8)}`}
                         chunks={doc._count?.chunks || 0}
-                        status="Publicado"
+                        status={doc.status}
                         updated={new Date(doc.updatedAt).toLocaleDateString()}
                         onDelete={() => handleDelete(doc.id)}
                         onReindex={() => handleReindex(doc.id)}
                         onView={() => fetchDocDetails(doc.id)}
+                        onToggleStatus={() => handleToggleStatus(doc.id)}
                       />
                     ))
                   )}
@@ -710,7 +726,7 @@ function TabButton({ label, active }: any) {
   )
 }
 
-function KnowledgeItem({ title, version, chunks, status, updated, onDelete, onReindex, onView }: any) {
+function KnowledgeItem({ title, version, chunks, status, updated, onDelete, onReindex, onView, onToggleStatus }: any) {
   return (
     <tr className="group hover:bg-slate-50/50 transition-all">
       <td className="px-6 py-5">
@@ -728,10 +744,15 @@ function KnowledgeItem({ title, version, chunks, status, updated, onDelete, onRe
         <span className="px-2.5 py-1 bg-slate-100 rounded-lg text-[9px] font-black text-slate-500">{chunks} Chunks</span>
       </td>
       <td className="px-6 py-5">
-        <div className="flex items-center gap-1.5">
-          <div className={`w-1.5 h-1.5 rounded-full ${status === 'Publicado' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-600">{status}</span>
-        </div>
+        <button 
+          onClick={(e) => { e.stopPropagation(); onToggleStatus(); }}
+          className="flex items-center gap-1.5 hover:scale-105 active:scale-95 transition-all"
+        >
+          <div className={`w-1.5 h-1.5 rounded-full ${status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+          <span className={`text-[10px] font-black uppercase tracking-widest ${status === 'ACTIVE' ? 'text-emerald-600' : 'text-slate-400'}`}>
+            {status === 'ACTIVE' ? 'Publicado' : 'Inactivo'}
+          </span>
+        </button>
       </td>
       <td className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">
         {updated}

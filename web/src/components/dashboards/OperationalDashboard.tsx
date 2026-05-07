@@ -36,6 +36,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Inbox } from './Inbox'
 import { SystemStatus } from './SystemStatus'
 import { KnowledgeBase } from './KnowledgeBase'
+import { UserManager } from './UserManager'
 import { Analytics } from './Analytics'
 import { HITL } from './HITL'
 import { SkillsManager } from './SkillsManager'
@@ -64,7 +65,6 @@ export function OperationalDashboard() {
     const role = localStorage.getItem('acuacore_role');
     return role === 'operator' ? 'conversations' : 'dashboard';
   })
-  const userEmail = localStorage.getItem('acuacore_user_email');
   const { 
     selectedTenant, 
     setSelectedTenant, 
@@ -80,6 +80,10 @@ export function OperationalDashboard() {
     setTenantLanguage
   } = useTenant()
   const { t, i18n } = useTranslation()
+
+  const userJson = localStorage.getItem('user')
+  const user = userJson ? JSON.parse(userJson) : { name: 'Usuario', role: 'Operador', email: '' }
+  const userEmail = user.email;
 
   const changeLanguage = (lng: 'es' | 'en') => {
     if (selectedTenant) {
@@ -105,10 +109,15 @@ export function OperationalDashboard() {
         headers: { 
           'x-tenant-id': selectedTenant?.id || '',
           'x-api-key': flowApiKey,
-          'x-operator-email': userEmail || ''
+          'x-operator-email': userEmail || '',
+          'x-user-role': user.role || ''
         }
       })
-      setStats(response.data.stats)
+      setStats({
+        ...response.data.stats,
+        alerts: response.data.alerts,
+        activity: response.data.activity
+      })
       setDashboardChartData(response.data.chartData)
     } catch (err) {
       console.error('Error fetching dashboard stats:', err)
@@ -133,7 +142,7 @@ export function OperationalDashboard() {
           </div>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1">
+        <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
           <NavItem 
             icon={<LayoutDashboard size={20} />} 
             label="Panel Control" 
@@ -145,6 +154,12 @@ export function OperationalDashboard() {
             label="Bandeja" 
             active={activeTab === 'conversations'} 
             onClick={() => setActiveTab('conversations')}
+          />
+          <NavItem 
+            icon={<Users size={20} />} 
+            label="Usuarios" 
+            active={activeTab === 'users'} 
+            onClick={() => setActiveTab('users')}
           />
           {role !== 'operator' && (
             <>
@@ -219,30 +234,30 @@ export function OperationalDashboard() {
             active={activeTab === 'settings'} 
             onClick={() => setActiveTab('settings')}
           />
+        </nav>
+
+        <div className="px-4 py-4 border-t border-slate-100 bg-white">
+          <NavItem 
+            icon={<LogOut size={20} />} 
+            label="Cerrar Sesión" 
+            active={false} 
+            className="text-rose-500 hover:bg-rose-50"
+            onClick={() => {
+              localStorage.clear();
+              window.location.reload();
+            }}
+          />
           
-          <div className="pt-4 mt-8 border-t border-slate-100 pb-8">
-            <NavItem 
-              icon={<LogOut size={20} />} 
-              label="Cerrar Sesión" 
-              active={false} 
-              className="text-rose-500 hover:bg-rose-50"
-              onClick={() => {
-                localStorage.clear();
-                window.location.reload();
-              }}
-            />
-            
-            <div className="flex items-center gap-3 mt-8 p-3 bg-slate-50 rounded-2xl">
-              <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
-                 <img src="https://ui-avatars.com/api/?name=Carlos+Mendez&background=random" alt="Avatar" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold truncate text-slate-800">Carlos Méndez</p>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Admin Soporte</p>
-              </div>
+          <div className="flex items-center gap-2.5 mt-2 p-2.5 bg-slate-50 rounded-2xl">
+            <div className="w-9 h-9 rounded-full bg-slate-200 overflow-hidden shrink-0">
+               <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`} alt="Avatar" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold truncate text-slate-800">{user.name}</p>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{user.role}</p>
             </div>
           </div>
-        </nav>
+        </div>
       </aside>
 
       {/* Main Content */}
@@ -295,9 +310,9 @@ export function OperationalDashboard() {
         </header>
 
         {/* Tab Content Wrapper */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="flex-1 relative overflow-hidden">
           {activeTab === 'dashboard' && (
-            <div className="p-8">
+            <div className="p-8 h-full overflow-y-auto custom-scrollbar">
               <div className="mb-8 flex justify-between items-end">
                 <div>
                   <h2 className="text-2xl font-black font-display text-slate-800">
@@ -456,6 +471,11 @@ export function OperationalDashboard() {
           {activeTab === 'vision' && <VisionLab />}
           {activeTab === 'kb' && <KnowledgeBase />}
           {activeTab === 'analytics' && <Analytics />}
+          {activeTab === 'users' && (
+            <div className="h-full">
+              <UserManager />
+            </div>
+          )}
           {activeTab === 'hitl' && <HITL />}
           {activeTab === 'corrections' && <CorrectionsManager />}
           {activeTab === 'agents' && <AgentsManager />}
@@ -470,7 +490,7 @@ export function OperationalDashboard() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {role === 'system' ? (
+                {role === 'system' && (
                   <div className="dashboard-card p-6">
                     <div className="flex items-center gap-3 mb-6">
                       <div className="w-10 h-10 rounded-xl bg-brand-blue/10 flex items-center justify-center text-brand-blue">
@@ -514,16 +534,10 @@ export function OperationalDashboard() {
                       Administración de Inquilinos
                     </button>
                   </div>
-                ) : (
-                  <div className="dashboard-card p-8 bg-slate-50 flex flex-col items-center justify-center text-center">
-                    <ShieldCheck size={48} className="text-slate-300 mb-4" />
-                    <h3 className="font-bold text-slate-800 mb-2">Perfil Administrador</h3>
-                    <p className="text-xs text-slate-500 max-w-[200px]">Estás operando en {selectedTenant?.name}. Los cambios de inquilino son gestionados por el Administrador de Sistema.</p>
-                  </div>
                 )}
 
                 <div className="space-y-8">
-                  <SystemStatus flowApiKey={flowApiKey} />
+                  {role === 'system' && <SystemStatus flowApiKey={flowApiKey} />}
                   
                   <div className="dashboard-card p-6">
                     <div className="flex items-center gap-3 mb-6">

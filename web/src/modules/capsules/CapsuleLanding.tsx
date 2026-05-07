@@ -51,7 +51,10 @@ export const CapsuleLanding: React.FC = () => {
             <a href="#benefits" className="text-sm font-bold text-slate-600 hover:text-[#001A41] transition-colors">Recursos</a>
             <a href="#about" className="text-sm font-bold text-slate-600 hover:text-[#001A41] transition-colors">Acerca de Acuaequipos</a>
             <button 
-              onClick={() => document.getElementById('chat')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => {
+                document.getElementById('chat')?.scrollIntoView({ behavior: 'smooth' });
+                window.dispatchEvent(new CustomEvent('escalate-request'));
+              }}
               className="bg-white border border-slate-200 text-[#001A41] px-6 py-3 rounded-full text-sm font-black hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2"
             >
               <MessageSquare size={16} /> Hablar con asesor
@@ -80,7 +83,13 @@ export const CapsuleLanding: React.FC = () => {
                 {capsule.description}
               </p>
               <div className="flex flex-wrap gap-8 items-center">
-                <button className="bg-[#001A41] hover:bg-slate-800 text-white px-8 py-4 rounded-xl text-lg font-bold transition-all transform hover:scale-[1.02] shadow-xl shadow-blue-900/10 flex items-center gap-3">
+                <button 
+                  onClick={() => {
+                    document.getElementById('chat')?.scrollIntoView({ behavior: 'smooth' });
+                    window.dispatchEvent(new CustomEvent('escalate-request'));
+                  }}
+                  className="bg-[#001A41] hover:bg-slate-800 text-white px-8 py-4 rounded-xl text-lg font-bold transition-all transform hover:scale-[1.02] shadow-xl shadow-blue-900/10 flex items-center gap-3"
+                >
                   <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
                     <MessageSquare size={18} className="text-white" />
                   </div>

@@ -48,20 +48,71 @@ export class KnowledgeBaseService {
     return entry;
   }
 
-  async search(query: string, limit: number = 5) {
+  async search(query: string, limit: number = 5, filterIds?: string[]) {
     const tenantId = getTenantId();
-    const queryEmbedding = await this.aiService.getEmbedding(query);
+    
+    // 1. Get active KB IDs from MySQL first
+    const where: any = { 
+      OR: [
+        { tenantId },
+        { tenantId: null }
+      ],
+      status: 'ACTIVE' 
+    };
 
-    // Vector similarity search using pgvector
+    if (filterIds && filterIds.length > 0) {
+      // If we have specific filterIds, we only want those if they are ACTIVE
+      where.id = { in: filterIds };
+    }
+
+    const activeKbs = await this.db.mysql.knowledgeBase.findMany({
+      where,
+      select: { id: true }
+    });
+    const activeIds = activeKbs.map(k => k.id);
+
+    if (activeIds.length === 0) return [];
+
+    const queryEmbedding = await this.aiService.getEmbedding(query);
+    const idsString = activeIds.map(id => `'${id}'`).join(',');
+
+    // 2. Vector similarity search using pgvector, filtering by active IDs
     const results = await this.db.postgres.$queryRawUnsafe(
       `SELECT "content", "refId", "refType", ("embedding" <=> '[${queryEmbedding.join(',')}]') as distance 
        FROM "VectorRecord" 
        WHERE ("tenantId" = '${tenantId}' OR "tenantId" IS NULL)
+       AND "refId" IN (${idsString})
        ORDER BY distance ASC 
        LIMIT ${limit}`
     );
 
     return results;
+  }
+
+  async toggleStatus(id: string) {
+    const tid = getTenantId();
+    
+    // Find the document ensuring it belongs to the tenant or is global
+    const kb = await this.db.mysql.knowledgeBase.findFirst({
+      where: { 
+        id,
+        OR: tid ? [
+          { tenantId: tid },
+          { tenantId: null }
+        ] : [
+          { tenantId: null }
+        ]
+      }
+    });
+
+    if (!kb) throw new Error(`Document ${id} not found for tenant ${tid}`);
+
+    const newStatus = kb.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    
+    return this.db.mysql.knowledgeBase.update({
+      where: { id: kb.id },
+      data: { status: newStatus }
+    });
   }
 
   async generateWithAi(prompt: string) {

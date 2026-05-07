@@ -68,3 +68,11 @@ ngrok*
 
 # Local scratch
 scratch/
+api/prisma/*.js
+api/prisma/seed.js.bak
+*.bak
+
+# Public assets (keep only necessary ones, exclude dynamic generations)
+api/public/
+web/public/hero-*.png
+web/public/nano-*.png

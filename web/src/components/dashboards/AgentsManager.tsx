@@ -32,6 +32,8 @@ export function AgentsManager() {
   const [versions, setVersions] = useState<any[]>([])
   const [modalTab, setModalTab] = useState<'prompt' | 'history' | 'skills'>('prompt')
   const [allSkills, setAllSkills] = useState<any[]>([])
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
+  const [createAgentData, setCreateAgentData] = useState({ name: '', slug: '', prompt: '' })
 
   useEffect(() => {
     fetchAgents()
@@ -63,6 +65,31 @@ export function AgentsManager() {
       setAgents([])
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleCreateAgent = async () => {
+    if (!createAgentData.name || !createAgentData.slug || !createAgentData.prompt) return
+    setIsSaving(true)
+    try {
+      const response = await fetch('http://localhost:3014/api/agents', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-tenant-id': selectedTenant?.id || '',
+          'x-api-key': flowApiKey
+        },
+        body: JSON.stringify(createAgentData)
+      })
+      if (!response.ok) throw new Error('Error creating agent')
+      await fetchAgents()
+      setIsCreateModalOpen(false)
+      setCreateAgentData({ name: '', slug: '', prompt: '' })
+    } catch (error) {
+      console.error('Error creating agent:', error)
+      alert('Error al crear el agente.')
+    } finally {
+      setIsSaving(false)
     }
   }
 
@@ -201,7 +228,10 @@ export function AgentsManager() {
           <h2 className="text-3xl font-black font-display text-slate-800">Staff Virtual</h2>
           <p className="text-sm text-slate-500 mt-1">Gestiona las personalidades y roles estratégicos de tus agentes.</p>
         </div>
-        <button className="flex items-center gap-2 px-6 py-3 bg-brand-deep text-white font-bold rounded-xl shadow-lg shadow-brand-deep/20 hover:opacity-90 transition-all">
+        <button 
+          onClick={() => setIsCreateModalOpen(true)}
+          className="flex items-center gap-2 px-6 py-3 bg-brand-deep text-white font-bold rounded-xl shadow-lg shadow-brand-deep/20 hover:opacity-90 transition-all"
+        >
           <Plus size={20} />
           Contratar Agente
         </button>
@@ -235,7 +265,10 @@ export function AgentsManager() {
             />
           ))}
           
-          <div className="border-2 border-dashed border-slate-200 rounded-[2.5rem] p-8 flex flex-col items-center justify-center group cursor-pointer hover:bg-white hover:border-brand-blue/30 transition-all min-h-[300px]">
+          <div 
+            onClick={() => setIsCreateModalOpen(true)}
+            className="border-2 border-dashed border-slate-200 rounded-[2.5rem] p-8 flex flex-col items-center justify-center group cursor-pointer hover:bg-white hover:border-brand-blue/30 transition-all min-h-[300px]"
+          >
             <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-all">
               <Plus size={24} className="text-slate-400 group-hover:text-brand-blue" />
             </div>
@@ -243,6 +276,90 @@ export function AgentsManager() {
           </div>
         </div>
       )}
+
+      {/* Create Agent Modal */}
+      <AnimatePresence>
+        {isCreateModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-slate-900/40 backdrop-blur-sm">
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"
+            >
+              <div className="p-8 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-brand-deep/10 text-brand-deep rounded-xl flex items-center justify-center">
+                    <Plus size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-slate-800">Contratar Nuevo Agente</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Define el rol de tu nuevo colaborador virtual</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="w-10 h-10 flex items-center justify-center rounded-xl hover:bg-slate-100 text-slate-400 transition-all"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="p-8 space-y-6">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Nombre del Agente</label>
+                    <input 
+                      type="text"
+                      value={createAgentData.name}
+                      onChange={(e) => setCreateAgentData({...createAgentData, name: e.target.value})}
+                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:border-brand-blue focus:bg-white transition-all"
+                      placeholder="Ej: Don Juan Camarón"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Slug (Identificador)</label>
+                    <input 
+                      type="text"
+                      value={createAgentData.slug}
+                      onChange={(e) => setCreateAgentData({...createAgentData, slug: e.target.value.toLowerCase().replace(/\s+/g, '-')})}
+                      className="w-full p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:border-brand-blue focus:bg-white transition-all"
+                      placeholder="ej: don-juan"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Personalidad y Misión Inicial</label>
+                  <textarea 
+                    value={createAgentData.prompt}
+                    onChange={(e) => setCreateAgentData({...createAgentData, prompt: e.target.value})}
+                    className="w-full h-40 p-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:border-brand-blue focus:bg-white transition-all resize-none"
+                    placeholder="Describe cómo debe actuar este agente..."
+                  />
+                </div>
+              </div>
+
+              <div className="p-8 bg-slate-50/50 border-t border-slate-100 flex gap-4">
+                <button 
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="px-6 py-4 bg-white border border-slate-200 rounded-2xl text-sm font-bold text-slate-400 hover:bg-slate-100 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleCreateAgent}
+                  disabled={isSaving || !createAgentData.name || !createAgentData.slug || !createAgentData.prompt}
+                  className="flex-1 py-4 bg-brand-deep text-white rounded-2xl text-sm font-bold shadow-xl shadow-brand-deep/20 hover:opacity-90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Sparkles size={20} />}
+                  Crear Agente Staff
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Edit Agent Modal */}
       <AnimatePresence>

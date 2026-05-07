@@ -43,9 +43,19 @@ export class ConversationsGateway implements OnGatewayConnection, OnGatewayDisco
     return { event: 'left', data: tenantId };
   }
 
+  @SubscribeMessage('joinConversation')
+  handleJoinConversation(@ConnectedSocket() client: Socket, @MessageBody() conversationId: string) {
+    client.join(conversationId);
+    this.logger.log(`Client ${client.id} joined conversation room: ${conversationId}`);
+    return { event: 'joined', data: conversationId };
+  }
+
   // Método para ser llamado desde ConversationsService
   emitNewMessage(tenantId: string, message: any) {
+    // Para la bandeja (todos los operadores del tenant)
     this.server.to(tenantId).emit('newMessage', message);
+    // Para el cliente específico (solo en su conversación)
+    this.server.to(message.conversationId).emit('newMessage', message);
   }
   
   emitConversationUpdate(tenantId: string, conversation: any) {

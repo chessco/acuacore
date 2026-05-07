@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Param, Body, HttpCode, HttpStatus, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { Controller, Get, Post, Delete, Param, Body, HttpCode, HttpStatus, UseInterceptors, UploadedFile, Patch } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DatabaseService } from '../../common/database/database.service';
 import { KnowledgeBaseService } from './knowledge-base.service';
@@ -112,5 +112,15 @@ export class KnowledgeBaseController {
         embedding: v.embedding || 'Vector no disponible'
       }))
     };
+  }
+
+  @Patch(':id/status')
+  async toggleStatus(@Param('id') id: string) {
+    try {
+      return await this.kbService.toggleStatus(id);
+    } catch (error) {
+      console.error('Error in toggleStatus:', error);
+      throw new Error(error.message);
+    }
   }
 }

@@ -7,9 +7,12 @@ export class AnalyticsController {
   constructor(private db: DatabaseService) {}
 
   @Get('dashboard')
-  async getDashboardStats(@Headers('x-operator-email') operatorEmail?: string) {
+  async getDashboardStats(
+    @Headers('x-operator-email') operatorEmail?: string,
+    @Headers('x-user-role') userRole?: string
+  ) {
     const tenantId = getTenantId();
-    const isSystemUser = operatorEmail === 'system@pitayacode.io';
+    const isSystemUser = userRole?.toUpperCase() === 'SYSTEM' || operatorEmail === 'system@pitayacode.io';
     const filters: any = isSystemUser ? {} : { tenantId };
 
     // Specific filters for each model based on the operator assignment
@@ -57,9 +60,15 @@ export class AnalyticsController {
         include: { message: { include: { conversation: { include: { tenant: true } } } } }
       }),
       this.db.mysql.auditLog.findMany({
-        where: { ...auditFilters, action: 'LOGIN' },
+        where: { 
+          ...auditFilters, 
+          OR: [
+            { action: 'LOGIN' },
+            { entity: 'USER' }
+          ]
+        },
         orderBy: { createdAt: 'desc' },
-        take: 5
+        take: 10
       }),
       // Fetch recent messages to calculate daily volume manually (more robust than groupBy with relations)
       this.db.mysql.message.findMany({
@@ -121,14 +130,17 @@ export class AnalyticsController {
         timestamp: hitl.createdAt.getTime(),
         description: hitl.message.content.substring(0, 50) + '...'
       })),
-      ...recentLogins.map((login: any) => ({
-        id: login.id,
-        type: 'user',
-        title: `Login: ${login.userId}`,
-        tenant: login.tenantId === 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718' ? 'Acuaequipos' : (login.tenantId || 'SISTEMA'),
-        time: login.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        timestamp: login.createdAt.getTime(),
-        description: `Conexión establecida desde ${(login.changes as any)?.role || 'usuario'}`
+      ...recentLogins.map((log: any) => ({
+        id: log.id,
+        type: log.action === 'LOGIN' ? 'user' : (log.action === 'CREATE' ? 'check' : 'alert'),
+        title: log.action === 'LOGIN' ? `Login: ${log.userId}` : 
+               log.action === 'CREATE' ? `Nuevo Usuario: ${log.userId}` :
+               log.action === 'UPDATE' ? `Usuario Actualizado: ${log.userId}` : `Usuario Eliminado: ${log.userId}`,
+        tenant: log.tenantId === 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718' ? 'Acuaequipos' : (log.tenantId || 'SISTEMA'),
+        time: log.createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        timestamp: log.createdAt.getTime(),
+        description: log.action === 'LOGIN' ? `Conexión establecida desde ${(log.changes as any)?.role || 'usuario'}` :
+                     log.action === 'CREATE' ? `Se ha dado de alta un nuevo acceso.` : `Se han realizado cambios en los permisos.`
       }))
     ].sort((a, b) => b.timestamp - a.timestamp).slice(0, 5);
 

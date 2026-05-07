@@ -35,9 +35,9 @@ export class CapsulesController {
   @Post(':slug/chat')
   async chat(
     @Param('slug') slug: string,
-    @Body() body: { message: string; conversationId?: string; history?: any[] },
+    @Body() body: { message: string; userId?: string; history?: any[] },
   ) {
-    return this.capsulesService.chat(slug, body.message, body.conversationId, body.history);
+    return this.capsulesService.chat(slug, body.message, body.userId, body.history);
   }
 
   @Public()

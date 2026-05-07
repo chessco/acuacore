@@ -3,6 +3,7 @@ import { DatabaseService } from '../../common/database/database.service';
 import { AiService } from '../ai/ai.service';
 import { CreateCapsuleDto } from './dto/create-capsule.dto';
 import { CreateLeadDto } from './dto/create-lead.dto';
+import { ConversationsService } from '../conversations/conversations.service';
 
 @Injectable()
 export class CapsulesService {
@@ -11,6 +12,7 @@ export class CapsulesService {
   constructor(
     private db: DatabaseService,
     private ai: AiService,
+    private conversationsService: ConversationsService,
   ) {}
 
   async create(dto: CreateCapsuleDto) {
@@ -26,14 +28,15 @@ export class CapsulesService {
   }
 
   async findAll(tenantId?: string) {
-    if (tenantId) {
-      return this.db.mysql.capsule.findMany({
-        where: { tenantId },
-        include: { agent: true },
-      });
-    }
+    const where = tenantId ? { tenantId } : {};
     return this.db.mysql.capsule.findMany({
-      include: { agent: true },
+      where,
+      include: { 
+        agent: true,
+        _count: {
+          select: { leads: true }
+        }
+      },
     });
   }
 
@@ -66,7 +69,7 @@ export class CapsulesService {
     });
   }
 
-  async findBySlug(slug: string) {
+  async findBySlug(slug: string, checkPublished = true) {
     const capsule = await this.db.mysql.capsule.findUnique({
       where: { slug },
       include: { agent: true, tenant: true },
@@ -76,53 +79,90 @@ export class CapsulesService {
       throw new NotFoundException(`Capsule with slug ${slug} not found`);
     }
 
+    if (checkPublished && capsule.status.toUpperCase() !== 'PUBLISHED') {
+      throw new NotFoundException(`Esta cápsula no está disponible actualmente.`);
+    }
+
     return capsule;
   }
 
-  async createLead(dto: CreateLeadDto) {
-    return this.db.mysql.lead.create({
-      data: dto,
+  async updateStatus(id: string, tenantId: string, status: string) {
+    return this.db.mysql.capsule.update({
+      where: { id, tenantId },
+      data: { status },
     });
   }
 
-  async chat(slug: string, message: string, conversationId?: string, history: any[] = []) {
-    const capsule = await this.findBySlug(slug);
+  async createLead(dto: CreateLeadDto & { userId?: string }) {
+    const { userId, ...leadData } = dto;
     
-    // 1. Prepare System Prompt with Strict Capsule context
-    const capsuleContext = `
-      ESTÁS ACTUANDO DENTRO DE UNA CÁPSULA DE CRECIMIENTO:
-      TEMA: ${capsule.topic}
-      CONOCIMIENTO ESPECÍFICO: ${capsule.description}
-      
-      REGLAS DE ORO:
-      1. Mantén la conversación EXCLUSIVAMENTE sobre ${capsule.topic}.
-      2. Si el usuario intenta hablar de otros temas, responde: "Como experto en ${capsule.topic}, prefiero que nos enfoquemos en optimizar esta área. ¿Tienes alguna duda específica sobre esto?"
-      3. Proporciona datos técnicos y consejos accionables basados en el tema.
-      4. Tu meta final es ayudar al usuario a entender el valor de optimizar ${capsule.topic} y animarlo a solicitar una asesoría personalizada.
-      
-      PERSONALIDAD DEL AGENTE (${capsule.agent.name}):
-      ${capsule.agent.prompt}
+    // Create the lead record
+    const lead = await this.db.mysql.lead.create({
+      data: leadData,
+    });
 
-      INSTRUCCIONES ADICIONALES DE LA CÁPSULA:
-      ${(capsule.promptConfig as any)?.extraInstructions || ''}
-    `;
+    // If userId is provided, try to find and update the associated conversation
+    if (userId) {
+      const conversation = await this.db.mysql.conversation.findFirst({
+        where: {
+          OR: [
+            { userId: userId },
+            { externalId: userId }
+          ]
+        },
+        include: { tenant: true }
+      });
 
-    // 2. Generate response using AI Service
-    const response = await this.ai.generateResponse(
-      message, 
-      history, 
-      'gemini-2.5-flash', 
-      capsuleContext, 
-      'web'
+      if (conversation) {
+        // Update conversation metadata with the lead's name
+        const currentMetadata = (conversation.metadata as any) || {};
+        const updatedMetadata = {
+          ...currentMetadata,
+          userName: dto.name,
+          userEmail: dto.email,
+          userPhone: dto.phone
+        };
+
+        const updatedConv = await this.db.mysql.conversation.update({
+          where: { id: conversation.id },
+          data: {
+            metadata: updatedMetadata
+          },
+          include: { assignedTo: true }
+        });
+
+        // Notify inbox to update display name
+        this.conversationsService.gateway.server
+          .to(conversation.tenantId)
+          .emit('conversationUpdate', updatedConv);
+      }
+    }
+
+    return lead;
+  }
+
+  async chat(slug: string, message: string, userId?: string, history: any[] = []) {
+    const capsule = await this.findBySlug(slug);
+    const tenantId = capsule.tenantId || 'DEFAULT_TENANT';
+    const finalUserId = userId || 'anon-' + Date.now();
+
+    // Handle via ConversationsService to ensure it appears in Bandeja
+    const aiMessage = await this.conversationsService.handleIncomingMessage(
+      finalUserId,
+      message,
+      tenantId,
+      undefined, // externalId
+      undefined, // skills
+      capsule.agent.slug,
+      'capsule',
+      { capsuleId: capsule.id, capsuleTitle: capsule.title }
     );
 
-    // 3. Store conversation if needed
-    // In a real flow, we'd ensure conversationId exists and link messages to it
-    
     return {
-      ...response,
+      content: aiMessage.content,
+      role: 'assistant',
       capsuleId: capsule.id,
-      conversationId: conversationId || 'new-conv-' + Date.now(),
+      conversationId: aiMessage.conversationId,
     };
   }
 
@@ -146,5 +186,20 @@ export class CapsulesService {
       recentLeads,
       conversionRate: totalCapsules > 0 ? (totalLeads / (totalCapsules * 100)) : 0, // Mocked rate
     };
+  }
+
+  async getBranding(tenantId: string) {
+    const tenant = await this.db.mysql.tenant.findUnique({
+      where: { id: tenantId },
+      select: { brandingConfig: true },
+    });
+    return tenant?.brandingConfig || {};
+  }
+
+  async updateBranding(tenantId: string, config: any) {
+    return this.db.mysql.tenant.update({
+      where: { id: tenantId },
+      data: { brandingConfig: config },
+    });
   }
 }

@@ -27,6 +27,7 @@ enum Role {
   DIRECTOR
   ADMIN
   OPERATOR
+  SYSTEM
 }
 
 model Tenant {
@@ -36,6 +37,7 @@ model Tenant {
   status    Status   @default(ACTIVE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  brandingConfig Json?     // Global branding settings
 
   users         User[]
   conversations Conversation[]
@@ -82,14 +84,16 @@ model User {
 model Conversation {
   id           String   @id @default(uuid())
   tenantId     String
-  userId       String
+  userId       String?
   assignedToId String?
   externalId   String? // WhatsApp ID
+  source       String   @default("WHATSAPP") // WHATSAPP | CAPSULE
+  metadata     Json?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
   tenant     Tenant    @relation(fields: [tenantId], references: [id])
-  user       User      @relation("ConversationOwner", fields: [userId], references: [id])
+  user       User?     @relation("ConversationOwner", fields: [userId], references: [id])
   assignedTo User?     @relation("AssignedTo", fields: [assignedToId], references: [id])
   messages   Message[]
   leads      Lead[]
@@ -152,6 +156,7 @@ model KnowledgeBase {
   title     String
   source    String?
   version   String   @default("1.0")
+  status    Status   @default(ACTIVE)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -302,6 +307,7 @@ model Campaign {
   content     String    @db.Text
   scheduledAt DateTime?
   sentAt      DateTime?
+  templateConfig Json?     // Config for colors, logo, hero, footer, cta
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 

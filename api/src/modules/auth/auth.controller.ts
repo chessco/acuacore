@@ -1,10 +1,20 @@
 import { Controller, Post, Body, Headers } from '@nestjs/common';
 import { DatabaseService } from '../../common/database/database.service';
+import { AuthService } from './auth.service';
 import { Public } from '../../common/guards/public.decorator';
 
 @Controller('auth')
 export class AuthController {
-  constructor(private db: DatabaseService) {}
+  constructor(
+    private db: DatabaseService,
+    private authService: AuthService
+  ) {}
+
+  @Public()
+  @Post('login')
+  async login(@Body() body: { email: string; password?: string }) {
+    return this.authService.login(body.email, body.password);
+  }
 
   @Public()
   @Post('login-event')
