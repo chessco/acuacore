@@ -1,13 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import helmet from 'helmet';
+// import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Security Headers
-  app.use(helmet());
+  // Security Headers - Desactivado temporalmente para debugging de CORS
+  // app.use(helmet());
   
   // Input Validation & Sanitization
   app.useGlobalPipes(new ValidationPipe({
@@ -16,15 +16,12 @@ async function bootstrap() {
     transform: true,
   }));
 
-  // Secure CORS
+  // CORS dinámico para producción
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3014',
-      /\.pitayacode\.io$/,
-    ],
+    origin: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
+    exposedHeaders: ['set-cookie'],
   });
 
   app.setGlobalPrefix('api');

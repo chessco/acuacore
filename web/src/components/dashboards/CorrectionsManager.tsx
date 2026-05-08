@@ -32,7 +32,7 @@ export function CorrectionsManager() {
   const [editingItem, setEditingItem] = useState<Partial<Correction> | null>(null)
   const [isSaving, setIsSaving] = useState(false)
 
-  const API_BASE = 'http://localhost:3014/api/corrections'
+  const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/corrections'
 
   const fetchCorrections = async () => {
     try {
@@ -310,3 +310,4 @@ export function CorrectionsManager() {
     </div>
   )
 }
+

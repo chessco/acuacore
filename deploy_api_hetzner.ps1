@@ -5,57 +5,51 @@ $ErrorActionPreference = "Stop"
 $SERVER_IP = "46.224.155.43"
 $SSH_KEY = "$env:USERPROFILE\.ssh\id_citaia"
 
-Write-Host "--- Iniciando Despliegue de AcuaCore API (Hetzner) ---" -ForegroundColor Cyan
+Write-Host "--- Iniciando Despliegue de Producción (Hetzner) - AcuaCore ---" -ForegroundColor Cyan
 
 try {
-    # Cambiar al directorio de acuacore para comprimir correctamente
-    $oldDir = Get-Location
-    Set-Location "c:\PitayaCode\acuacore"
+    Write-Host "Step 1: Empaquetando y subiendo código y configuración..." -ForegroundColor Yellow
     
-    # Comprimir api (excluyendo node_modules y dist)
+    # Comprimir api y archivos de compose (excluyendo node_modules y dist)
     tar --exclude="node_modules" --exclude="dist" -czf deploy_acuacore_api.tar.gz api docker-compose.prod.yml
     
-    # Asegurar que el directorio remoto existe
-    ssh -i $SSH_KEY -o StrictHostKeyChecking=no root@${SERVER_IP} "mkdir -p /opt/pitaya/acuacore/"
-    
     scp -i $SSH_KEY -o StrictHostKeyChecking=no deploy_acuacore_api.tar.gz root@${SERVER_IP}:/opt/pitaya/acuacore/
-    
-    # Volver al directorio anterior
-    Set-Location $oldDir
 
-    Write-Host "Step 2: Descomprimiendo y reconstruyendo..." -ForegroundColor Yellow
+    Write-Host "Step 2: Descomprimiendo y reconstruyendo en el servidor..." -ForegroundColor Yellow
     
     $remoteCommands = @"
-        mkdir -p /opt/pitaya/acuacore
         cd /opt/pitaya/acuacore
         
+        echo 'Limpiando conflictos de contenedores antiguos...'
+        # Detener cualquier contenedor que pueda estar usando el puerto 3014
+        docker stop acuacore-api-prod acua-core-api 2>/dev/null || true
+        docker rm acuacore-api-prod acua-core-api 2>/dev/null || true
+        
         echo 'Descomprimiendo archivos...'
-        # Limpiar directorio de api para evitar conflictos con archivos viejos
-        rm -rf api
         tar -xzf deploy_acuacore_api.tar.gz
         rm deploy_acuacore_api.tar.gz
         
-        echo 'Reconstruyendo contenedor acua-core-api...'
-        docker compose -f docker-compose.prod.yml up -d --build postgres api
+        echo 'Reconstruyendo contenedores...'
+        docker compose -f docker-compose.prod.yml up -d --build
         
-        echo 'Sincronizando esquema de base de datos...'
-        docker exec acua-core-api npx prisma db push --schema=prisma/mysql.prisma --accept-data-loss
-        
-        echo 'Esperando inicializacion (5s)...'
+        echo 'Esperando inicialización (5s)...'
         sleep 5
         
-        echo 'Estado final de los contenedores:'
-        docker ps --filter name=acua-core
+        echo 'Estado final del contenedor:'
+        docker ps --filter name=acua-core-api
         
-        echo 'Ultimos logs de API:'
+        echo 'Últimos logs:'
         docker logs --tail 20 acua-core-api
 "@
 
     ssh -i $SSH_KEY -o StrictHostKeyChecking=no root@$SERVER_IP $remoteCommands
 
-    Write-Host "--- DESPLIEGUE COMPLETADO CON EXITO ---" -ForegroundColor Green
+    Write-Host "--- DESPLIEGUE API COMPLETADO CON ÉXITO ---" -ForegroundColor Green
 }
 catch {
     Write-Host "Error durante el despliegue: $($_.Exception.Message)" -ForegroundColor Red
     exit 1
+}
+finally {
+    if (Test-Path "deploy_acuacore_api.tar.gz") { Remove-Item "deploy_acuacore_api.tar.gz" }
 }

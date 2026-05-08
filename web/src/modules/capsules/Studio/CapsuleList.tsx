@@ -13,7 +13,7 @@ export const CapsuleList: React.FC = () => {
   useEffect(() => {
     const fetchCapsules = async () => {
       try {
-        const res = await axios.get('http://localhost:3014/api/capsule-studio/capsules', {
+        const res = await axios.get((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/capsule-studio/capsules', {
           headers: {
             'x-tenant-id': selectedTenant?.id || '',
             'x-api-key': flowApiKey,
@@ -178,3 +178,4 @@ export const CapsuleList: React.FC = () => {
     </div>
   );
 };
+

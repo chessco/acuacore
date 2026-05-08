@@ -61,6 +61,8 @@ prisma/dev.db-journal
 api/scratch/
 api/test/smoke.e2e-spec.ts
 deploy_acuacore_api.tar.gz
+acuacore_web_deploy.tar.gz
+web_deploy.tar.gz
 
 # Ngrok
 api/ngrok.yml

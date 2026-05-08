@@ -61,3 +61,4 @@ export const CapsuleStudioLayout: React.FC = () => {
     </div>
   );
 };
+

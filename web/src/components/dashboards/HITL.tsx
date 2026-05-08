@@ -33,7 +33,7 @@ export function HITL() {
   const fetchPending = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('http://localhost:3014/api/hitl/pending', {
+      const response = await axios.get((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/hitl/pending', {
         headers: { 
           'x-tenant-id': selectedTenant?.id || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718',
           'x-api-key': flowApiKey
@@ -253,3 +253,4 @@ export function HITL() {
     </div>
   )
 }
+

@@ -35,13 +35,13 @@ export const CampaignManager: React.FC = () => {
       setHasError(false);
       try {
         const [capsulesRes, campaignsRes, brandingRes] = await Promise.all([
-          axios.get('http://localhost:3014/api/capsule-studio/capsules', {
+          axios.get((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/capsule-studio/capsules', {
             headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey }
           }),
-          axios.get('http://localhost:3014/api/capsule-studio/campaigns', {
+          axios.get((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/capsule-studio/campaigns', {
             headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey }
           }),
-          axios.get('http://localhost:3014/api/capsule-studio/branding', {
+          axios.get((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/capsule-studio/branding', {
             headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey }
           })
         ]);
@@ -92,7 +92,7 @@ export const CampaignManager: React.FC = () => {
         }
       };
 
-      const res = await axios.post('http://localhost:3014/api/capsule-studio/campaigns', payload, {
+      const res = await axios.post((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/capsule-studio/campaigns', payload, {
         headers: {
           'x-tenant-id': selectedTenant?.id || '',
           'x-api-key': flowApiKey,
@@ -122,7 +122,7 @@ export const CampaignManager: React.FC = () => {
   const handleSaveBranding = async () => {
     setLoading(true);
     try {
-      await axios.post('http://localhost:3014/api/capsule-studio/branding', branding, {
+      await axios.post((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/capsule-studio/branding', branding, {
         headers: {
           'x-tenant-id': selectedTenant?.id || '',
           'x-api-key': flowApiKey,
@@ -529,3 +529,4 @@ export const CampaignManager: React.FC = () => {
     </div>
   );
 };
+

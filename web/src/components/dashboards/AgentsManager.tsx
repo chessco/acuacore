@@ -1,6 +1,5 @@
 import { 
   Plus, 
-  Users, 
   Settings, 
   ShieldCheck, 
   Activity, 
@@ -24,6 +23,7 @@ import { motion, AnimatePresence } from 'motion/react'
 
 export function AgentsManager() {
   const { selectedTenant, flowApiKey, role } = useTenant()
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014'
   const [agents, setAgents] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [editingAgent, setEditingAgent] = useState<any>(null)
@@ -42,7 +42,7 @@ export function AgentsManager() {
   const fetchAgents = async () => {
     setIsLoading(true)
     try {
-      const response = await fetch('http://localhost:3014/api/agents', {
+      const response = await fetch(`${apiUrl}/api/agents`, {
         headers: { 
           'x-tenant-id': selectedTenant?.id || '',
           'x-api-key': flowApiKey
@@ -52,7 +52,7 @@ export function AgentsManager() {
       setAgents(Array.isArray(data) ? data : [])
       
       // Also fetch skills to show in modal
-      const skillsRes = await fetch('http://localhost:3014/api/skills', {
+      const skillsRes = await fetch(`${apiUrl}/api/skills`, {
         headers: { 
           'x-tenant-id': selectedTenant?.id || '',
           'x-api-key': flowApiKey
@@ -72,7 +72,7 @@ export function AgentsManager() {
     if (!createAgentData.name || !createAgentData.slug || !createAgentData.prompt) return
     setIsSaving(true)
     try {
-      const response = await fetch('http://localhost:3014/api/agents', {
+      const response = await fetch(`${apiUrl}/api/agents`, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -95,7 +95,7 @@ export function AgentsManager() {
 
   const fetchVersions = async (agentId: string) => {
     try {
-      const response = await fetch(`http://localhost:3014/api/agents/${agentId}/versions`, {
+      const response = await fetch(`${apiUrl}/api/agents/${agentId}/versions`, {
         headers: { 
           'x-tenant-id': selectedTenant?.id || '',
           'x-api-key': flowApiKey
@@ -112,7 +112,7 @@ export function AgentsManager() {
     if (!editingAgent) return
     setIsSaving(true)
     try {
-      await fetch(`http://localhost:3014/api/agents/${editingAgent.id}`, {
+      await fetch(`${apiUrl}/api/agents/${editingAgent.id}`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -137,7 +137,7 @@ export function AgentsManager() {
     try {
       // If we are in the edit modal, save the prompt before deploying
       if (editingAgent && editingAgent.id === agentId) {
-        await fetch(`http://localhost:3014/api/agents/${agentId}`, {
+        await fetch(`${apiUrl}/api/agents/${agentId}`, {
           method: 'PATCH',
           headers: { 
             'Content-Type': 'application/json',
@@ -148,7 +148,7 @@ export function AgentsManager() {
         })
       }
 
-      await fetch(`http://localhost:3014/api/agents/${agentId}/deploy`, {
+      await fetch(`${apiUrl}/api/agents/${agentId}/deploy`, {
         method: 'POST',
         headers: { 
           'x-tenant-id': selectedTenant?.id || '',
@@ -168,7 +168,7 @@ export function AgentsManager() {
     if (!confirm('¿Estás seguro de que deseas regresar a esta versión? El prompt actual será reemplazado.')) return
     setIsSaving(true)
     try {
-      await fetch(`http://localhost:3014/api/agents/${agentId}/rollback/${versionId}`, {
+      await fetch(`${apiUrl}/api/agents/${agentId}/rollback/${versionId}`, {
         method: 'POST',
         headers: { 
           'x-tenant-id': selectedTenant?.id || '',
@@ -201,7 +201,7 @@ export function AgentsManager() {
     const newConfig = { ...currentConfig, assignedSkills: newAssignedSkills }
     
     try {
-      const response = await fetch(`http://localhost:3014/api/agents/${editingAgent.id}`, {
+      const response = await fetch(`${apiUrl}/api/agents/${editingAgent.id}`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -612,4 +612,5 @@ function AgentCard({ name, slug, status, version, description, skills, onEdit, o
     </div>
   )
 }
+
 

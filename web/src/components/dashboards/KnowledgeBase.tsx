@@ -39,7 +39,7 @@ export function KnowledgeBase() {
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isCopilotModalOpen, setIsCopilotModalOpen] = useState(false)
 
-  const API_BASE = 'http://localhost:3014/api/knowledge-base'
+  const API_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/knowledge-base'
 
   useEffect(() => {
     fetchDocuments()
@@ -801,5 +801,6 @@ function ActivityItem({ icon, user, action, time, status }: any) {
     </div>
   )
 }
+
 
 

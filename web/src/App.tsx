@@ -30,9 +30,6 @@ function AppContent() {
     return (localStorage.getItem('acuacore_role') as any) || 'tenant';
   });
   
-  const [userEmail, setUserEmail] = useState<string | null>(() => {
-    return localStorage.getItem('acuacore_user_email');
-  });
 
   const handleLogin = (email: string) => {
     let userRole: 'system' | 'tenant' | 'operator' = 'tenant';
@@ -41,19 +38,11 @@ function AppContent() {
 
     setIsAuthenticated(true);
     setRole(userRole);
-    setUserEmail(email);
     localStorage.setItem('acuacore_auth', 'true');
     localStorage.setItem('acuacore_role', userRole);
     localStorage.setItem('acuacore_user_email', email);
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    localStorage.removeItem('acuacore_auth');
-    localStorage.removeItem('acuacore_role');
-    localStorage.clear();
-    window.location.reload();
-  };
 
   return (
     <Routes>
@@ -98,3 +87,4 @@ function App() {
 }
 
 export default App;
+

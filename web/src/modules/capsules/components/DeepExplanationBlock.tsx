@@ -13,15 +13,16 @@ interface DeepExplanationProps {
     description: string;
     levels: Array<{
       title: string;
+      subtitle?: string;
       content: string;
-      result: string;
+      result?: string;
+      tags?: string[];
     }>;
     application: string;
     business_impact: string;
     differentiation: string;
     superiority_title?: string;
     superiority_item_title?: string;
-    levels?: Array<{ title: string; subtitle?: string; content: string; tags?: string[] }>;
     strategic_impacts?: Array<{ title: string; description: string }>;
   };
 }
@@ -374,3 +375,4 @@ export const DeepExplanationBlock: React.FC<DeepExplanationProps> = ({ data }) =
     </section>
   );
 };
+

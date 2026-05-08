@@ -1,7 +1,6 @@
 import { 
   LayoutDashboard, 
   Settings, 
-  Database, 
   Server,
   Activity,
   Users,
@@ -51,7 +50,7 @@ const chartData = [
 
 export function SystemDashboard() {
   const [activeTab, setActiveTab] = useState('dashboard')
-  const { selectedTenant, flowApiKey, tenants, setSelectedTenant } = useTenant()
+  const { selectedTenant, tenants, setSelectedTenant } = useTenant()
   const { t, i18n } = useTranslation()
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash')
 
@@ -60,8 +59,9 @@ export function SystemDashboard() {
   }, [])
 
   const fetchCurrentModel = async () => {
+    const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
     try {
-      const res = await axios.post('http://localhost:3014/api/ai/model/current')
+      const res = await axios.post(`${apiUrl}/api/ai/model/current`)
       setSelectedModel(res.data.model)
     } catch (err) {
       console.error('Error fetching current model:', err)
@@ -69,8 +69,9 @@ export function SystemDashboard() {
   }
 
   const handleUpdateModel = async (model: string) => {
+    const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
     try {
-      await axios.post('http://localhost:3014/api/ai/model', { model })
+      await axios.post(`${apiUrl}/api/ai/model`, { model })
       setSelectedModel(model)
       alert(`Motor de IA actualizado a ${model}`)
     } catch (err) {
@@ -506,3 +507,4 @@ function SystemEvent({ title, type, time }: any) {
     </div>
   )
 }
+

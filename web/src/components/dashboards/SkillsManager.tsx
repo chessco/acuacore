@@ -1,24 +1,17 @@
 import { 
   Plus, 
   Thermometer, 
-  Settings, 
   ShieldCheck, 
   Activity, 
   Zap, 
-  Clock, 
   FileText, 
-  ChevronRight,
-  Sparkles,
-  Droplets,
-  CheckCircle2,
-  AlertCircle,
+  Droplets, 
   X,
   Save,
   Loader2,
   Send,
   TrendingUp,
-  Gauge,
-  Rocket
+  Gauge
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useTenant } from '../../contexts/TenantContext'
@@ -40,8 +33,9 @@ export function SkillsManager() {
 
   const fetchSkills = async () => {
     setIsLoading(true)
+    const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
     try {
-      const response = await fetch('http://localhost:3014/api/skills', {
+      const response = await fetch(`${apiUrl}/api/skills`, {
         headers: { 
           'x-tenant-id': selectedTenant?.id || '',
           'x-api-key': flowApiKey
@@ -57,8 +51,9 @@ export function SkillsManager() {
   }
 
   const fetchVersions = async (skillId: string) => {
+    const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
     try {
-      const response = await fetch(`http://localhost:3014/api/skills/${skillId}/versions`, {
+      const response = await fetch(`${apiUrl}/api/skills/${skillId}/versions`, {
         headers: { 
           'x-tenant-id': selectedTenant?.id || '',
           'x-api-key': flowApiKey
@@ -74,8 +69,9 @@ export function SkillsManager() {
   const handleUpdatePrompt = async () => {
     if (!editingSkill) return
     setIsSaving(true)
+    const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
     try {
-      await fetch(`http://localhost:3014/api/skills/${editingSkill.id}/prompt`, {
+      await fetch(`${apiUrl}/api/skills/${editingSkill.id}/prompt`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -97,8 +93,9 @@ export function SkillsManager() {
   const handleRollback = async (versionId: string) => {
     if (!editingSkill) return
     setIsSaving(true)
+    const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
     try {
-      await fetch(`http://localhost:3014/api/skills/${editingSkill.id}/rollback/${versionId}`, {
+      await fetch(`${apiUrl}/api/skills/${editingSkill.id}/rollback/${versionId}`, {
         method: 'POST',
         headers: { 
           'x-tenant-id': selectedTenant?.id || '',
@@ -115,8 +112,9 @@ export function SkillsManager() {
   }
 
   const handleUpdateStatus = async (id: string, status: string) => {
+    const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
     try {
-      await fetch(`http://localhost:3014/api/skills/${id}/status`, {
+      await fetch(`${apiUrl}/api/skills/${id}/status`, {
         method: 'PATCH',
         headers: { 
           'Content-Type': 'application/json',
@@ -385,3 +383,4 @@ function SkillCard({ icon, iconColor, name, version, status, isPreProd, descript
     </div>
   )
 }
+

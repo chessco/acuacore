@@ -29,6 +29,7 @@ export function UserManager() {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
+    password: '',
     role: 'OPERATOR',
     status: 'ACTIVE',
     tenantId: ''
@@ -44,7 +45,8 @@ export function UserManager() {
   const fetchUsers = async () => {
     setLoading(true)
     try {
-      const response = await axios.get('http://localhost:3014/api/users', {
+      const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
+      const response = await axios.get(`${apiUrl}/api/users`, {
         headers: { 
           'x-tenant-id': selectedTenant?.id || '',
           'x-api-key': flowApiKey,
@@ -62,12 +64,13 @@ export function UserManager() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
+      const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
       if (editingUser) {
-        await axios.patch(`http://localhost:3014/api/users/${editingUser.id}`, formData, {
+        await axios.patch(`${apiUrl}/api/users/${editingUser.id}`, formData, {
           headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey, 'x-user-role': currentUserRole }
         })
       } else {
-        await axios.post('http://localhost:3014/api/users', formData, {
+        await axios.post(`${apiUrl}/api/users`, formData, {
           headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey, 'x-user-role': currentUserRole }
         })
       }
@@ -83,7 +86,8 @@ export function UserManager() {
   const handleDelete = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar este usuario?')) return
     try {
-      await axios.delete(`http://localhost:3014/api/users/${id}`, {
+      const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
+      await axios.delete(`${apiUrl}/api/users/${id}`, {
         headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey, 'x-user-role': currentUserRole }
       })
       fetchUsers()
@@ -113,7 +117,7 @@ export function UserManager() {
         <button 
           onClick={() => {
             setEditingUser(null)
-            setFormData({ name: '', email: '', role: 'OPERATOR', status: 'ACTIVE', tenantId: selectedTenant?.id || '' })
+            setFormData({ name: '', email: '', password: '', role: 'OPERATOR', status: 'ACTIVE', tenantId: selectedTenant?.id || '' })
             setIsModalOpen(true)
           }}
           className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-xl text-sm font-bold shadow-xl shadow-brand-blue/30 hover:scale-[1.02] active:scale-95 transition-all"
@@ -358,3 +362,4 @@ export function UserManager() {
     </div>
   )
 }
+

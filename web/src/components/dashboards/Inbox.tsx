@@ -215,7 +215,7 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
 
 
     // Fetch Operators
-    fetch('http://localhost:3014/api/conversations/operators', {
+    fetch((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/conversations/operators', {
       headers: {
         'x-tenant-id': selectedTenant?.id || '',
         'x-api-key': flowApiKey
@@ -300,7 +300,7 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
     if (msgs.length === 0) return;
     setIsAnalyzing(true);
     try {
-      const response = await fetch('http://localhost:3014/api/ai/analyze-conversation', {
+      const response = await fetch((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/ai/analyze-conversation', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -726,7 +726,7 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
                         const lastMsg = messages[messages.length - 1];
                         if (!lastMsg) return;
                         
-                        fetch('http://localhost:3014/api/hitl/intervene', {
+                        fetch((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/hitl/intervene', {
                           method: 'POST',
                           headers: { 
                             'Content-Type': 'application/json', 
@@ -833,3 +833,4 @@ function Message({ text, time, isUser, isAI }: any) {
     </div>
   )
 }
+

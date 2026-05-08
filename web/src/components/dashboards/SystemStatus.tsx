@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Activity, Globe, Link, Zap, CheckCircle2, AlertCircle, RefreshCw, ExternalLink } from 'lucide-react';
 
 interface SystemStatusProps {
@@ -13,8 +12,9 @@ export function SystemStatus({ flowApiKey }: SystemStatusProps) {
 
   const fetchStatus = async () => {
     setLoading(true);
+    const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
     try {
-      const res = await fetch('http://localhost:3014/api/system/status');
+      const res = await fetch(`${apiUrl}/api/system/status`);
       const data = await res.json();
       setStatus(data);
       
@@ -153,3 +153,4 @@ export function SystemStatus({ flowApiKey }: SystemStatusProps) {
     </div>
   );
 }
+

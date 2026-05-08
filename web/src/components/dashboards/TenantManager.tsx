@@ -9,9 +9,7 @@ import {
   Filter, 
   RefreshCw, 
   Settings, 
-  Edit3,
-  ChevronLeft,
-  ChevronRight
+  Edit3
 } from 'lucide-react'
 
 export function TenantManager() {
@@ -243,3 +241,4 @@ function TenantRow({ name, id, plan, status, consumption, consumptionText, color
     </tr>
   )
 }
+

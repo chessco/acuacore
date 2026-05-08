@@ -20,7 +20,7 @@ export function Login({ onLogin }: LoginProps) {
 
     // Real authentication call
     try {
-      const response = await axios.post('http://localhost:3014/api/auth/login', {
+      const response = await axios.post((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/auth/login', {
         email,
         password
       });
@@ -34,7 +34,7 @@ export function Login({ onLogin }: LoginProps) {
       localStorage.setItem('tenantId', user.tenantId);
 
       // Log login event
-      await axios.post('http://localhost:3014/api/auth/login-event', {
+      await axios.post((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/auth/login-event', {
         email,
         tenantId: user.tenantId,
         role: user.role
@@ -136,3 +136,4 @@ export function Login({ onLogin }: LoginProps) {
     </div>
   );
 }
+

@@ -44,8 +44,9 @@ export function ProtocolArchitecture() {
     if (!topic) return;
     setGenerating(true);
     try {
+      const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
       const tenantId = selectedTenant?.id || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718';
-      const response = await axios.post('http://localhost:3014/api/ai/predictive/insight', {
+      const response = await axios.post(`${apiUrl}/api/ai/predictive/insight`, {
         topic,
         type: 'SOP_GENERATION',
         options
@@ -292,7 +293,7 @@ Toda actividad debe ser logueada en tiempo real vía WhatsApp/Flow.`);
           >
             {/* Library Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-               {standardProtocols.map((item, i) => (
+               {standardProtocols.map((item) => (
                  <div key={item.id} className="bg-white p-6 rounded-[32px] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group">
                     <div className="flex justify-between items-start mb-6">
                       <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 group-hover:bg-brand-blue-light group-hover:text-brand-blue transition-colors">
@@ -347,3 +348,4 @@ Toda actividad debe ser logueada en tiempo real vía WhatsApp/Flow.`);
     </div>
   );
 }
+

@@ -4,7 +4,7 @@ import { Inbox } from './Inbox';
 import { TenantProvider } from '../../contexts/TenantContext';
 
 // Mock global fetch
-global.fetch = vi.fn();
+window.fetch = vi.fn();
 
 // Mock Socket.io
 vi.mock('socket.io-client', () => ({
@@ -24,19 +24,19 @@ describe('Inbox Component Integration', () => {
   });
 
   it('sends the correct x-api-key and x-tenant-id headers when fetching conversations', async () => {
-    (global.fetch as any).mockResolvedValueOnce({
+    (window.fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => []
     });
 
     render(
       <TenantProvider>
-        <Inbox />
+        <Inbox setActiveTab={() => {}} />
       </TenantProvider>
     );
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(window.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/whatsapp/conversations'),
         expect.objectContaining({
           headers: expect.objectContaining({
@@ -50,26 +50,26 @@ describe('Inbox Component Integration', () => {
 
   it('sends a message with correct headers and body', async () => {
     // 1. Initial fetch of conversations
-    (global.fetch as any).mockResolvedValueOnce({
+    (window.fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => [{ id: 'conv_1', contact: { phone: '123' }, messages: [] }]
     });
 
     // 2. Fetch history
-    (global.fetch as any).mockResolvedValueOnce({
+    (window.fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => []
     });
 
     // 3. Send message mock
-    (global.fetch as any).mockResolvedValueOnce({
+    (window.fetch as any).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ success: true })
     });
 
     render(
       <TenantProvider>
-        <Inbox />
+        <Inbox setActiveTab={() => {}} />
       </TenantProvider>
     );
 
@@ -85,7 +85,7 @@ describe('Inbox Component Integration', () => {
     fireEvent.click(sendButton);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
+      expect(window.fetch).toHaveBeenCalledWith(
         expect.stringContaining('/whatsapp/send'),
         expect.objectContaining({
           method: 'POST',
@@ -99,3 +99,4 @@ describe('Inbox Component Integration', () => {
     });
   });
 });
+

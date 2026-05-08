@@ -11,7 +11,7 @@ export const CapsuleCatalog: React.FC = () => {
   useEffect(() => {
     const fetchCapsules = async () => {
       try {
-        const res = await axios.get('http://localhost:3014/api/capsules');
+        const res = await axios.get((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/capsules');
         setCapsules(res.data);
       } catch (err) {
         console.error('Error fetching capsules:', err);
@@ -116,3 +116,4 @@ export const CapsuleCatalog: React.FC = () => {
     </div>
   );
 };
+

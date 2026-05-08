@@ -105,7 +105,8 @@ export function OperationalDashboard() {
   const fetchDashboardStats = async () => {
     setLoadingStats(true)
     try {
-      const response = await axios.get('http://localhost:3014/api/analytics/dashboard', {
+      const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
+      const response = await axios.get(`${apiUrl}/api/analytics/dashboard`, {
         headers: { 
           'x-tenant-id': selectedTenant?.id || '',
           'x-api-key': flowApiKey,
@@ -731,3 +732,4 @@ function ActivityItem({ icon, title, meta, quote, color }: any) {
     </div>
   )
 }
+

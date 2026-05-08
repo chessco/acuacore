@@ -5,6 +5,7 @@ import axios from 'axios';
 import { io, Socket as SocketIO } from 'socket.io-client';
 
 interface Message {
+  id?: string;
   role: 'user' | 'assistant';
   content: string;
   time?: string;
@@ -57,7 +58,7 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({ slug, agentName, agent
   // Setup Socket for Real-time human replies
   useEffect(() => {
     let tid: string | null = null;
-    const socket = io('http://localhost:3014');
+    const socket = io((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '');
     socketRef.current = socket;
 
     socket.on('connect', () => {
@@ -296,3 +297,4 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({ slug, agentName, agent
     </div>
   );
 };
+

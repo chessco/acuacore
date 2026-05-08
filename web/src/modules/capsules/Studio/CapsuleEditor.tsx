@@ -35,7 +35,7 @@ export const CapsuleEditor: React.FC = () => {
   useEffect(() => {
     const fetchKBs = async () => {
       try {
-        const res = await axios.get('http://localhost:3014/api/knowledge-base', {
+        const res = await axios.get((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/knowledge-base', {
           headers: {
             'x-tenant-id': selectedTenant?.id || '',
             'x-api-key': flowApiKey,
@@ -579,3 +579,4 @@ export const CapsuleEditor: React.FC = () => {
     </div>
   );
 };
+

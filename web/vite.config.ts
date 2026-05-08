@@ -8,6 +8,9 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  define: {
+    'import.meta.env.VITE_API_URL': JSON.stringify('https://acuacore-api.pitayacode.io')
+  },
   server: {
     port: 3000,
     host: '0.0.0.0',

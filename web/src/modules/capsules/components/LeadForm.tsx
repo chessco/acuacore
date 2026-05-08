@@ -100,3 +100,4 @@ export const LeadForm: React.FC<LeadFormProps> = ({ capsuleId, onSuccess }) => {
     </motion.div>
   );
 };
+

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { 
   Eye, 
   Scan, 
@@ -8,13 +8,10 @@ import {
   Maximize2, 
   MoreHorizontal, 
   Upload,
-  Play,
-  Pause,
   AlertCircle,
   CheckCircle2,
   RefreshCw,
-  Camera,
-  Search
+  Camera
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import axios from 'axios';
@@ -54,7 +51,8 @@ export function VisionLab() {
         imageUrl = window.location.origin + imageUrl;
       }
 
-      const response = await axios.post('http://localhost:3014/api/ai/vision/analyze', {
+      const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
+      const response = await axios.post(`${apiUrl}/api/ai/vision/analyze`, {
         imageUrl,
         prompt
       });
@@ -367,3 +365,4 @@ function ToolCard({ icon, title, desc, color }: any) {
     </div>
   )
 }
+
