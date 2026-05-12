@@ -29,6 +29,9 @@ model Tenant {
   tenantFeatures TenantFeature[]
   users          User[]
   leads          Lead[]
+  products       Product[]
+  categories     Category[]
+  orders         Order[]
 }
 
 model HumanCorrection {
@@ -353,4 +356,72 @@ enum User_role {
   ADMIN
   OPERATOR
   SYSTEM
+}
+
+model Product {
+  id          String      @id @default(uuid())
+  tenantId    String
+  categoryId  String?
+  name        String
+  description String?     @db.Text
+  price       Float       @default(0)
+  sku         String?
+  stock       Int         @default(0)
+  imageUrl    String?     @db.Text
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+  category    Category?   @relation(fields: [categoryId], references: [id])
+  orderItems  OrderItem[]
+
+  @@index([tenantId])
+  @@index([categoryId])
+}
+
+model Category {
+  id        String    @id @default(uuid())
+  tenantId  String
+  name      String
+  products  Product[]
+  tenant    Tenant    @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model Order {
+  id          String      @id @default(uuid())
+  tenantId    String
+  customerName String
+  email       String?
+  phone       String?
+  total       Float
+  status      OrderStatus @default(PENDING)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  items       OrderItem[]
+  tenant      Tenant      @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model OrderItem {
+  id        String  @id @default(uuid())
+  orderId   String
+  productId String
+  quantity  Int
+  price     Float
+  order     Order   @relation(fields: [orderId], references: [id])
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
 }

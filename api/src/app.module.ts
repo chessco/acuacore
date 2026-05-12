@@ -17,6 +17,7 @@ import { SkillsModule } from './modules/skills/skills.module';
 import { AgentsModule } from './modules/agents/agents.module';
 import { CapsulesModule } from './modules/capsules/capsules.module';
 import { UsersModule } from './modules/users/users.module';
+import { EcommerceModule } from './modules/ecommerce/ecommerce.module';
 import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { CombinedAuthGuard } from './common/guards/combined-auth.guard';
 import { MailModule } from './common/mail/mail.module';
@@ -44,6 +45,7 @@ import { join } from 'path';
     AgentsModule,
     CapsulesModule,
     UsersModule,
+    EcommerceModule,
     MailModule,
   ],
   controllers: [AppController],

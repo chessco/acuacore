@@ -28,6 +28,8 @@ import { TenantManager } from './tenants/TenantManager';
 import { PredictiveHub } from './predictive/PredictiveHub';
 import { ProtocolArchitecture } from './protocols/ProtocolArchitecture';
 import { VisionLab } from './vision/VisionLab';
+import { ProductsManager } from './ecommerce/ProductsManager';
+import { OrdersManager } from './ecommerce/OrdersManager';
 import { ModuleManager } from './system/ModuleManager';
 
 export interface ModuleConfig {
@@ -153,6 +155,26 @@ export const AVAILABLE_MODULES: ModuleConfig[] = [
     component: TenantManager,
     description: 'Gestión de múltiples organizaciones.',
     category: 'sistema'
+  },
+  {
+    id: 'catalog',
+    label: 'Catálogo Ventas',
+    icon: Package,
+    component: ProductsManager,
+    description: 'Gestión de productos y precios.',
+    category: 'gestion',
+    suiteId: 'ecommerce',
+    featureId: 'catalog'
+  },
+  {
+    id: 'orders',
+    label: 'Pedidos',
+    icon: ShoppingBag,
+    component: OrdersManager,
+    description: 'Control de ventas y facturación.',
+    category: 'gestion',
+    suiteId: 'ecommerce',
+    featureId: 'orders'
   },
   {
     id: 'module_manager',
