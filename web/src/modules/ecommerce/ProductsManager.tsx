@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit3, Trash2, Package, Tag, DollarSign, Layers, Loader2, Save, X, Eye, Sparkles } from 'lucide-react'
+import { Plus, Search, Edit3, Trash2, Package, Tag, DollarSign, Layers, Loader2, Save, X, Eye, Sparkles, History, Globe, AlertCircle } from 'lucide-react'
 import axios from 'axios'
 import { useTenant } from '../../contexts/TenantContext'
 import { SECTOR_CONFIGS } from './sectorConfigs'
@@ -10,14 +10,20 @@ export function ProductsManager() {
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [isGenerating, setIsGenerating] = useState(false)
+  const [exchangeRate, setExchangeRate] = useState(17.5)
+  const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'MXN'>('USD')
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [isMovementsModalOpen, setIsMovementsModalOpen] = useState(false)
+  const [selectedProductMovements, setSelectedProductMovements] = useState<any[]>([])
   const [editingProduct, setEditingProduct] = useState<any>(null)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     price: 0,
     stock: 0,
+    minStock: 5,
+    currency: 'USD',
     categoryId: '',
     sku: '',
     imageUrl: '',
@@ -74,20 +80,36 @@ export function ProductsManager() {
       const token = localStorage.getItem('token')
       const headers = { 
         'Authorization': `Bearer ${token}`,
-        'x-tenant-id': selectedTenant.id
+        'x-tenant-id': selectedTenant.id 
       }
-      
-      const [prodRes, catRes] = await Promise.all([
+      const [prodRes, catRes, rateRes] = await Promise.all([
         axios.get(`${apiUrl}/api/ecommerce/products`, { headers }),
-        axios.get(`${apiUrl}/api/ecommerce/categories`, { headers })
+        axios.get(`${apiUrl}/api/ecommerce/categories`, { headers }),
+        axios.get(`${apiUrl}/api/ecommerce/exchange-rate`, { headers })
       ])
-      
       setProducts(prodRes.data)
       setCategories(catRes.data)
+      setExchangeRate(rateRes.data)
     } catch (err) {
-      console.error('Error fetching products:', err)
+      console.error('Error fetching ecommerce data:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchMovements = async (productId: string) => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014'
+      const token = localStorage.getItem('token')
+      const headers = { 
+        'Authorization': `Bearer ${token}`,
+        'x-tenant-id': selectedTenant?.id || ''
+      }
+      const res = await axios.get(`${apiUrl}/api/ecommerce/movements?productId=${productId}`, { headers })
+      setSelectedProductMovements(res.data)
+      setIsMovementsModalOpen(true)
+    } catch (err) {
+      console.error('Error fetching movements:', err)
     }
   }
 
@@ -126,17 +148,33 @@ export function ProductsManager() {
           <h2 className="text-3xl font-black font-display text-slate-800">Catálogo de Productos</h2>
           <p className="text-sm text-slate-500 mt-1">Gestiona tu inventario y oferta comercial.</p>
         </div>
-        <button 
-          onClick={() => {
-            setEditingProduct(null)
-            setFormData({ name: '', description: '', price: 0, stock: 0, categoryId: '', sku: '', imageUrl: '', isActive: true, customFields: {} })
-            setIsModalOpen(true)
-          }}
-          className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:opacity-90 transition-all"
-        >
-          <Plus size={20} />
-          Nuevo Producto
-        </button>
+        <div className="flex gap-2">
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+            <button 
+              onClick={() => setDisplayCurrency('USD')} 
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${displayCurrency === 'USD' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}
+            >
+              USD
+            </button>
+            <button 
+              onClick={() => setDisplayCurrency('MXN')} 
+              className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${displayCurrency === 'MXN' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-400'}`}
+            >
+              MXN
+            </button>
+          </div>
+          <button 
+            onClick={() => {
+              setEditingProduct(null)
+              setFormData({ name: '', description: '', price: 0, stock: 0, minStock: 5, currency: 'USD', categoryId: '', sku: '', imageUrl: '', isActive: true, customFields: {} })
+              setIsModalOpen(true)
+            }}
+            className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:opacity-90 transition-all"
+          >
+            <Plus size={20} />
+            Nuevo Producto
+          </button>
+        </div>
       </div>
 
       <div className="dashboard-card bg-white p-6">
@@ -170,6 +208,13 @@ export function ProductsManager() {
                   )}
                   <div className="absolute top-2 right-2 flex gap-1">
                     <button 
+                      onClick={() => fetchMovements(product.id)}
+                      className="p-2 bg-white/90 backdrop-blur shadow-sm rounded-lg text-slate-400 hover:text-blue-500 transition-all"
+                      title="Ver Historial"
+                    >
+                      <History size={14} />
+                    </button>
+                    <button 
                       onClick={() => {
                         setEditingProduct(product)
                         setFormData({
@@ -177,6 +222,8 @@ export function ProductsManager() {
                           description: product.description || '',
                           price: product.price,
                           stock: product.stock,
+                          minStock: product.minStock || 5,
+                          currency: product.currency || 'USD',
                           categoryId: product.categoryId || '',
                           sku: product.sku || '',
                           imageUrl: product.imageUrl || '',
@@ -192,13 +239,18 @@ export function ProductsManager() {
                   </div>
                 </div>
                 <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
+                  <div className="flex items-center justify-between mb-1">
                     <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase rounded-md tracking-wider">
                       {product.category?.name || 'General'}
                     </span>
-                    <span className={`text-[10px] font-bold ${product.stock > 0 ? 'text-slate-400' : 'text-rose-500 uppercase'}`}>
-                      {product.stock > 0 ? `${product.stock} en stock` : 'Sin stock'}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      {product.stock <= (product.minStock || 5) && (
+                        <AlertCircle size={12} className="text-rose-500 animate-pulse" />
+                      )}
+                      <span className={`text-[10px] font-bold ${product.stock <= (product.minStock || 5) ? 'text-rose-500 uppercase' : 'text-slate-400'}`}>
+                        {product.stock} {product.stock <= (product.minStock || 5) ? '¡Crítico!' : 'en stock'}
+                      </span>
+                    </div>
                   </div>
                   <h3 className="font-bold text-slate-800 group-hover:text-emerald-600 transition-colors truncate">{product.name}</h3>
                   <p className="text-xs text-slate-400 line-clamp-2 mt-1 mb-4 h-8">{product.description || 'Sin descripción'}</p>
@@ -206,7 +258,18 @@ export function ProductsManager() {
                 <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-50">
                   <div className="flex flex-col">
                     <span className="text-[10px] font-bold text-slate-400 uppercase">Precio</span>
-                    <span className="text-lg font-black text-slate-800">${product.price.toFixed(2)}</span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-lg font-black text-slate-800">
+                        {displayCurrency === 'USD' ? '$' : 'MX$'}
+                        {displayCurrency === 'USD' 
+                          ? product.price.toFixed(2) 
+                          : (product.price * exchangeRate).toFixed(2)
+                        }
+                      </span>
+                      {displayCurrency === 'MXN' && (
+                        <span className="text-[8px] font-black text-slate-300 uppercase">Rate: {exchangeRate}</span>
+                      )}
+                    </div>
                   </div>
                   <button className="px-4 py-2 bg-slate-50 text-slate-500 rounded-lg text-xs font-bold hover:bg-emerald-500 hover:text-white transition-all">
                     Detalles
@@ -303,6 +366,22 @@ export function ProductsManager() {
                   </div>
                 </div>
                 <div>
+                  <label className="block text-[10px] font-black text-rose-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                    <AlertCircle size={12} />
+                    Stock Mínimo (Alerta)
+                  </label>
+                  <div className="relative">
+                    <Package size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input 
+                      type="number" 
+                      value={formData.minStock}
+                      onChange={(e) => setFormData({...formData, minStock: Number(e.target.value)})}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-rose-500"
+                      placeholder="Punto de reorden..."
+                    />
+                  </div>
+                </div>
+                <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Categoría</label>
                   <select 
                     value={formData.categoryId}
@@ -384,6 +463,57 @@ export function ProductsManager() {
                   Guardar Producto
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isMovementsModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl flex flex-col max-h-[80vh]">
+            <div className="p-8 border-b border-slate-100 flex justify-between items-center">
+              <div>
+                <h3 className="text-xl font-black text-slate-800 uppercase tracking-tight">Historial de Movimientos</h3>
+                <p className="text-xs text-slate-400 font-bold uppercase mt-1">Auditoría de Inventario</p>
+              </div>
+              <button onClick={() => setIsMovementsModalOpen(false)} className="p-2 hover:bg-slate-100 rounded-xl transition-all">
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
+            <div className="p-8 overflow-y-auto custom-scrollbar flex-1">
+              <table className="w-full">
+                <thead>
+                  <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                    <th className="text-left pb-4">Fecha</th>
+                    <th className="text-left pb-4">Tipo</th>
+                    <th className="text-left pb-4">Cant.</th>
+                    <th className="text-left pb-4">Motivo</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {selectedProductMovements.map((m: any) => (
+                    <tr key={m.id} className="text-sm font-bold text-slate-600">
+                      <td className="py-4">{new Date(m.createdAt).toLocaleDateString()}</td>
+                      <td className="py-4">
+                        <span className={`px-2 py-1 rounded-md text-[10px] font-black ${
+                          m.type === 'IN' ? 'bg-emerald-50 text-emerald-600' :
+                          m.type === 'OUT' ? 'bg-rose-50 text-rose-600' :
+                          m.type === 'SALE' ? 'bg-blue-50 text-blue-600' : 'bg-slate-50 text-slate-600'
+                        }`}>
+                          {m.type}
+                        </span>
+                      </td>
+                      <td className="py-4">{m.quantity}</td>
+                      <td className="py-4 text-xs text-slate-400">{m.reason}</td>
+                    </tr>
+                  ))}
+                  {selectedProductMovements.length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="py-8 text-center text-slate-400 italic">No hay movimientos registrados</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

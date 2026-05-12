@@ -33,6 +33,7 @@ model Tenant {
   products       Product[]
   categories     Category[]
   orders         Order[]
+  stockMovements StockMovement[]
 }
 
 model HumanCorrection {
@@ -368,6 +369,8 @@ model Product {
   price       Float       @default(0)
   sku         String?
   stock       Int         @default(0)
+  minStock    Int         @default(5)  // Reorder point
+  currency    String      @default("USD") // base currency
   imageUrl    String?     @db.Text
   isActive    Boolean     @default(true)
   customFields Json?
@@ -376,9 +379,27 @@ model Product {
   tenant      Tenant      @relation(fields: [tenantId], references: [id])
   category    Category?   @relation(fields: [categoryId], references: [id])
   orderItems  OrderItem[]
+  movements   StockMovement[]
 
   @@index([tenantId])
   @@index([categoryId])
+}
+
+model StockMovement {
+  id        String   @id @default(uuid())
+  productId String
+  tenantId  String
+  type      String   // IN, OUT, ADJUSTMENT, SALE
+  quantity  Int
+  reason    String?
+  userId    String?  // Who made the movement
+  createdAt DateTime @default(now())
+
+  product   Product  @relation(fields: [productId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([productId])
+  @@index([tenantId])
 }
 
 model Category {

@@ -43,18 +43,71 @@ export class EcommerceService {
   }
 
   async createProduct(tenantId: string, data: any) {
-    return this.db.mysql.product.create({
+    const { movements, ...productData } = data;
+    const product = await this.db.mysql.product.create({
       data: {
-        ...data,
+        ...productData,
         tenantId,
       },
     });
+
+    // Record initial stock as movement
+    if (product.stock > 0) {
+      await this.db.mysql.stockMovement.create({
+        data: {
+          productId: product.id,
+          tenantId,
+          type: 'IN',
+          quantity: product.stock,
+          reason: 'Initial stock',
+        }
+      });
+    }
+
+    return product;
   }
 
   async updateProduct(id: string, tenantId: string, data: any) {
+    const { movements, ...productData } = data;
     return this.db.mysql.product.update({
       where: { id, tenantId },
-      data,
+      data: productData,
+    });
+  }
+
+  async adjustStock(tenantId: string, productId: string, quantity: number, type: 'IN' | 'OUT' | 'ADJUSTMENT', reason: string, userId?: string) {
+    const product = await this.db.mysql.product.findUnique({ where: { id: productId } });
+    if (!product) throw new Error('Product not found');
+
+    const newStock = type === 'IN' ? product.stock + quantity : product.stock - quantity;
+
+    return this.db.mysql.$transaction([
+      this.db.mysql.product.update({
+        where: { id: productId },
+        data: { stock: newStock }
+      }),
+      this.db.mysql.stockMovement.create({
+        data: {
+          productId,
+          tenantId,
+          type,
+          quantity,
+          reason,
+          userId
+        }
+      })
+    ]);
+  }
+
+  async getMovements(tenantId: string, productId?: string) {
+    return this.db.mysql.stockMovement.findMany({
+      where: { 
+        tenantId,
+        productId: productId || undefined
+      },
+      include: { product: true },
+      orderBy: { createdAt: 'desc' },
+      take: 50
     });
   }
 
@@ -82,18 +135,47 @@ export class EcommerceService {
 
   async createOrder(tenantId: string, data: any) {
     const { items, ...orderData } = data;
-    return this.db.mysql.order.create({
-      data: {
-        ...orderData,
-        tenantId,
-        items: {
-          create: items.map((item: any) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price,
-          })),
+    
+    return this.db.mysql.$transaction(async (tx) => {
+      const order = await tx.order.create({
+        data: {
+          ...orderData,
+          tenantId,
+          items: {
+            create: items.map((item: any) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              price: item.price,
+            })),
+          },
         },
-      },
+      });
+
+      // Update stock and record movements for each item
+      for (const item of items) {
+        await tx.product.update({
+          where: { id: item.productId },
+          data: { stock: { decrement: item.quantity } }
+        });
+
+        await tx.stockMovement.create({
+          data: {
+            productId: item.productId,
+            tenantId,
+            type: 'SALE',
+            quantity: item.quantity,
+            reason: `Orden #${order.id.slice(0,8)}`,
+          }
+        });
+      }
+
+      return order;
     });
+  }
+
+  // CURRENCY
+  async getExchangeRate() {
+    // In a real app, this would call a fixer.io or similar API
+    return 17.50; // Mock rate USD to MXN
   }
 }
