@@ -14,7 +14,8 @@ import {
   FileText,
   Eye,
   LayoutDashboard,
-  Package
+  Package,
+  ShoppingBag
 } from 'lucide-react';
 import { Inbox } from './inbox/Inbox';
 import { KnowledgeBase } from './knowledge/KnowledgeBase';
