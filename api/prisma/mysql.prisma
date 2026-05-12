@@ -8,184 +8,165 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Plan {
-  FREE
-  PRO
-  ENTERPRISE
-}
-
-enum Status {
-  ACTIVE
-  INACTIVE
-  SUSPENDED
-}
-
-enum Role {
-  PRODUCER
-  BIOLOGIST
-  TECHNICAL_ADVISOR
-  DIRECTOR
-  ADMIN
-  OPERATOR
-  SYSTEM
-}
-
 model Tenant {
-  id        String   @id @default(uuid())
-  name      String
-  plan      Plan     @default(FREE)
-  status    Status   @default(ACTIVE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  brandingConfig Json?     // Global branding settings
-
-  users         User[]
-  conversations Conversation[]
-  skills        Skill[]
-  agents        Agent[]
-  knowledge     KnowledgeBase[]
-  costLogs      AiCostLog[]
-  corrections   HumanCorrection[]
-  capsules      Capsule[]
+  id             String            @id @default(uuid())
+  name           String
+  plan           Plan              @default(FREE)
+  status         Status            @default(ACTIVE)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  brandingConfig Json?
+  isDefault      Boolean           @default(false)
+  agents         Agent[]
+  costLogs       AiCostLog[]
+  campaigns      Campaign[]
+  capsules       Capsule[]
+  conversations  Conversation[]
+  corrections    HumanCorrection[]
+  knowledge      KnowledgeBase[]
+  skills         Skill[]
   tenantFeatures TenantFeature[]
-  campaigns     Campaign[]
+  users          User[]
+  leads          Lead[]
 }
 
 model HumanCorrection {
   id        String   @id @default(uuid())
   tenantId  String
-  trigger   String   @db.VarChar(255) // The user pattern to match
-  response  String   @db.Text        // The verified human response
+  trigger   String   @db.VarChar(255)
+  response  String   @db.Text
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
 
   @@index([tenantId])
 }
 
 model User {
-  id        String   @id @default(uuid())
-  tenantId  String
-  email     String   @unique
-  password  String?
-  name      String
-  role      Role
-  status    Status   @default(ACTIVE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  tenant                Tenant         @relation(fields: [tenantId], references: [id])
-  conversations         Conversation[] @relation("ConversationOwner")
+  id                    String         @id @default(uuid())
+  tenantId              String
+  email                 String         @unique
+  name                  String
+  role                  User_role
+  status                Status         @default(ACTIVE)
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+  password              String?
+  permissions           Json?
   assignedConversations Conversation[] @relation("AssignedTo")
+  conversations         Conversation[] @relation("ConversationOwner")
+  tenant                Tenant         @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId], map: "User_tenantId_fkey")
 }
 
 model Conversation {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   tenantId     String
   userId       String?
+  externalId   String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
   assignedToId String?
-  externalId   String? // WhatsApp ID
-  source       String   @default("WHATSAPP") // WHATSAPP | CAPSULE
+  source       String    @default("WHATSAPP")
   metadata     Json?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  assignedTo   User?     @relation("AssignedTo", fields: [assignedToId], references: [id])
+  tenant       Tenant    @relation(fields: [tenantId], references: [id])
+  user         User?     @relation("ConversationOwner", fields: [userId], references: [id])
+  leads        Lead[]
+  messages     Message[]
 
-  tenant     Tenant    @relation(fields: [tenantId], references: [id])
-  user       User?     @relation("ConversationOwner", fields: [userId], references: [id])
-  assignedTo User?     @relation("AssignedTo", fields: [assignedToId], references: [id])
-  messages   Message[]
-  leads      Lead[]
+  @@index([assignedToId], map: "Conversation_assignedToId_fkey")
+  @@index([tenantId], map: "Conversation_tenantId_fkey")
+  @@index([userId], map: "Conversation_userId_fkey")
 }
 
 model Message {
-  id             String   @id @default(uuid())
+  id             String       @id @default(uuid())
   conversationId String
   tenantId       String
-  role           String // 'user' | 'assistant'
-  content        String   @db.Text
+  role           String
+  content        String       @db.Text
   classification String?
   confidence     Float?
-  isFlagged      Boolean  @default(false)
-  createdAt      DateTime @default(now())
+  isFlagged      Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  hitl           HitlAction?
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
 
-  conversation Conversation @relation(fields: [conversationId], references: [id])
-  hitl         HitlAction?
+  @@index([conversationId], map: "Message_conversationId_fkey")
 }
 
 model HitlAction {
   id         String   @id @default(uuid())
   messageId  String   @unique
   tenantId   String
-  level      String // 'BIOLOGIST' | 'ADVISOR' | 'DIRECTOR'
-  status     String // 'PENDING' | 'APPROVED' | 'REJECTED'
+  level      String
+  status     String
   reviewerId String?
   comments   String?  @db.Text
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-
-  message Message @relation(fields: [messageId], references: [id])
-}
-
-enum SkillStatus {
-  PRE_PRODUCTION
-  PRODUCTION
-  INACTIVE
+  message    Message  @relation(fields: [messageId], references: [id])
 }
 
 model Skill {
-  id          String   @id @default(uuid())
-  tenantId    String
-  name        String
-  description String?
-  prompt      String   @db.Text
-  version     String   @default("1.0")
-  status      SkillStatus @default(PRE_PRODUCTION)
-  config      Json?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  id             String          @id @default(uuid())
+  tenantId       String
+  name           String
+  description    String?
+  prompt         String          @db.Text
+  version        String          @default("1.0")
+  config         Json?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  status         SkillStatus     @default(PRE_PRODUCTION)
   promptVersions PromptVersion[]
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId], map: "Skill_tenantId_fkey")
 }
 
 model KnowledgeBase {
-  id        String   @id @default(uuid())
-  tenantId  String? // Null for global knowledge
+  id        String               @id @default(uuid())
+  tenantId  String?
   title     String
   source    String?
-  version   String   @default("1.0")
-  status    Status   @default(ACTIVE)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  version   String               @default("1.0")
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+  status    Status               @default(ACTIVE)
+  tenant    Tenant?              @relation(fields: [tenantId], references: [id])
+  chunks    KnowledgeBaseChunk[]
 
-  tenant Tenant? @relation(fields: [tenantId], references: [id])
-  chunks KnowledgeBaseChunk[]
+  @@index([tenantId], map: "KnowledgeBase_tenantId_fkey")
 }
 
 model KnowledgeBaseChunk {
-  id        String   @id @default(uuid())
+  id        String        @id @default(uuid())
   kbId      String
   tenantId  String?
-  content   String   @db.Text
+  content   String        @db.Text
   sequence  Int
-  createdAt DateTime @default(now())
+  createdAt DateTime      @default(now())
+  kb        KnowledgeBase @relation(fields: [kbId], references: [id])
 
-  kb KnowledgeBase @relation(fields: [kbId], references: [id])
+  @@index([kbId], map: "KnowledgeBaseChunk_kbId_fkey")
 }
 
 model AiCostLog {
-  id         String   @id @default(uuid())
-  tenantId   String
-  model      String
-  tokensIn   Int
-  tokensOut  Int
-  costUsd    Float
-  metadata   Json?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid())
+  tenantId  String
+  model     String
+  tokensIn  Int
+  tokensOut Int
+  costUsd   Float
+  metadata  Json?
+  createdAt DateTime @default(now())
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
 
-  tenant Tenant @relation(fields: [tenantId], references: [id])
+  @@index([tenantId], map: "AiCostLog_tenantId_fkey")
 }
 
 model PromptVersion {
@@ -195,28 +176,29 @@ model PromptVersion {
   version   String
   isActive  Boolean  @default(false)
   createdAt DateTime @default(now())
+  skill     Skill    @relation(fields: [skillId], references: [id])
 
-  skill Skill @relation(fields: [skillId], references: [id])
+  @@index([skillId], map: "PromptVersion_skillId_fkey")
 }
 
-
 model Agent {
-  id          String   @id @default(uuid())
+  id          String         @id @default(uuid())
   tenantId    String
   name        String
-  slug        String   @unique
+  slug        String         @unique
   description String?
-  prompt      String   @db.Text
-  isActive    Boolean  @default(true)
+  prompt      String         @db.Text
+  isActive    Boolean        @default(true)
   config      Json?
-  version     String   @default("1.0")
-  status      String   @default("PRE_PRODUCTION") // PRE_PRODUCTION, PRODUCTION
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  status      String         @default("PRE_PRODUCTION")
+  version     String         @default("1.0")
+  tenant      Tenant         @relation(fields: [tenantId], references: [id])
   versions    AgentVersion[]
   capsules    Capsule[]
+
+  @@index([tenantId], map: "Agent_tenantId_fkey")
 }
 
 model AgentVersion {
@@ -224,10 +206,11 @@ model AgentVersion {
   agentId   String
   prompt    String   @db.Text
   version   String
-  status    String   // PRE_PRODUCTION, PRODUCTION
+  status    String
   createdAt DateTime @default(now())
-
   agent     Agent    @relation(fields: [agentId], references: [id])
+
+  @@index([agentId], map: "AgentVersion_agentId_fkey")
 }
 
 model AuditLog {
@@ -242,46 +225,55 @@ model AuditLog {
 }
 
 model Capsule {
-  id            String   @id @default(uuid())
-  tenantId      String?  // Nullable for global capsules
+  id            String     @id @default(uuid())
+  tenantId      String?
   agentId       String
   title         String
-  slug          String   @unique
-  description   String?  @db.Text
+  slug          String     @unique
+  description   String?    @db.Text
   topic         String
-  status        String   @default("DRAFT") // DRAFT, PUBLISHED
-  contentBlocks Json     // Array of blocks (hero, features, etc)
-  knowledgeIds  Json?    // Optional specific KB IDs
-  promptConfig  Json?    // Overrides for agent prompt
-  ctaConfig     Json?    // Lead form config
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  status        String     @default("DRAFT")
+  contentBlocks Json
+  knowledgeIds  Json?
+  promptConfig  Json?
+  ctaConfig     Json?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+  campaigns     Campaign[]
+  agent         Agent      @relation(fields: [agentId], references: [id])
+  tenant        Tenant?    @relation(fields: [tenantId], references: [id])
+  leads         Lead[]
 
-  tenant Tenant? @relation(fields: [tenantId], references: [id])
-  agent  Agent   @relation(fields: [agentId], references: [id])
-  leads  Lead[]
-  campaigns Campaign[]
+  @@index([agentId], map: "Capsule_agentId_fkey")
+  @@index([tenantId], map: "Capsule_tenantId_fkey")
 }
 
 model Lead {
-  id             String   @id @default(uuid())
+  id             String        @id @default(uuid())
+  tenantId       String?
   capsuleId      String
+  campaignId     String?
   conversationId String?
   name           String
   email          String
   phone          String?
   metadata       Json?
-  createdAt      DateTime @default(now())
+  createdAt      DateTime      @default(now())
+  capsule        Capsule       @relation(fields: [capsuleId], references: [id])
+  conversation   Conversation? @relation(fields: [conversationId], references: [id])
+  campaign       Campaign?     @relation(fields: [campaignId], references: [id])
+  tenant         Tenant?       @relation(fields: [tenantId], references: [id])
 
-  capsule      Capsule       @relation(fields: [capsuleId], references: [id])
-  conversation Conversation? @relation(fields: [conversationId], references: [id])
+  @@index([capsuleId], map: "Lead_capsuleId_fkey")
+  @@index([conversationId], map: "Lead_conversationId_fkey")
+  @@index([campaignId], map: "Lead_campaignId_fkey")
+  @@index([tenantId])
 }
 
 model Feature {
-  id        String   @id @default(uuid())
-  name      String   @unique // e.g. "capsules"
-  createdAt DateTime @default(now())
-
+  id             String          @id @default(uuid())
+  name           String          @unique
+  createdAt      DateTime        @default(now())
   tenantFeatures TenantFeature[]
 }
 
@@ -290,27 +282,74 @@ model TenantFeature {
   tenantId  String
   featureId String
   enabled   Boolean @default(false)
-
-  tenant  Tenant  @relation(fields: [tenantId], references: [id])
-  feature Feature @relation(fields: [featureId], references: [id])
+  feature   Feature @relation(fields: [featureId], references: [id])
+  tenant    Tenant  @relation(fields: [tenantId], references: [id])
 
   @@unique([tenantId, featureId])
+  @@index([featureId], map: "TenantFeature_featureId_fkey")
 }
 
 model Campaign {
-  id          String    @id @default(uuid())
-  tenantId    String
-  capsuleId   String
-  name        String
-  audience    String?   @db.Text
-  subject     String
-  content     String    @db.Text
-  scheduledAt DateTime?
-  sentAt      DateTime?
-  templateConfig Json?     // Config for colors, logo, hero, footer, cta
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id             String          @id @default(uuid())
+  tenantId       String
+  capsuleId      String
+  name           String
+  audience       String?         @db.Text
+  subject        String
+  content        String          @db.Text
+  scheduledAt    DateTime?
+  sentAt         DateTime?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  templateConfig Json?
+  opensCount     Int             @default(0)
+  clicksCount    Int             @default(0)
+  capsule        Capsule         @relation(fields: [capsuleId], references: [id])
+  tenant         Tenant          @relation(fields: [tenantId], references: [id])
+  leads          Lead[]
+  events         CampaignEvent[]
 
-  tenant  Tenant  @relation(fields: [tenantId], references: [id])
-  capsule Capsule @relation(fields: [capsuleId], references: [id])
+  @@index([capsuleId], map: "Campaign_capsuleId_fkey")
+  @@index([tenantId], map: "Campaign_tenantId_fkey")
+}
+
+model CampaignEvent {
+  id         String   @id @default(uuid())
+  campaignId String
+  email      String?
+  type       String   @default("OPEN") // "OPEN" or "CLICK"
+  ip         String?
+  userAgent  String?  @db.Text
+  createdAt  DateTime @default(now())
+  campaign   Campaign @relation(fields: [campaignId], references: [id])
+
+  @@index([campaignId])
+}
+
+enum Plan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum Status {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+}
+
+enum SkillStatus {
+  PRE_PRODUCTION
+  PRODUCTION
+  INACTIVE
+}
+
+enum User_role {
+  PRODUCER
+  BIOLOGIST
+  TECHNICAL_ADVISOR
+  DIRECTOR
+  ADMIN
+  OPERATOR
+  SYSTEM
 }

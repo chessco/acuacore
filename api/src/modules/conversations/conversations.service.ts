@@ -151,8 +151,10 @@ export class ConversationsService {
 
   async getConversations() {
     const tenantId = getTenantId();
+    const whereClause = tenantId === 'global' ? {} : { tenantId };
+    
     return this.db.mysql.conversation.findMany({
-      where: { tenantId },
+      where: whereClause,
       include: {
         assignedTo: {
           select: { id: true, name: true, role: true, email: true }
@@ -168,8 +170,13 @@ export class ConversationsService {
 
   async getMessages(conversationId: string) {
     const tenantId = getTenantId();
+    const whereClause: any = { conversationId };
+    if (tenantId !== 'global') {
+      whereClause.tenantId = tenantId;
+    }
+    
     return this.db.mysql.message.findMany({
-      where: { conversationId, tenantId },
+      where: whereClause,
       orderBy: { createdAt: 'asc' },
     });
   }

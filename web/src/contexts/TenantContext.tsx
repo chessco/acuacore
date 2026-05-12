@@ -1,50 +1,49 @@
-import { createContext, useContext, useState, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import axios from 'axios';
 
 export interface Tenant {
   id: string;
   name: string;
   plan: string;
   avatar?: string;
+  brandingConfig?: {
+    brandName?: string;
+    logoUrl?: string;
+    primaryColor?: string;
+    accentColor?: string;
+    footerText?: string;
+    heroImage?: string;
+  };
 }
 
 interface TenantContextType {
   selectedTenant: Tenant | null;
   setSelectedTenant: (tenant: Tenant) => void;
   tenants: Tenant[];
+  refreshTenants: () => Promise<void>;
   flowUrl: string;
   setFlowUrl: (url: string) => void;
   flowTenantSlug: string;
   setFlowTenantSlug: (slug: string) => void;
   flowToken: string | null;
   setFlowToken: (token: string | null) => void;
-  role: 'system' | 'tenant' | 'operator';
-  setRole: (role: 'system' | 'tenant' | 'operator') => void;
+  role: 'system' | 'admin' | 'tenant' | 'operator';
+  setRole: (role: 'system' | 'admin' | 'tenant' | 'operator') => void;
   tenantLanguages: Record<string, 'es' | 'en'>;
   setTenantLanguage: (tenantId: string, lang: 'es' | 'en') => void;
   flowApiKey: string;
   setFlowApiKey: (key: string) => void;
+  permissions: { menus: string[]; actions: string[] } | null;
+  setPermissions: (perms: { menus: string[]; actions: string[] } | null) => void;
 }
-
-const tenants: Tenant[] = [
-  { id: 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718', name: 'Acuaequipos', plan: 'Enterprise' },
-  { id: '2', name: 'AquaFresh S.A.', plan: 'Scale' },
-  { id: '3', name: 'BlueTuna Tech', plan: 'Starter' },
-  { id: '4', name: 'GreenLake Ops', plan: 'Enterprise' },
-];
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
+  const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenant, setSelectedTenantState] = useState<Tenant | null>(() => {
     const saved = localStorage.getItem('selectedTenant');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return tenants[0];
-      }
-    }
-    return tenants[0];
+    return saved ? JSON.parse(saved) : null;
   });
 
   const [flowUrl, setFlowUrlState] = useState<string>(() => {
@@ -63,11 +62,60 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     return localStorage.getItem('flowApiKey') || 'pitaya_internal_secret_2026';
   });
 
-  const [role, setRoleState] = useState<'system' | 'tenant' | 'operator'>(() => {
+  const [role, setRoleState] = useState<'system' | 'admin' | 'tenant' | 'operator'>(() => {
     return (localStorage.getItem('acuacore_role') as any) || 'tenant';
   });
 
-  const setRole = (newRole: 'system' | 'tenant' | 'operator') => {
+  const [permissions, setPermissionsState] = useState<{ menus: string[]; actions: string[] } | null>(() => {
+    const saved = localStorage.getItem('acuacore_permissions');
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const setPermissions = (perms: { menus: string[]; actions: string[] } | null) => {
+    setPermissionsState(perms);
+    if (perms) localStorage.setItem('acuacore_permissions', JSON.stringify(perms));
+    else localStorage.removeItem('acuacore_permissions');
+  };
+
+  const refreshTenants = async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+      const response = await axios.get(`${apiUrl}/api/tenants`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      let fetchedTenants = response.data;
+      
+      // If system, add a virtual "Global View" tenant
+      if (role?.toLowerCase() === 'system') {
+        const globalView = { id: 'global', name: '🌐 Vista Global', plan: 'SUPERADMIN' };
+        fetchedTenants = [globalView, ...fetchedTenants];
+      }
+      
+      setTenants(fetchedTenants);
+      
+      const saved = localStorage.getItem('selectedTenant');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const found = fetchedTenants.find((t: any) => t.id === parsed.id);
+        if (found) setSelectedTenantState(found);
+        else if (fetchedTenants.length > 0) setSelectedTenant(fetchedTenants[0]);
+      } else if (fetchedTenants.length > 0) {
+        // Fallback: if system, global is first, if not, first tenant
+        setSelectedTenant(fetchedTenants[0]);
+      }
+    } catch (err) {
+      console.error('Error fetching tenants:', err);
+    }
+  };
+
+  useEffect(() => {
+    refreshTenants();
+  }, [role]);
+
+  const setRole = (newRole: 'system' | 'admin' | 'tenant' | 'operator') => {
     setRoleState(newRole);
     localStorage.setItem('acuacore_role', newRole);
   };
@@ -114,18 +162,21 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       selectedTenant, 
       setSelectedTenant, 
       tenants, 
+      refreshTenants,
       flowUrl, 
       setFlowUrl,
       flowTenantSlug,
       setFlowTenantSlug,
-      flowToken,
+      flowToken, 
       setFlowToken,
       flowApiKey,
       setFlowApiKey,
       role,
       setRole,
       tenantLanguages,
-      setTenantLanguage
+      setTenantLanguage,
+      permissions,
+      setPermissions
     }}>
       {children}
     </TenantContext.Provider>

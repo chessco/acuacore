@@ -15,14 +15,14 @@ export class UsersService {
     }
 
     // Admin can only see their own tenant
-    if (requesterRole === 'ADMIN') {
+    if (requesterRole.toUpperCase() === 'ADMIN') {
       return this.db.mysql.user.findMany({
         where: { tenantId: requesterTenantId },
         include: { tenant: { select: { name: true } } }
       });
     }
 
-    throw new ForbiddenException('No tienes permisos para ver usuarios.');
+    throw new ForbiddenException(`No tienes permisos para ver usuarios. (Rol: ${requesterRole})`);
   }
 
   async create(requesterRole: string, requesterTenantId: string, data: any) {

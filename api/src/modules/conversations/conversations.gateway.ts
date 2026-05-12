@@ -12,7 +12,8 @@ import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({
   cors: {
-    origin: '*', // En producción, restringir al dominio del frontend
+    origin: ['https://acuacore.pitayacode.io', 'http://localhost:3000', 'http://localhost:5173'],
+    credentials: true,
   },
 })
 export class ConversationsGateway implements OnGatewayConnection, OnGatewayDisconnect {

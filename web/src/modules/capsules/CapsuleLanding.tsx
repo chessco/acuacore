@@ -1,22 +1,47 @@
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { CheckCircle2, ChevronRight, Menu, X, ArrowRight, Shield, Zap, TrendingUp, Fish, Thermometer, Eye, LayoutGrid, BarChart3, Database, Clock } from 'lucide-react';
+import { CheckCircle2, ChevronRight, Menu, X, ArrowRight, Shield, Zap, TrendingUp, Fish, Thermometer, Eye, LayoutGrid, BarChart3, Database, Clock, MessageSquare } from 'lucide-react';
 import axios from 'axios';
 import { CapsuleChat } from './components/CapsuleChat';
 import { LeadForm } from './components/LeadForm';
 import { DeepExplanationBlock } from './components/DeepExplanationBlock';
+import { useTenant } from '../../contexts/TenantContext';
 
 export const CapsuleLanding: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
+  const [searchParams] = useSearchParams();
+  const campaignId = searchParams.get('campaignId');
   const [capsule, setCapsule] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [leadCaptured, setLeadCaptured] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const { selectedTenant, flowApiKey } = useTenant();
+  let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+  
+  // Forzar local si estamos en localhost para reparaciones
+    if (window.location.hostname === 'localhost') {
+      apiUrl = 'http://localhost:3014';
+    } else if (!import.meta.env.VITE_API_URL) {
+      apiUrl = window.location.origin.replace(':3000', ':3014');
+    }
 
   useEffect(() => {
     const fetchCapsule = async () => {
       try {
-        const res = await axios.get(`http://localhost:3014/api/capsules/${slug}`);
+        const isPreview = window.location.search.includes('preview=true');
+        const endpoint = isPreview 
+          ? `${apiUrl}/api/capsule-studio/capsules/slug/${slug}`
+          : `${apiUrl}/api/capsules/${slug}`;
+
+        const role = localStorage.getItem('acuacore_role') || 'tenant';
+        const res = await axios.get(endpoint, {
+          headers: {
+            'x-tenant-id': selectedTenant?.id || '',
+            'x-api-key': flowApiKey || '',
+            'x-user-role': role.toUpperCase(),
+          }
+        });
         console.log('Capsule data fetched:', res.data);
         setCapsule(res.data);
       } catch (err) {
@@ -25,8 +50,14 @@ export const CapsuleLanding: React.FC = () => {
         setLoading(false);
       }
     };
-    if (slug) fetchCapsule();
-  }, [slug]);
+    if (slug && selectedTenant) fetchCapsule();
+  }, [slug, apiUrl, selectedTenant, flowApiKey]);
+
+  const resolveImageUrl = (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    return `${apiUrl}${path}`;
+  };
 
   if (loading) return <div className="h-screen flex items-center justify-center text-slate-400 font-medium">Sincronizando experiencia...</div>;
   if (!capsule) return <div className="h-screen flex items-center justify-center text-red-500 font-bold underline">Cápsula no disponible en este momento.</div>;
@@ -57,14 +88,14 @@ export const CapsuleLanding: React.FC = () => {
               }}
               className="bg-white border border-slate-200 text-[#001A41] px-6 py-3 rounded-full text-sm font-black hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2"
             >
-              <MessageSquare size={16} /> Hablar con asesor
+              <MessageSquareIcon size={16} /> Hablar con asesor
             </button>
           </div>
         </div>
       </nav>
 
       {/* Hero Section */}
-      <header className="pt-32 pb-12 px-6 bg-gradient-to-b from-blue-50/30 to-white overflow-hidden">
+      <header className="pt-24 md:pt-32 pb-12 px-6 bg-gradient-to-b from-blue-50/30 to-white overflow-hidden">
         <div className="max-w-7xl mx-auto">
           <div className="grid md:grid-cols-2 gap-12 items-center">
             <motion.div
@@ -76,10 +107,10 @@ export const CapsuleLanding: React.FC = () => {
                 <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-pulse" />
                 Cápsula Especializada
               </div>
-              <h1 className="text-5xl md:text-7xl font-black text-[#001A41] leading-[1.1] tracking-tighter text-balance">
+              <h1 className="text-4xl md:text-7xl font-black text-[#001A41] leading-[1.1] tracking-tighter text-balance">
                 {capsule.title}
               </h1>
-              <p className="text-lg text-slate-500 leading-relaxed max-w-lg font-medium">
+              <p className="text-base md:text-lg text-slate-500 leading-relaxed max-w-lg font-medium">
                 {capsule.description}
               </p>
               <div className="flex flex-wrap gap-8 items-center">
@@ -91,7 +122,7 @@ export const CapsuleLanding: React.FC = () => {
                   className="bg-[#001A41] hover:bg-slate-800 text-white px-8 py-4 rounded-xl text-lg font-bold transition-all transform hover:scale-[1.02] shadow-xl shadow-blue-900/10 flex items-center gap-3"
                 >
                   <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center">
-                    <MessageSquare size={18} className="text-white" />
+                    <MessageSquareIcon size={18} className="text-white" />
                   </div>
                   Hablar con {capsule.promptConfig?.agentName || capsule.agent?.name || 'Asesor'}
                 </button>
@@ -101,7 +132,7 @@ export const CapsuleLanding: React.FC = () => {
               </div>
 
               {/* Mini Feature Grid - Styled as a single floating card */}
-              <div className="bg-white p-6 rounded-[2rem] shadow-2xl shadow-blue-900/5 border border-slate-50 grid grid-cols-3 gap-8 max-w-2xl">
+              <div className="bg-white p-6 rounded-[2rem] shadow-2xl shadow-blue-900/5 border border-slate-50 grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-8 max-w-2xl">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center shrink-0">
                     <Database size={22} />
@@ -111,7 +142,7 @@ export const CapsuleLanding: React.FC = () => {
                     <p className="text-[11px] text-slate-500 font-medium leading-tight">kg/ha y frecuencia</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4 border-l border-slate-100 pl-8">
+                <div className="flex items-center gap-4 border-t md:border-t-0 md:border-l border-slate-100 pt-6 md:pt-0 md:pl-8">
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center shrink-0">
                     <Thermometer size={22} />
                   </div>
@@ -120,7 +151,7 @@ export const CapsuleLanding: React.FC = () => {
                     <p className="text-[11px] text-slate-500 font-medium leading-tight">y metabolismo</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4 border-l border-slate-100 pl-8">
+                <div className="flex items-center gap-4 border-t md:border-t-0 md:border-l border-slate-100 pt-6 md:pt-0 md:pl-8">
                   <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center shrink-0">
                     <Eye size={22} />
                   </div>
@@ -137,18 +168,21 @@ export const CapsuleLanding: React.FC = () => {
               animate={{ opacity: 1, scale: 1 }}
               className="relative"
             >
-              <div className="rounded-[3rem] overflow-hidden shadow-2xl border-8 border-white">
+              <div 
+                className="rounded-[2rem] md:rounded-[3rem] overflow-hidden shadow-2xl border-4 md:border-8 border-white cursor-zoom-in"
+                onClick={() => setSelectedImage(resolveImageUrl(capsule.contentBlocks?.find((b: any) => b.type === 'hero')?.data?.image) || "/shrimp_hero.png")}
+              >
                 <img
-                  src="/shrimp_hero.png"
-                  alt="Cultivo de camarón de precisión"
-                  className="w-full h-[500px] object-cover"
+                  src={resolveImageUrl(capsule.contentBlocks?.find((b: any) => b.type === 'hero')?.data?.image) || "/shrimp_hero.png"}
+                  alt={capsule.title}
+                  className="w-full h-[300px] md:h-[500px] object-cover"
                 />
               </div>
               {/* Floating Badge */}
               <motion.div
                 animate={{ y: [0, -10, 0] }}
                 transition={{ duration: 4, repeat: Infinity }}
-                className="absolute -top-10 -left-10 bg-white p-8 rounded-[2rem] shadow-2xl border border-slate-50 max-w-[200px]"
+                className="absolute -top-6 -left-4 md:-top-10 md:-left-10 bg-white p-4 md:p-8 rounded-[1.5rem] md:rounded-[2rem] shadow-2xl border border-slate-50 max-w-[140px] md:max-w-[200px] z-10"
               >
                 <div className="flex items-center gap-2 mb-3">
                   <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
@@ -210,10 +244,18 @@ export const CapsuleLanding: React.FC = () => {
             slug={capsule.slug}
             agentName={capsule.promptConfig?.agentName || capsule.agent?.name || 'Don Juan Camarón'}
             agentGreeting={capsule.promptConfig?.agentGreeting}
-            agentPortrait="/don_juan_final.jpg"
+            agentPortrait={resolveImageUrl(capsule.promptConfig?.agentPortrait) || "/don_juan_final.jpg"}
+            onPortraitClick={() => setSelectedImage(resolveImageUrl(capsule.promptConfig?.agentPortrait) || "/don_juan_final.jpg")}
+            preview={window.location.search.includes('preview=true')}
           />
         </div>
       </section>
+
+      {window.location.search.includes('preview=true') && (
+        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[60] bg-[#001A41] text-white px-8 py-4 rounded-2xl shadow-2xl font-black text-sm uppercase tracking-[0.2em] flex items-center gap-4 animate-bounce border border-white/20">
+          <Eye size={20} /> Modo Previsualización de Borrador
+        </div>
+      )}
 
       {/* Benefits Section */}
       <section id="benefits" className="py-24 px-6">
@@ -243,7 +285,7 @@ export const CapsuleLanding: React.FC = () => {
       {/* Lead Capture Section */}
       <section id="about" className="py-32 px-6 bg-white border-t border-slate-100">
         <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-20 items-center">
+          <div className="grid md:grid-cols-2 gap-10 md:gap-20 items-center">
             <div className="space-y-10">
               <h2 className="text-5xl font-black text-[#001A41] leading-tight">
                 ¿Quieres optimizar tu producción?
@@ -268,7 +310,7 @@ export const CapsuleLanding: React.FC = () => {
             <div className="relative">
               <div className="absolute inset-0 bg-blue-100 blur-[100px] opacity-20 -z-10" />
               {!leadCaptured ? (
-                <LeadForm capsuleId={capsule.id} onSuccess={() => setLeadCaptured(true)} />
+                <LeadForm capsuleId={capsule.id} campaignId={campaignId} onSuccess={() => setLeadCaptured(true)} />
               ) : (
                 <div className="bg-green-50 p-16 rounded-[3rem] border border-green-100 text-center">
                   <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-8">
@@ -291,7 +333,7 @@ export const CapsuleLanding: React.FC = () => {
           <div className="flex flex-col md:flex-row justify-between items-center gap-12">
             <div className="flex items-center gap-3 grayscale opacity-70">
               <Zap size={24} className="text-slate-900" />
-              <span className="font-black text-xl tracking-tight">Acuaequipos</span>
+              <span className="font-black text-xl tracking-tight text-[#001A41]">Acuaequipos</span>
             </div>
             <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">
               © 2024 Acuaequipos. Todos los derechos reservados.
@@ -310,13 +352,34 @@ export const CapsuleLanding: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      {/* Lightbox Modal */}
+      {selectedImage && (
+        <div 
+          className="fixed inset-0 bg-slate-900/90 z-[100] backdrop-blur-xl flex items-center justify-center p-4 md:p-12 animate-in fade-in zoom-in duration-300"
+          onClick={() => setSelectedImage(null)}
+        >
+          <button 
+            className="absolute top-6 right-6 w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-full flex items-center justify-center transition-colors border border-white/10"
+            onClick={() => setSelectedImage(null)}
+          >
+            <X size={24} />
+          </button>
+          <motion.img
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            src={selectedImage}
+            alt="Full view"
+            className="max-w-full max-h-full object-contain rounded-2xl shadow-2xl"
+          />
+        </div>
+      )}
     </div>
   );
 };
 
-const MessageSquare = ({ size, className }: any) => (
+const MessageSquareIcon = ({ size, className }: any) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
   </svg>
 );
-

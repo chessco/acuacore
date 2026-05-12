@@ -13,7 +13,8 @@ import {
   Building,
   Edit2,
   Trash2,
-  ChevronRight
+  ChevronRight,
+  RefreshCcw
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'motion/react'
 import axios from 'axios'
@@ -26,17 +27,70 @@ export function UserManager() {
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<any>(null)
-  const [formData, setFormData] = useState({
+  
+  // Resolve the current user role from multiple possible localStorage keys
+  const getResolvedRole = () => {
+    const role = localStorage.getItem('acuacore_role') || 
+                 localStorage.getItem('userRole') || 
+                 localStorage.getItem('role') || 
+                 'PRODUCER';
+    
+    // Map 'tenant' to 'ADMIN' if that's what the frontend uses
+    if (role.toLowerCase() === 'tenant') return 'ADMIN';
+    return role.toUpperCase();
+  };
+
+  const currentUserRole = getResolvedRole();
+
+  const handleDebugSync = () => {
+    console.log('--- DEBUG SESSION ---');
+    console.log('Role:', currentUserRole);
+    console.log('Tenant ID (Local):', localStorage.getItem('tenantId'));
+    console.log('Selected Tenant:', selectedTenant?.id);
+    fetchUsers();
+  }
+  const [formData, setFormData] = useState<any>({
     name: '',
     email: '',
     password: '',
     role: 'OPERATOR',
     status: 'ACTIVE',
-    tenantId: ''
+    tenantId: '',
+    permissions: { menus: ['dashboard', 'conversations', 'settings'], actions: ['read'] }
   })
 
-  // Role of the current logged-in user (from local storage)
-  const currentUserRole = localStorage.getItem('role') || 'ADMIN'
+  // Available menus based on role buckets
+  const availableMenus = [
+    { id: 'dashboard', label: 'Panel Control' },
+    { id: 'conversations', label: 'Bandeja' },
+    { id: 'users', label: 'Usuarios' },
+    { id: 'hitl', label: 'HITL' },
+    { id: 'corrections', label: 'Correcciones' },
+    { id: 'kb', label: 'Conocimiento' },
+    { id: 'capsules', label: 'Cápsulas' },
+    { id: 'agents', label: 'Agentes' },
+    { id: 'skills', label: 'Habilidades' },
+    { id: 'predictive', label: 'Hub Predictivo' },
+    { id: 'protocols', label: 'Arq. Protocolos' },
+    { id: 'vision', label: 'Lab Visión' },
+    { id: 'analytics', label: 'Analíticas' },
+    { id: 'settings', label: 'Configuración' },
+  ]
+
+  const togglePermission = (menuId: string) => {
+    const currentMenus = [...formData.permissions.menus]
+    const index = currentMenus.indexOf(menuId)
+    if (index > -1) {
+      currentMenus.splice(index, 1)
+    } else {
+      currentMenus.push(menuId)
+    }
+    setFormData({
+      ...formData,
+      permissions: { ...formData.permissions, menus: currentMenus }
+    })
+  }
+
 
   useEffect(() => {
     fetchUsers()
@@ -45,12 +99,21 @@ export function UserManager() {
   const fetchUsers = async () => {
     setLoading(true)
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
-      const response = await axios.get(`${apiUrl}/api/users`, {
+      let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+      const token = localStorage.getItem('token');
+      // If SUPERUSER, we can fetch all users or use a specific global endpoint
+      const endpoint = currentUserRole === 'SYSTEM' ? `${apiUrl}/api/users` : `${apiUrl}/api/users`;
+      console.log('Fetching users from:', endpoint);
+      console.log('Headers:', {
+        'x-tenant-id': selectedTenant?.id || localStorage.getItem('tenantId'),
+        'x-user-role': currentUserRole
+      });
+      
+      const response = await axios.get(endpoint, {
         headers: { 
-          'x-tenant-id': selectedTenant?.id || '',
-          'x-api-key': flowApiKey,
-          'x-user-role': currentUserRole
+          'x-tenant-id': selectedTenant?.id || localStorage.getItem('tenantId') || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718',
+          'x-user-role': currentUserRole,
+          'Authorization': `Bearer ${token}`
         }
       })
       setUsers(response.data)
@@ -64,14 +127,32 @@ export function UserManager() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
+      let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+      const token = localStorage.getItem('token');
+      
+      const payload = {
+        ...formData,
+        // Ensure tenantId is sent if changed by superuser
+        tenantId: formData.tenantId || selectedTenant?.id
+      };
+
       if (editingUser) {
-        await axios.patch(`${apiUrl}/api/users/${editingUser.id}`, formData, {
-          headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey, 'x-user-role': currentUserRole }
+        await axios.patch(`${apiUrl}/api/users/${editingUser.id}`, payload, {
+          headers: { 
+            'x-tenant-id': selectedTenant?.id || '', 
+            'x-user-role': currentUserRole,
+            'x-api-key': flowApiKey,
+            'Authorization': `Bearer ${token}`
+          }
         })
       } else {
-        await axios.post(`${apiUrl}/api/users`, formData, {
-          headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey, 'x-user-role': currentUserRole }
+        await axios.post(`${apiUrl}/api/users`, payload, {
+          headers: { 
+            'x-tenant-id': selectedTenant?.id || '', 
+            'x-user-role': currentUserRole,
+            'x-api-key': flowApiKey,
+            'Authorization': `Bearer ${token}`
+          }
         })
       }
       setIsModalOpen(false)
@@ -86,9 +167,15 @@ export function UserManager() {
   const handleDelete = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar este usuario?')) return
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
+      let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+      const token = localStorage.getItem('token');
       await axios.delete(`${apiUrl}/api/users/${id}`, {
-        headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey, 'x-user-role': currentUserRole }
+        headers: { 
+          'x-tenant-id': selectedTenant?.id || '', 
+          'x-user-role': currentUserRole,
+          'x-api-key': flowApiKey,
+          'Authorization': `Bearer ${token}`
+        }
       })
       fetchUsers()
     } catch (error) {
@@ -102,7 +189,7 @@ export function UserManager() {
   )
 
   return (
-    <div className="p-8 bg-surface min-h-screen">
+    <div className="p-8 bg-surface h-[calc(100vh-64px)] overflow-y-auto custom-scrollbar pb-32">
       <div className="flex justify-between items-start mb-8">
         <div>
           <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
@@ -114,17 +201,34 @@ export function UserManager() {
           <p className="text-sm text-slate-500 mt-1">Gestiona los permisos y roles de los operadores del sistema.</p>
         </div>
 
-        <button 
-          onClick={() => {
-            setEditingUser(null)
-            setFormData({ name: '', email: '', password: '', role: 'OPERATOR', status: 'ACTIVE', tenantId: selectedTenant?.id || '' })
-            setIsModalOpen(true)
-          }}
-          className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-xl text-sm font-bold shadow-xl shadow-brand-blue/30 hover:scale-[1.02] active:scale-95 transition-all"
-        >
-          <Plus size={18} />
-          Nuevo Usuario
-        </button>
+        <div className="flex items-center space-x-3">
+          <button 
+            onClick={handleDebugSync}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-all text-sm font-medium"
+          >
+            <RefreshCcw size={16} />
+            Actualizar
+          </button>
+          <button 
+            onClick={() => {
+              setEditingUser(null)
+              setFormData({ 
+                name: '', 
+                email: '', 
+                password: '', 
+                role: 'OPERATOR', 
+                status: 'ACTIVE', 
+                tenantId: selectedTenant?.id || localStorage.getItem('tenantId') || '',
+                permissions: { menus: ['dashboard', 'conversations', 'settings'], actions: ['read'] }
+              })
+              setIsModalOpen(true)
+            }}
+            className="flex items-center gap-2 px-6 py-3 bg-brand-blue text-white rounded-xl text-sm font-bold shadow-xl shadow-brand-blue/30 hover:scale-[1.02] active:scale-95 transition-all"
+          >
+            <Plus size={18} />
+            Nuevo Usuario
+          </button>
+        </div>
       </div>
 
       {/* Stats/Filters */}
@@ -159,7 +263,7 @@ export function UserManager() {
               <th className="text-left p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Usuario</th>
               <th className="text-left p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Rol</th>
               <th className="text-left p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</th>
-              <th className="text-left p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Inquilino</th>
+              <th className="text-left p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Módulos</th>
               <th className="text-right p-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Acciones</th>
             </tr>
           </thead>
@@ -196,9 +300,13 @@ export function UserManager() {
                   </div>
                 </td>
                 <td className="p-4">
-                   <div className="flex items-center gap-2 text-slate-500">
-                      <Building size={14} />
-                      <span className="text-xs font-medium">{user.tenant?.name || 'N/A'}</span>
+                   <div className="flex flex-wrap gap-1 max-w-[200px]">
+                      {user.permissions?.menus?.slice(0, 3).map((m: string) => (
+                        <span key={m} className="text-[8px] font-black bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded uppercase">{m}</span>
+                      ))}
+                      {user.permissions?.menus?.length > 3 && (
+                        <span className="text-[8px] font-black bg-slate-100 text-slate-400 px-1.5 py-0.5 rounded">+{user.permissions.menus.length - 3}</span>
+                      )}
                    </div>
                 </td>
                 <td className="p-4 text-right">
@@ -209,10 +317,11 @@ export function UserManager() {
                         setFormData({ 
                           name: user.name, 
                           email: user.email, 
-                          password: '', // Clear password field for security
+                          password: '', 
                           role: user.role, 
                           status: user.status, 
-                          tenantId: user.tenantId 
+                          tenantId: user.tenantId,
+                          permissions: user.permissions || { menus: ['dashboard', 'conversations', 'settings'], actions: ['read'] }
                         })
                         setIsModalOpen(true)
                       }}
@@ -242,7 +351,7 @@ export function UserManager() {
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white w-full max-w-lg rounded-[32px] shadow-2xl overflow-hidden"
+              className="bg-white w-full max-w-2xl rounded-[32px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
             >
               <div className="p-8 border-b border-border bg-slate-50/50">
                 <div className="flex items-center gap-3 text-brand-blue mb-2">
@@ -254,7 +363,7 @@ export function UserManager() {
                 <p className="text-slate-500 text-sm">Configura los accesos y privilegios del personal.</p>
               </div>
 
-              <form onSubmit={handleSubmit} className="p-8 space-y-6">
+              <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto custom-scrollbar">
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre Completo</label>
@@ -284,34 +393,37 @@ export function UserManager() {
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contraseña {editingUser && '(Dejar en blanco para no cambiar)'}</label>
-                  <div className="relative">
-                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                    <input 
-                      type="password" 
-                      placeholder={editingUser ? "Nueva contraseña..." : "Contraseña de acceso..."}
-                      required={!editingUser}
-                      className="w-full bg-slate-50 border border-border rounded-xl py-3 pl-12 pr-4 text-sm font-bold focus:outline-none focus:border-brand-blue transition-all"
-                      value={formData.password}
-                      onChange={(e) => setFormData({...formData, password: e.target.value})}
-                    />
-                  </div>
-                </div>
-
                 <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Rol de Sistema</label>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Rol del Sistema</label>
                     <select 
-                      className="w-full bg-slate-50 border border-border rounded-xl py-3 px-4 text-sm font-bold focus:outline-none focus:border-brand-blue transition-all"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand-blue"
                       value={formData.role}
                       onChange={(e) => setFormData({...formData, role: e.target.value})}
                     >
-                      <option value="OPERATOR">Operador</option>
-                      <option value="ADMIN">Administrador</option>
-                      {currentUserRole === 'SYSTEM' && <option value="SYSTEM">System Admin</option>}
+                      <option value="USER">Usuario Estándar</option>
+                      <option value="ADMIN">Administrador de Tenant</option>
+                      <option value="SYSTEM">Administrador del Sistema (Root)</option>
                     </select>
                   </div>
+
+                  {currentUserRole === 'SYSTEM' && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Asignar a Inquilino</label>
+                      <select 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-brand-blue"
+                        value={formData.tenantId || ''}
+                        onChange={(e) => setFormData({...formData, tenantId: e.target.value})}
+                      >
+                        <option value="">Seleccionar empresa...</option>
+                        {tenants.map((t: any) => (
+                          <option key={t.id} value={t.id}>{t.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                </div>
+
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</label>
                     <select 
@@ -324,20 +436,42 @@ export function UserManager() {
                       <option value="SUSPENDED">Suspendido</option>
                     </select>
                   </div>
+
+                <div className="space-y-4">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block">Módulos Autorizados (RBAC)</label>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {availableMenus.map(menu => (
+                      <button
+                        key={menu.id}
+                        type="button"
+                        onClick={() => togglePermission(menu.id)}
+                        className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${
+                          formData.permissions.menus.includes(menu.id)
+                            ? 'border-brand-blue bg-brand-blue/5 text-brand-blue font-bold'
+                            : 'border-slate-100 bg-slate-50 text-slate-400'
+                        }`}
+                      >
+                        <span className="text-[10px] uppercase tracking-tighter">{menu.label}</span>
+                        {formData.permissions.menus.includes(menu.id) ? <CheckCircle size={14} /> : <XCircle size={14} />}
+                      </button>
+                    ))}
+                  </div>
                 </div>
 
-                {currentUserRole === 'SYSTEM' && !editingUser && (
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Asignar a Inquilino (ID)</label>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contraseña {editingUser && '(Opcional)'}</label>
+                  <div className="relative">
+                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input 
-                      type="text" 
-                      className="w-full bg-slate-50 border border-border rounded-xl py-3 px-4 text-sm font-bold focus:outline-none focus:border-brand-blue transition-all"
-                      placeholder="UUID del Tenant"
-                      value={formData.tenantId}
-                      onChange={(e) => setFormData({...formData, tenantId: e.target.value})}
+                      type="password" 
+                      placeholder={editingUser ? "Dejar en blanco para no cambiar..." : "Contraseña de acceso..."}
+                      required={!editingUser}
+                      className="w-full bg-slate-50 border border-border rounded-xl py-3 pl-12 pr-4 text-sm font-bold focus:outline-none focus:border-brand-blue transition-all"
+                      value={formData.password}
+                      onChange={(e) => setFormData({...formData, password: e.target.value})}
                     />
                   </div>
-                )}
+                </div>
 
                 <div className="pt-6 flex gap-4">
                   <button 

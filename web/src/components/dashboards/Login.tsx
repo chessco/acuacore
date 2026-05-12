@@ -4,7 +4,7 @@ import { motion } from 'motion/react';
 import axios from 'axios';
 
 interface LoginProps {
-  onLogin: (email: string) => void;
+  onLogin: (user: any) => void;
 }
 
 export function Login({ onLogin }: LoginProps) {
@@ -20,7 +20,13 @@ export function Login({ onLogin }: LoginProps) {
 
     // Real authentication call
     try {
-      const response = await axios.post((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/auth/login', {
+      let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+      if (window.location.hostname === 'localhost') {
+        apiUrl = 'http://localhost:3014';
+      } else if (!import.meta.env.VITE_API_URL) {
+        apiUrl = window.location.origin.replace(':3000', ':3014');
+      }
+      const response = await axios.post(`${apiUrl}/api/auth/login`, {
         email,
         password
       });
@@ -30,17 +36,15 @@ export function Login({ onLogin }: LoginProps) {
       // Save to local storage for persistence
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-      localStorage.setItem('role', user.role);
-      localStorage.setItem('tenantId', user.tenantId);
 
       // Log login event
-      await axios.post((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/auth/login-event', {
+      await axios.post(`${apiUrl}/api/auth/login-event`, {
         email,
         tenantId: user.tenantId,
         role: user.role
       });
 
-      onLogin(email);
+      onLogin(user);
     } catch (err: any) {
       console.error('Login failed:', err);
       setError(err.response?.data?.message || 'Credenciales inválidas. Por favor intente de nuevo.');

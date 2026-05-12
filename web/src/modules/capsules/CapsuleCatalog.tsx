@@ -11,7 +11,11 @@ export const CapsuleCatalog: React.FC = () => {
   useEffect(() => {
     const fetchCapsules = async () => {
       try {
-        const res = await axios.get((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/capsules');
+        let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+        if (window.location.hostname === 'localhost') {
+          apiUrl = 'http://localhost:3014';
+        }
+        const res = await axios.get(`${apiUrl}/api/capsules`);
         setCapsules(res.data);
       } catch (err) {
         console.error('Error fetching capsules:', err);

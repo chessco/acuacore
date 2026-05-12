@@ -26,6 +26,15 @@ export class CapsulesController {
   }
 
   @Public()
+  @Get('journey/:conversationId')
+  async getJourney(
+    @Param('conversationId') conversationId: string,
+    @Headers('x-tenant-id') tenantId: string
+  ) {
+    return this.capsulesService.getLeadJourney(conversationId, tenantId || getTenantId());
+  }
+
+  @Public()
   @Get(':slug')
   async findOne(@Param('slug') slug: string) {
     return this.capsulesService.findBySlug(slug);
@@ -35,9 +44,9 @@ export class CapsulesController {
   @Post(':slug/chat')
   async chat(
     @Param('slug') slug: string,
-    @Body() body: { message: string; userId?: string; history?: any[] },
+    @Body() body: any,
   ) {
-    return this.capsulesService.chat(slug, body.message, body.userId, body.history);
+    return this.capsulesService.chat(slug, body);
   }
 
   @Public()

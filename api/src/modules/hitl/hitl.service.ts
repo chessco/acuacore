@@ -100,8 +100,9 @@ export class HitlService {
 
   async approve(actionId: string, reviewerId: string, editedContent?: string) {
     const tenantId = getTenantId();
-    const action = await this.db.mysql.hitlAction.findUnique({
+    const action: any = await this.db.mysql.hitlAction.findUnique({
       where: { id: actionId },
+      include: { message: true },
     });
 
     if (!action) {
@@ -115,6 +116,34 @@ export class HitlService {
 
     // Update message if edited
     if (editedContent) {
+      // Find the user's message that triggered this response for learning
+      const userMessage = await this.db.mysql.message.findFirst({
+        where: { 
+          conversationId: action.message.conversationId,
+          createdAt: { lt: action.message.createdAt },
+          role: 'user'
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      if (userMessage) {
+        console.log(`[HitlService] Learning from manual intervention: "${userMessage.content}" -> "${editedContent}"`);
+        await this.db.mysql.humanCorrection.upsert({
+          where: { id: `hitl-learn-${action.id}` }, // Fixed ID to avoid duplicates if re-approved
+          create: {
+            id: `hitl-learn-${action.id}`,
+            tenantId: action.tenantId,
+            trigger: userMessage.content.substring(0, 255),
+            response: editedContent,
+            isActive: true
+          },
+          update: {
+            response: editedContent,
+            updatedAt: new Date()
+          }
+        });
+      }
+
       await this.db.mysql.message.update({
         where: { id: action.messageId },
         data: { content: editedContent },
@@ -124,6 +153,7 @@ export class HitlService {
     // Update action status
     const updatedAction = await this.db.mysql.hitlAction.update({
       where: { id: actionId },
+      include: { message: true },
       data: {
         status: 'APPROVED',
         reviewerId,
@@ -141,8 +171,9 @@ export class HitlService {
 
   async reject(actionId: string, reviewerId: string) {
     const tenantId = getTenantId();
-    const action = await this.db.mysql.hitlAction.findUnique({
+    const action: any = await this.db.mysql.hitlAction.findUnique({
       where: { id: actionId },
+      include: { message: true },
     });
 
     if (!action) {
@@ -155,6 +186,7 @@ export class HitlService {
 
     return this.db.mysql.hitlAction.update({
       where: { id: actionId },
+      include: { message: true },
       data: {
         status: 'REJECTED',
         reviewerId,

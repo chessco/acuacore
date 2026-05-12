@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param } from '@nestjs/common';
 import { TenantsService } from './tenants.service';
 
 @Controller('tenants')
@@ -18,5 +18,20 @@ export class TenantsController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.tenantsService.findOne(id);
+  }
+
+  @Get(':id/consumption')
+  getConsumption(@Param('id') id: string) {
+    return this.tenantsService.getTenantConsumption(id);
+  }
+
+  @Patch(':id')
+  update(@Param('id') id: string, @Body() data: any) {
+    return this.tenantsService.update(id, data);
+  }
+
+  @Get('analytics/global')
+  getGlobalAnalytics() {
+    return this.tenantsService.getGlobalAnalytics();
   }
 }

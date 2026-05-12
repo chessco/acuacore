@@ -26,6 +26,8 @@ services:
       - "3014:3014"
     networks:
       - pitaya_net
+    volumes:
+      - ./api/public/uploads:/app/public/uploads
     depends_on:
       - postgres
 

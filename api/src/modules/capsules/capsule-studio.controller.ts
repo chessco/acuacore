@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request, Headers } from '@nestjs/common';
 import { CapsulesService } from './capsules.service';
 import { CampaignService } from './campaign.service';
 import { CombinedAuthGuard } from '../../common/guards/combined-auth.guard';
@@ -16,7 +16,7 @@ export class CapsuleStudioController {
 
   @Get('capsules')
   findAll(@Request() req: any) {
-    return this.capsulesService.findAll(req.user.tenantId);
+    return this.capsulesService.findAll(req.user.tenantId, req.user);
   }
 
   @Post('capsules')
@@ -26,27 +26,27 @@ export class CapsuleStudioController {
 
   @Get('capsules/:id')
   findOne(@Request() req: any, @Param('id') id: string) {
-    return this.capsulesService.findOne(id, req.user.tenantId);
+    return this.capsulesService.findOne(id, req.user.tenantId, req.user);
   }
 
   @Patch('capsules/:id')
   update(@Request() req: any, @Param('id') id: string, @Body() body: any) {
-    return this.capsulesService.update(id, req.user.tenantId, body);
+    return this.capsulesService.update(id, req.user.tenantId, body, req.user);
   }
 
   @Patch('capsules/:id/status')
   updateStatus(@Request() req: any, @Param('id') id: string, @Body() body: { status: string }) {
-    return this.capsulesService.updateStatus(id, req.user.tenantId, body.status);
+    return this.capsulesService.updateStatus(id, req.user.tenantId, body.status, req.user);
   }
 
   @Delete('capsules/:id')
   remove(@Request() req: any, @Param('id') id: string) {
-    return this.capsulesService.remove(id, req.user.tenantId);
+    return this.capsulesService.remove(id, req.user.tenantId, req.user);
   }
 
   @Get('campaigns')
   getCampaigns(@Request() req: any) {
-    return this.campaignService.getCampaigns(req.user.tenantId);
+    return this.campaignService.getCampaigns(req.user.tenantId, req.user);
   }
 
   @Post('campaigns')
@@ -54,9 +54,19 @@ export class CapsuleStudioController {
     return this.campaignService.createCampaign(req.user.tenantId, body);
   }
 
+  @Patch('campaigns/:id')
+  updateCampaign(@Request() req: any, @Param('id') id: string, @Body() body: any) {
+    return this.campaignService.updateCampaign(req.user.tenantId, id, body, req.user);
+  }
+
   @Post('campaigns/:id/send')
   sendCampaign(@Request() req: any, @Param('id') id: string) {
-    return this.campaignService.sendCampaign(req.user.tenantId, id);
+    return this.campaignService.sendCampaign(req.user.tenantId, id, req.user);
+  }
+
+  @Delete('campaigns/:id')
+  removeCampaign(@Request() req: any, @Param('id') id: string) {
+    return this.campaignService.removeCampaign(req.user.tenantId, id, req.user);
   }
 
   @Get('analytics')
@@ -69,8 +79,28 @@ export class CapsuleStudioController {
     return this.capsulesService.getBranding(req.user.tenantId);
   }
  
+  @Get('capsules/slug/:slug')
+  async findBySlug(@Request() req: any, @Param('slug') slug: string) {
+    return this.capsulesService.findBySlug(slug, req.user.tenantId, true, req.user); // true = includeDrafts
+  }
+
+  @Post('capsules/slug/:slug/chat')
+  async chat(
+    @Request() req: any,
+    @Param('slug') slug: string,
+    @Body() body: any,
+  ) {
+    // Reutilizar la lógica de chat existente pero permitiendo borradores
+    return this.capsulesService.chat(slug, body, req.user.tenantId, true, req.user); // true = includeDrafts
+  }
+
   @Post('branding')
   updateBranding(@Request() req: any, @Body() body: any) {
     return this.capsulesService.updateBranding(req.user.tenantId, body);
+  }
+
+  @Get('leads')
+  getLeads(@Request() req: any) {
+    return this.capsulesService.getLeads(req.user.tenantId);
   }
 }

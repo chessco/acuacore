@@ -3,6 +3,7 @@ import { CapsulesService } from './capsules.service';
 import { CampaignService } from './campaign.service';
 import { CapsulesController } from './capsules.controller';
 import { CapsuleStudioController } from './capsule-studio.controller';
+import { UploadsController } from './uploads.controller';
 import { DatabaseModule } from '../../common/database/database.module';
 import { AiModule } from '../ai/ai.module';
 import { ApiKeyGuard } from '../../common/guards/api-key.guard';
@@ -11,9 +12,11 @@ import { FeatureFlagGuard } from '../../common/guards/feature-flag.guard';
 
 import { ConversationsModule } from '../conversations/conversations.module';
 
+import { CampaignTrackingController } from './campaign-tracking.controller';
+
 @Module({
   imports: [DatabaseModule, AiModule, ConversationsModule],
-  controllers: [CapsulesController, CapsuleStudioController],
+  controllers: [CapsulesController, CapsuleStudioController, UploadsController, CampaignTrackingController],
   providers: [
     CapsulesService, 
     CampaignService,

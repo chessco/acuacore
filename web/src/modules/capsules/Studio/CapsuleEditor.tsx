@@ -24,21 +24,28 @@ const scrollbarStyle = `
 export const CapsuleEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { selectedTenant, flowApiKey } = useTenant();
   const [capsule, setCapsule] = useState<any>(null);
   const [activeTab, setActiveTab] = useState<'content' | 'ai' | 'preview'>('content');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
   const [availableKBs, setAvailableKBs] = useState<any[]>([]);
+  const { selectedTenant, flowApiKey } = useTenant();
+  let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+  
+  if (window.location.hostname === 'localhost') {
+    apiUrl = 'http://localhost:3014';
+  }
 
   useEffect(() => {
     const fetchKBs = async () => {
+      const role = localStorage.getItem('acuacore_role') || 'tenant';
       try {
-        const res = await axios.get((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/knowledge-base', {
+        const res = await axios.get(apiUrl + '/api/knowledge-base', {
           headers: {
             'x-tenant-id': selectedTenant?.id || '',
             'x-api-key': flowApiKey,
+            'x-user-role': role.toUpperCase(),
           }
         });
         setAvailableKBs(res.data);
@@ -47,15 +54,17 @@ export const CapsuleEditor: React.FC = () => {
       }
     };
     if (selectedTenant) fetchKBs();
-  }, [selectedTenant, flowApiKey]);
+  }, [selectedTenant, flowApiKey, apiUrl]);
 
   useEffect(() => {
     const fetchCapsule = async () => {
+      const role = localStorage.getItem('acuacore_role') || 'tenant';
       try {
-        const res = await axios.get(`http://localhost:3014/api/capsule-studio/capsules/${id}`, {
+        const res = await axios.get(`${apiUrl}/api/capsule-studio/capsules/${id}`, {
           headers: {
             'x-tenant-id': selectedTenant?.id || '',
             'x-api-key': flowApiKey,
+            'x-user-role': role.toUpperCase(),
           }
         });
         const data = res.data;
@@ -70,18 +79,24 @@ export const CapsuleEditor: React.FC = () => {
       }
     };
     if (id && selectedTenant) fetchCapsule();
-  }, [id, selectedTenant, flowApiKey]);
+  }, [id, selectedTenant, flowApiKey, apiUrl]);
 
-  const handleSave = async () => {
+  const handleSave = async (dataOverride?: any) => {
+    // Si dataOverride es un evento (viniendo de onClick), lo ignoramos
+    const actualData = (dataOverride && dataOverride.nativeEvent) ? null : dataOverride;
+    
     setSaving(true);
     try {
+      const dataToSave = actualData || capsule;
       // Sanitize data: remove relational fields that Prisma can't handle in update
-      const { agent, tenant, _count, id: _id, createdAt, updatedAt, ...updatableData } = capsule;
+      const { agent, tenant, _count, id: _id, createdAt, updatedAt, ...updatableData } = dataToSave;
       
-      await axios.patch(`http://localhost:3014/api/capsule-studio/capsules/${id}`, updatableData, {
+      const role = localStorage.getItem('acuacore_role') || 'tenant';
+      await axios.patch(`${apiUrl}/api/capsule-studio/capsules/${id}`, updatableData, {
         headers: {
           'x-tenant-id': selectedTenant?.id || '',
           'x-api-key': flowApiKey,
+          'x-user-role': role.toUpperCase(),
         }
       });
       // Force preview refresh
@@ -91,6 +106,62 @@ export const CapsuleEditor: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, targetField: string, isBlock = false, blockType = '') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const res = await axios.post(`${apiUrl}/api/uploads/image`, formData, {
+        headers: {
+          'x-tenant-id': selectedTenant?.id || '',
+          'x-api-key': flowApiKey,
+          'Content-Type': 'multipart/form-data',
+        }
+      });
+
+      const imageUrl = res.data.url;
+      let updatedCapsule = { ...capsule };
+
+      if (isBlock) {
+        const newBlocks = [...capsule.contentBlocks];
+        const bIdx = newBlocks.findIndex(b => b.type === blockType);
+        if (bIdx !== -1) {
+          newBlocks[bIdx] = { 
+            ...newBlocks[bIdx], 
+            data: { ...newBlocks[bIdx].data, [targetField]: imageUrl } 
+          };
+          updatedCapsule = { ...capsule, contentBlocks: newBlocks };
+        }
+      } else if (targetField.startsWith('promptConfig.')) {
+        const field = targetField.split('.')[1];
+        updatedCapsule = {
+          ...capsule,
+          promptConfig: { ...capsule.promptConfig, [field]: imageUrl }
+        };
+      } else {
+        updatedCapsule = { ...capsule, [targetField]: imageUrl };
+      }
+
+      setCapsule(updatedCapsule);
+
+      // Guardar inmediatamente con los datos frescos
+      await handleSave(updatedCapsule);
+
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      alert('Error al subir la imagen. Por favor intenta de nuevo.');
+    }
+  };
+
+  const resolveImageUrl = (path: string) => {
+    if (!path) return '';
+    if (path.startsWith('http')) return path;
+    return `${apiUrl}${path}`;
   };
 
   const updateSpec = (idx: number, field: string, value: string) => {
@@ -165,7 +236,7 @@ export const CapsuleEditor: React.FC = () => {
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-400">Título Principal (Headline)</label>
                     <textarea 
-                      value={capsule.title} 
+                      value={capsule.title || ''} 
                       onChange={(e) => setCapsule({...capsule, title: e.target.value})}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/10 min-h-[100px]"
                     />
@@ -173,10 +244,43 @@ export const CapsuleEditor: React.FC = () => {
                   <div className="space-y-1.5">
                     <label className="text-xs font-bold text-slate-400">Descripción Corta</label>
                     <textarea 
-                      value={capsule.description} 
+                      value={capsule.description || ''} 
                       onChange={(e) => setCapsule({...capsule, description: e.target.value})}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/10 min-h-[100px]"
                     />
+                  </div>
+                  
+                  {/* Hero Image Upload */}
+                  <div className="space-y-2 pt-2">
+                    <label className="text-xs font-bold text-slate-400">Imagen Hero (Portada)</label>
+                    <div className="relative group rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 aspect-video">
+                      {capsule.contentBlocks?.find((b: any) => b.type === 'hero')?.data?.image ? (
+                        <img 
+                          src={resolveImageUrl(capsule.contentBlocks?.find((b: any) => b.type === 'hero')?.data?.image)} 
+                          className="w-full h-full object-cover" 
+                          alt="Hero Preview"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                          <Zap size={24} />
+                          <span className="text-[10px] font-bold uppercase">Sin imagen de portada</span>
+                        </div>
+                      )}
+                      <label className="absolute inset-0 bg-[#001A41]/60 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-2 cursor-pointer">
+                        <Plus className="text-white" size={32} />
+                        <span className="text-white text-[10px] font-black uppercase tracking-widest">Cambiar Imagen</span>
+                        <input type="file" className="hidden" onChange={(e) => {
+                          const hIdx = capsule.contentBlocks?.findIndex((b: any) => b.type === 'hero');
+                          if (hIdx === -1) {
+                            const newBlocks = [...(capsule.contentBlocks || [])];
+                            newBlocks.unshift({ type: 'hero', data: { image: '' } });
+                            setCapsule({ ...capsule, contentBlocks: newBlocks });
+                          }
+                          handleImageUpload(e, 'image', true, 'hero');
+                        }} />
+                      </label>
+                    </div>
+                    <p className="text-[9px] text-slate-400 italic font-medium">Sugerido: Formato panorámico (16:9)</p>
                   </div>
                 </div>
               </div>
@@ -260,7 +364,7 @@ export const CapsuleEditor: React.FC = () => {
                                 <div className="space-y-1">
                                   <label className="text-[9px] font-bold text-slate-400 uppercase">Contenido Principal (Cuerpo)</label>
                                   <textarea 
-                                    value={block.data.differentiation} 
+                                    value={block.data.differentiation || ''} 
                                     onChange={(e) => updateDeepField('differentiation', e.target.value)}
                                     className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-[11px] font-medium text-slate-600 focus:outline-none min-h-[80px]"
                                     placeholder="Ej: Detección temprana de estresores..."
@@ -364,7 +468,7 @@ export const CapsuleEditor: React.FC = () => {
                           <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-slate-400 uppercase">Impacto en el Negocio (Cuerpo)</label>
                             <textarea 
-                              value={block.data.business_impact} 
+                              value={block.data.business_impact || ''} 
                               onChange={(e) => updateDeepField('business_impact', e.target.value)}
                               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium focus:outline-none min-h-[120px] premium-scrollbar"
                               placeholder="Usa [cols] y [/cols] para columnas..."
@@ -445,7 +549,7 @@ export const CapsuleEditor: React.FC = () => {
                         placeholder="Nombre de la especie/componente"
                       />
                       <textarea 
-                        value={item.details} 
+                        value={item.details || ''} 
                         onChange={(e) => updateSpec(idx, 'details', e.target.value)}
                         className="w-full bg-transparent text-xs text-slate-500 font-medium focus:outline-none min-h-[60px]"
                         placeholder="Detalles técnicos..."
@@ -499,6 +603,27 @@ export const CapsuleEditor: React.FC = () => {
                             className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/10 min-h-[100px]"
                             placeholder="Ej: ¡Hola! Soy Don Juan, experto en cultivo..."
                           />
+                        </div>
+
+                        {/* Agent Portrait Upload */}
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-slate-400">Retrato del Agente (Imagen)</label>
+                          <div className="flex gap-3">
+                            <div className="w-12 h-12 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
+                              <img 
+                                src={resolveImageUrl(capsule.promptConfig?.agentPortrait) || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100"} 
+                                alt="Preview" 
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                            <div className="flex-1 flex flex-col justify-center">
+                              <label className="inline-flex items-center gap-2 cursor-pointer bg-white border border-slate-200 px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:border-blue-400 transition-all">
+                                <Plus size={14} /> Seleccionar de mi PC
+                                <input type="file" className="hidden" onChange={(e) => handleImageUpload(e, 'promptConfig.agentPortrait')} />
+                              </label>
+                              <p className="text-[9px] text-slate-400 mt-1 font-medium italic">Recomendado: 400x400px (PNG o JPG)</p>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -5,6 +5,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getTenantId } from '../../common/tenant/tenant.middleware';
 import { DatabaseService } from '../../common/database/database.service';
 
+import { AI_AGENTS } from './prompts.config';
+
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
@@ -128,6 +130,72 @@ ADAPTACIÓN DE CANAL: Estás respondiendo a través de: ${channel.toUpperCase()}
     } catch (error) {
       this.logger.error(`[AiService] Error in analyzeVision: ${error.message}`);
       throw error;
+    }
+  }
+
+  async generateImage(prompt: string) {
+    this.logger.log(`[Nano Banana] Analyzing context for image generation: ${prompt}`);
+    
+    // Use Gemini to determine the best keywords for this image
+    const keywordsPrompt = `Based on this campaign description: "${prompt}", 
+    identify if the topic is primarily: "shrimp", "fish", "laboratory", "technology", or "general_aquaculture". 
+    Return ONLY the category name in lowercase.`;
+    
+    const category = (await this.generateRaw(keywordsPrompt)).toLowerCase().trim();
+    this.logger.log(`[Nano Banana] Category identified: ${category}`);
+
+    const imageMap: Record<string, string> = {
+      shrimp: "https://images.unsplash.com/photo-1559737558-2f5a35f4523b?auto=format&fit=crop&q=80&w=1200", // Shrimp farm
+      fish: "https://images.unsplash.com/photo-1524704685771-3080448aa751?auto=format&fit=crop&q=80&w=1200", // Fish farming
+      laboratory: "https://images.unsplash.com/photo-1576086213369-97a306dca665?auto=format&fit=crop&q=80&w=1200", // Lab/Science
+      technology: "https://images.unsplash.com/photo-1551288049-bebda4e38f71?auto=format&fit=crop&q=80&w=1200", // Tech/Data
+      general_aquaculture: "https://images.unsplash.com/photo-1615147342761-9238e15d8b96?auto=format&fit=crop&q=80&w=1200", // General pond
+    };
+
+    const imageUrl = imageMap[category] || imageMap.general_aquaculture;
+    return imageUrl;
+  }
+
+  async generateCampaignText(capsule: any, tone: string = 'professional') {
+    const tenantId = getTenantId();
+    let prompt = AI_AGENTS.EMAIL_MARKETING.generatePrompt(capsule, tone);
+
+    try {
+      // Intentar buscar un agente especializado en la DB para este tenant
+      const dbAgent = await this.db.mysql.agent.findFirst({
+        where: { 
+          tenantId: tenantId || undefined,
+          slug: 'email-marketing-strategist',
+          isActive: true
+        }
+      });
+
+      if (dbAgent) {
+        this.logger.log(`[AiService] Using specialized DB agent: ${dbAgent.name}`);
+        // Reemplazar variables en el prompt guardado
+        prompt = dbAgent.prompt
+          .replace('{{title}}', capsule.title)
+          .replace('{{description}}', capsule.description)
+          .replace('{{tone}}', tone)
+          .replace('{{contextBlocks}}', capsule.contentBlocks?.map((b: any) => `- ${b.title || b.type}: ${b.data?.text || ''}`).join('\n') || '');
+      }
+    } catch (err) {
+      this.logger.warn(`Failed to fetch specialized agent from DB, falling back to static config: ${err.message}`);
+    }
+
+    const result = await this.generateRaw(prompt);
+    try {
+      // Intentar extraer JSON si hay texto alrededor
+      const jsonMatch = result.match(/\{[\s\S]*\}/);
+      const cleanJson = jsonMatch ? jsonMatch[0] : result;
+      return JSON.parse(cleanJson);
+    } catch (e) {
+      this.logger.error(`Failed to parse AI campaign text: ${e.message}. Result: ${result}`);
+      return { 
+        subject: `[Estrategia] ${capsule.title}`, 
+        content: `Hola,\n\nTe envío esta nueva cápsula interactiva sobre "${capsule.title}".\n\n${capsule.description}`, 
+        cta: 'Explorar Cápsula' 
+      };
     }
   }
 

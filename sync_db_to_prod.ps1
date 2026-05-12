@@ -7,14 +7,18 @@ $SSH_KEY = "$env:USERPROFILE\.ssh\id_citaia"
 
 Write-Host "--- Iniciando Sincronización de Base de Datos (Vía Docker) ---" -ForegroundColor Yellow
 
-# 1. Exportar local usando DOCKER (más compatible)
-Write-Host "Step 1: Exportando base de datos desde el contenedor local 'luxury-mysql'..." -ForegroundColor Cyan
-& docker exec luxury-mysql-prod mysqldump -u root -pacuacore_pass --databases $DB_NAME > db_dump.sql
+# 1. Exportar local usando CMD (forzando UTF-8 para evitar problemas de "ñ" y acentos)
+Write-Host "Step 1: Exportando base de datos limpia con soporte para acentos..." -ForegroundColor Cyan
+cmd /c "chcp 65001 > nul && docker exec luxury-mysql mysqldump -u root -pacuacore_pass --databases $DB_NAME --hex-blob --skip-extended-insert > db_dump.sql"
 
 if ($LASTEXITCODE -ne 0) { 
-    Write-Host "❌ Error al exportar desde Docker." -ForegroundColor Red
-    Write-Host "Verifica que el contenedor 'luxury-mysql' esté encendido en Docker Desktop." -ForegroundColor Gray
-    exit 
+    Write-Host "Intentando con nombre alternativo 'luxury-mysql-prod'..." -ForegroundColor Gray
+    cmd /c "chcp 65001 > nul && docker exec luxury-mysql-prod mysqldump -u root -pacuacore_pass --databases $DB_NAME --hex-blob --skip-extended-insert > db_dump.sql"
+}
+
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "❌ Error definitivo al exportar." -ForegroundColor Red
+    exit
 }
 
 # 2. Subir al servidor
@@ -24,7 +28,7 @@ if ($LASTEXITCODE -ne 0) { Write-Host "❌ Error al subir archivo" -ForegroundCo
 
 # 3. Importar en el contenedor remoto
 Write-Host "Step 3: Importando en contenedor de producción (luxury-mysql-prod)..." -ForegroundColor Cyan
-ssh -i $SSH_KEY "root@${REMOTE_HOST}" "docker exec -i luxury-mysql-prod mysql -u root -pluxury_pass $DB_NAME < ~/db_dump.sql"
+ssh -i $SSH_KEY "root@${REMOTE_HOST}" "docker exec -i luxury-mysql-prod mysql --binary-mode=1 --default-character-set=utf8mb4 -u root -pluxury_pass $DB_NAME < ~/db_dump.sql"
 if ($LASTEXITCODE -ne 0) { Write-Host "❌ Error al importar en producción" -ForegroundColor Red; exit }
 
 # Limpieza

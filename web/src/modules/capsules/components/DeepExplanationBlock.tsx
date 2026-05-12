@@ -120,7 +120,7 @@ export const DeepExplanationBlock: React.FC<DeepExplanationProps> = ({ data }) =
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
-              className="p-12 bg-[#001A41] rounded-[3.5rem] text-white flex flex-col md:flex-row gap-10 items-center group relative overflow-hidden shadow-3xl shadow-blue-900/20"
+              className="p-6 md:p-12 bg-[#001A41] rounded-[2rem] md:rounded-[3.5rem] text-white flex flex-col md:flex-row gap-10 items-center group relative overflow-hidden shadow-3xl shadow-blue-900/20"
             >
               <div className="absolute top-0 right-0 w-96 h-96 bg-blue-400 blur-[120px] opacity-20 -mr-48 -mt-48" />
               <div className="absolute bottom-0 left-0 w-64 h-64 bg-blue-600 blur-[100px] opacity-10 -ml-32 -mb-32" />
@@ -159,7 +159,7 @@ export const DeepExplanationBlock: React.FC<DeepExplanationProps> = ({ data }) =
               <div className="inline-flex items-center gap-2.5 px-4 py-1.5 bg-blue-50 text-blue-700 rounded-full text-[11px] font-black uppercase tracking-widest border border-blue-100/50 shadow-sm">
                 <Beaker size={14} className="animate-pulse" /> Protocolo de Alta Precisión
               </div>
-              <h2 className="text-5xl font-black text-[#001A41] leading-[1.1] tracking-tight">
+              <h2 className="text-4xl md:text-5xl font-black text-[#001A41] leading-[1.1] tracking-tight">
                 {data.title || "Ciencia aplicada a la rentabilidad acuícola"}
               </h2>
               <p className="text-xl font-semibold text-blue-600/90 leading-relaxed max-w-md">
@@ -256,7 +256,7 @@ export const DeepExplanationBlock: React.FC<DeepExplanationProps> = ({ data }) =
             initial={{ opacity: 0, y: 50 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="relative overflow-hidden p-16 md:p-24 bg-gradient-to-br from-[#001A41] to-[#002868] rounded-[4rem] text-white shadow-3xl shadow-blue-900/40"
+            className="relative overflow-hidden p-8 md:p-24 bg-gradient-to-br from-[#001A41] to-[#002868] rounded-[2rem] md:rounded-[4rem] text-white shadow-3xl shadow-blue-900/40"
           >
             <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-blue-400 blur-[150px] opacity-20 -mr-72 -mt-72" />
             <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-blue-600 blur-[150px] opacity-10" />
@@ -286,7 +286,7 @@ export const DeepExplanationBlock: React.FC<DeepExplanationProps> = ({ data }) =
                     </div>
                   </div>
 
-                  <h3 className="text-5xl md:text-[5rem] font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-blue-200/40 leading-[1.1] tracking-tight w-full">
+                  <h3 className="text-3xl md:text-[5rem] font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-white to-blue-200/40 leading-[1.1] tracking-tight w-full">
                     {data.title ? `Impacto de ${data.title}` : "Transformando variables biológicas en rentabilidad neta"}
                   </h3>
                 </div>
@@ -341,8 +341,8 @@ export const DeepExplanationBlock: React.FC<DeepExplanationProps> = ({ data }) =
             </div>
 
             {/* Strategic Pillars Grid - Bottom Row */}
-            <div className="mt-24 pt-16 border-t border-white/10 relative">
-              <div className="grid md:grid-cols-4 gap-12">
+            <div className="mt-16 md:mt-24 pt-16 border-t border-white/10 relative">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-12">
                 {(data.strategic_impacts || [
                   { title: "Optimización del FCA", description: "Mejora en la conversión alimenticia y reducción de desperdicio por kilo producido." },
                   { title: "Aceleración de Ciclos", description: "Crecimiento uniforme y aprovechamiento metabólico para cosechas más rápidas." },

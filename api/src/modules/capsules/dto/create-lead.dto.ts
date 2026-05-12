@@ -21,6 +21,10 @@ export class CreateLeadDto {
   @IsOptional()
   conversationId?: string;
 
+  @IsString()
+  @IsOptional()
+  campaignId?: string;
+
   @IsObject()
   @IsOptional()
   metadata?: any;

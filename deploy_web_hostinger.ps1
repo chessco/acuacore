@@ -19,35 +19,17 @@ try {
     npm run build
     Set-Location ..
 
-    # 2. Empaquetar la carpeta dist
-    Write-Host "Step 2: Empaquetando carpeta dist..." -ForegroundColor Yellow
-    $ARCHIVE = "acuacore_web_deploy.tar.gz"
-    if (Test-Path $ARCHIVE) { Remove-Item $ARCHIVE }
+    # 3. Subir y Extraer en un solo paso (¡UNA SOLA CONTRASEÑA!)
+    Write-Host "Step 3: Subiendo y extrayendo en Hostinger..." -ForegroundColor Yellow
+    $TAR_CMD = "tar -czf - -C web/dist ."
+    $SSH_CMD = "ssh -p $SSH_PORT -i $SSH_KEY -o StrictHostKeyChecking=no ${SSH_USER}@${SSH_HOST} ""mkdir -p ${REMOTE_PATH} && cd ${REMOTE_PATH} && tar -xz -f -"""
     
-    Set-Location web/dist
-    tar -czf ../../$ARCHIVE .
-    Set-Location ../..
-
-    # 3. Preparar directorio remoto (¡IMPORTANTE: esto debe ir antes de scp!)
-    Write-Host "Step 3: Asegurando directorio remoto en Hostinger..." -ForegroundColor Yellow
-    ssh -p $SSH_PORT -i $SSH_KEY -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "mkdir -p ${REMOTE_PATH}"
-
-    # 4. Subir a Hostinger
-    Write-Host "Step 4: Subiendo a Hostinger ($SSH_HOST)..." -ForegroundColor Yellow
-    scp -P $SSH_PORT -i $SSH_KEY -o StrictHostKeyChecking=no $ARCHIVE "${SSH_USER}@${SSH_HOST}:${REMOTE_PATH}/"
-
-    # 5. Extraer en el servidor
-    Write-Host "Step 5: Extrayendo archivos..." -ForegroundColor Yellow
-    ssh -p $SSH_PORT -i $SSH_KEY -o StrictHostKeyChecking=no "${SSH_USER}@${SSH_HOST}" "cd ${REMOTE_PATH} && tar -xzf ${ARCHIVE} && rm ${ARCHIVE}"
+    # Ejecutar el pipeline usando cmd para máxima fidelidad de binarios
+    cmd /c "$TAR_CMD | $SSH_CMD"
 
     Write-Host "--- DESPLIEGUE WEB COMPLETADO CON ÉXITO ---" -ForegroundColor Green
-    Write-Host "NOTA: Si recibes NXDOMAIN, asegúrate de crear el subdominio 'acuacore' en el panel de Hostinger." -ForegroundColor Yellow
     Write-Host "URL: https://acuacore.pitayacode.io" -ForegroundColor Cyan
 }
 catch {
     Write-Host "Error durante el despliegue: $($_.Exception.Message)" -ForegroundColor Red
-    Write-Host "Sugerencia: Verifica que el subdominio exista en Hostinger y que la ruta sea correcta." -ForegroundColor Gray
-}
-finally {
-    if (Test-Path $ARCHIVE) { Remove-Item $ARCHIVE }
 }

@@ -1,38 +1,109 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Search, Filter, MoreVertical, LayoutGrid, List as ListIcon, ExternalLink, BarChart3, Mail, Users, Settings } from 'lucide-react';
+import { Plus, Search, Filter, MoreVertical, LayoutGrid, List as ListIcon, ExternalLink, BarChart3, Mail, Users, Settings, Trash2 } from 'lucide-react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useTenant } from '../../../contexts/TenantContext';
 
 export const CapsuleList: React.FC = () => {
-  const [capsules, setCapsules] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const { selectedTenant, flowApiKey } = useTenant();
+  const [capsules, setCapsules] = useState<any[]>([]);
+  const [agents, setAgents] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState('');
+  const [creating, setCreating] = useState(false);
+  const navigate = useNavigate();
+
+  let apiUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3014`;
+
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    apiUrl = `http://${window.location.hostname}:3014`;
+  }
 
   useEffect(() => {
-    const fetchCapsules = async () => {
-      try {
-        const res = await axios.get((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/capsule-studio/capsules', {
+    fetchData();
+  }, [selectedTenant]);
+
+  const fetchData = async () => {
+    if (!selectedTenant) return;
+    const token = localStorage.getItem('token');
+    const role = localStorage.getItem('acuacore_role') || 'ADMIN';
+
+    console.log('STUDIO FETCH:', { tenantId: selectedTenant.id, role });
+
+    try {
+      setLoading(true);
+      const [capsRes, agentsRes] = await Promise.all([
+        axios.get(apiUrl + '/api/capsule-studio/capsules', {
           headers: {
-            'x-tenant-id': selectedTenant?.id || '',
+            'Authorization': `Bearer ${token}`,
+            'x-tenant-id': selectedTenant.id,
+            'x-user-role': role.toUpperCase(),
             'x-api-key': flowApiKey,
           }
-        });
-        setCapsules(res.data);
-      } catch (err) {
-        console.error('Error fetching capsules:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (selectedTenant) fetchCapsules();
-  }, [selectedTenant, flowApiKey]);
+        }),
+        axios.get(apiUrl + '/api/agents', {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'x-tenant-id': selectedTenant.id,
+            'x-user-role': role.toUpperCase(),
+            'x-api-key': flowApiKey,
+          }
+        })
+      ]);
+      console.log('STUDIO DATA RECEIVED:', { capsules: capsRes.data, agents: agentsRes.data });
+      setCapsules(capsRes.data);
+      setAgents(agentsRes.data);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!newTitle.trim() || !selectedTenant) return;
+    
+    // Necesitamos al menos un agente para crear la cápsula
+    if (agents.length === 0) {
+      alert('Debes crear al menos un Agente de IA antes de crear una cápsula.');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const token = localStorage.getItem('token');
+      const role = localStorage.getItem('acuacore_role') || 'ADMIN';
+
+      const res = await axios.post(apiUrl + '/api/capsule-studio/capsules', {
+        title: newTitle,
+        topic: 'General',
+        slug: newTitle.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') + '-' + Math.random().toString(36).substring(2, 7),
+        agentId: agents[0].id, // Usamos el primer agente disponible
+        contentBlocks: [],
+        promptConfig: { agentName: newTitle, agentGreeting: '¡Hola! Soy un experto de AcuaCore.', extraInstructions: '' },
+        ctaConfig: { text: 'Contactar Experto', link: '#' }
+      }, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': selectedTenant?.id || '',
+          'x-user-role': role.toUpperCase(),
+          'x-api-key': flowApiKey,
+        }
+      });
+      navigate(`/app/capsules/edit/${res.data.id}`);
+    } catch (err) {
+      console.error('Error creating capsule:', err);
+    } finally {
+      setCreating(false);
+    }
+  };
 
   const toggleStatus = async (capsule: any) => {
     const newStatus = capsule.status.toUpperCase() === 'PUBLISHED' ? 'DRAFT' : 'PUBLISHED';
     try {
-      await axios.patch(`http://localhost:3014/api/capsule-studio/capsules/${capsule.id}/status`, 
+      await axios.patch(`${apiUrl}/api/capsule-studio/capsules/${capsule.id}/status`, 
         { status: newStatus },
         {
           headers: {
@@ -47,14 +118,77 @@ export const CapsuleList: React.FC = () => {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('¿Estás seguro de que deseas eliminar esta cápsula? Esta acción no se puede deshacer.')) return;
+    try {
+      await axios.delete(`${apiUrl}/api/capsule-studio/capsules/${id}`, {
+        headers: {
+          'x-tenant-id': selectedTenant?.id || '',
+          'x-api-key': flowApiKey,
+        }
+      });
+      setCapsules(prev => prev.filter(c => c.id !== id));
+    } catch (err: any) {
+      console.error('Error deleting capsule:', err);
+      alert(err.response?.data?.message || 'Error al eliminar la cápsula. Verifica si tiene campañas enviadas.');
+    }
+  };
+
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-8 space-y-8 relative">
+      {/* Modal de Creación */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-[#001A41]/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 space-y-6"
+          >
+            <div className="space-y-2">
+              <h2 className="text-2xl font-black text-[#001A41]">Nueva Cápsula</h2>
+              <p className="text-slate-500 font-medium text-sm">Define el nombre de tu nuevo motor de conversión.</p>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-400 uppercase">Nombre de la Cápsula</label>
+                <input 
+                  autoFocus
+                  type="text" 
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  placeholder="Ej: Optimización de Microalgas"
+                  className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold focus:outline-none focus:ring-4 focus:ring-blue-500/10 transition-all"
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setIsModalOpen(false)}
+                  className="flex-1 px-6 py-4 rounded-2xl font-bold text-slate-400 hover:bg-slate-50 transition-all"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  onClick={handleCreate}
+                  disabled={creating || !newTitle.trim()}
+                  className="flex-1 bg-blue-600 text-white px-6 py-4 rounded-2xl font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 disabled:opacity-50 transition-all"
+                >
+                  {creating ? 'Creando...' : 'Comenzar'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
       <div className="flex justify-between items-end">
         <div className="space-y-2">
           <h1 className="text-3xl font-black text-[#001A41]">Capsule Studio</h1>
           <p className="text-slate-500 font-medium">Gestiona tus motores de conversión y campañas de IA.</p>
         </div>
-        <button className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200">
+        <button 
+          onClick={() => setIsModalOpen(true)}
+          className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+        >
           <Plus size={20} /> Crear Nueva Cápsula
         </button>
       </div>
@@ -74,7 +208,9 @@ export const CapsuleList: React.FC = () => {
             <Users size={24} />
           </div>
           <div>
-            <div className="text-2xl font-black text-[#001A41]">124</div>
+            <div className="text-2xl font-black text-[#001A41]">
+              {capsules.reduce((acc, c) => acc + (c._count?.leads || 0), 0)}
+            </div>
             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Leads Generados</div>
           </div>
         </div>
@@ -83,7 +219,9 @@ export const CapsuleList: React.FC = () => {
             <BarChart3 size={24} />
           </div>
           <div>
-            <div className="text-2xl font-black text-[#001A41]">8.4%</div>
+            <div className="text-2xl font-black text-[#001A41]">
+              {capsules.length > 0 ? (capsules.reduce((acc, c) => acc + (c._count?.leads || 0), 0) / (capsules.length * 10)).toFixed(1) : 0}%
+            </div>
             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Tasa de Conversión</div>
           </div>
         </div>
@@ -166,9 +304,14 @@ export const CapsuleList: React.FC = () => {
                   >
                     <ExternalLink size={20} />
                   </Link>
-                  <button className="p-2.5 text-slate-500 hover:text-blue-600 hover:bg-white rounded-xl border border-transparent hover:border-slate-200 transition-all">
-                    <MoreVertical size={20} />
-                  </button>
+                  {capsule.status.toUpperCase() !== 'PUBLISHED' && (
+                    <button 
+                      onClick={() => handleDelete(capsule.id)}
+                      className="p-2.5 text-slate-500 hover:text-red-600 hover:bg-white rounded-xl border border-transparent hover:border-slate-200 transition-all"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  )}
                 </div>
               </div>
             ))

@@ -32,8 +32,12 @@ export function HITL() {
 
   const fetchPending = async () => {
     setLoading(true)
+    let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+    if (window.location.hostname === 'localhost') apiUrl = 'http://localhost:3014';
+    else if (!import.meta.env.VITE_API_URL) apiUrl = window.location.origin.replace(':3000', ':3014');
+
     try {
-      const response = await axios.get((import.meta.env.VITE_API_URL || 'http://localhost:3014') + '/api/hitl/pending', {
+      const response = await axios.get(`${apiUrl}/api/hitl/pending`, {
         headers: { 
           'x-tenant-id': selectedTenant?.id || 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718',
           'x-api-key': flowApiKey
@@ -53,8 +57,12 @@ export function HITL() {
 
   const handleApprove = async () => {
     if (!selectedAction) return;
+    let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+    if (window.location.hostname === 'localhost') apiUrl = 'http://localhost:3014';
+    else if (!import.meta.env.VITE_API_URL) apiUrl = window.location.origin.replace(':3000', ':3014');
+
     try {
-      await axios.put(`http://localhost:3014/api/hitl/${selectedAction.id}/approve`, {
+      await axios.put(`${apiUrl}/api/hitl/${selectedAction.id}/approve`, {
         reviewerId: 'admin-user', // Mock admin user
         editedContent: editedContent !== selectedAction.message.content ? editedContent : undefined
       }, {
@@ -72,8 +80,12 @@ export function HITL() {
   }
   const handleReject = async () => {
     if (!selectedAction) return;
+    let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+    if (window.location.hostname === 'localhost') apiUrl = 'http://localhost:3014';
+    else if (!import.meta.env.VITE_API_URL) apiUrl = window.location.origin.replace(':3000', ':3014');
+
     try {
-      await axios.put(`http://localhost:3014/api/hitl/${selectedAction.id}/reject`, {
+      await axios.put(`${apiUrl}/api/hitl/${selectedAction.id}/reject`, {
         reviewerId: 'admin-user'
       }, {
         headers: { 

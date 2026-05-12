@@ -30,11 +30,12 @@ export class AgentsService {
   }
 
   async findAll(tenantId: string) {
-    return this.db.mysql.agent.findMany({
-      where: {
-        OR: [{ tenantId }, { tenantId: 'GLOBAL' }]
-      }
-    });
+    const isGlobal = tenantId === 'global' || tenantId === 'all';
+    const where = isGlobal ? {} : {
+      OR: [{ tenantId }, { tenantId: 'GLOBAL' }]
+    };
+    
+    return this.db.mysql.agent.findMany({ where });
   }
 
   async update(id: string, data: Partial<{ name: string; prompt: string; description: string; config: any }>) {

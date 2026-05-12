@@ -11,7 +11,7 @@ try {
     Write-Host "Step 1: Empaquetando y subiendo código y configuración..." -ForegroundColor Yellow
     
     # Comprimir api y archivos de compose (excluyendo node_modules y dist)
-    tar --exclude="node_modules" --exclude="dist" -czf deploy_acuacore_api.tar.gz api docker-compose.prod.yml
+    tar --exclude="node_modules" --exclude="dist" --exclude="api/public/uploads" -czf deploy_acuacore_api.tar.gz api docker-compose.prod.yml
     
     scp -i $SSH_KEY -o StrictHostKeyChecking=no deploy_acuacore_api.tar.gz root@${SERVER_IP}:/opt/pitaya/acuacore/
 
@@ -29,11 +29,19 @@ try {
         tar -xzf deploy_acuacore_api.tar.gz
         rm deploy_acuacore_api.tar.gz
         
+        echo 'Configurando entorno de producción...'
+        cp api/.env.prod api/.env
+        
         echo 'Reconstruyendo contenedores...'
         docker compose -f docker-compose.prod.yml up -d --build
         
         echo 'Esperando inicialización (5s)...'
         sleep 5
+        
+        echo 'Ejecutando migraciones y scripts de sistema...'
+        docker exec acua-core-api npx prisma db push --schema=prisma/mysql.prisma
+        sleep 2
+        docker exec acua-core-api node create-system-user.js
         
         echo 'Estado final del contenedor:'
         docker ps --filter name=acua-core-api

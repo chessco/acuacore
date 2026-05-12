@@ -5,10 +5,11 @@ import axios from 'axios';
 
 interface LeadFormProps {
   capsuleId: string;
+  campaignId?: string | null;
   onSuccess: () => void;
 }
 
-export const LeadForm: React.FC<LeadFormProps> = ({ capsuleId, onSuccess }) => {
+export const LeadForm: React.FC<LeadFormProps> = ({ capsuleId, campaignId, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -27,6 +28,7 @@ export const LeadForm: React.FC<LeadFormProps> = ({ capsuleId, onSuccess }) => {
       await axios.post('/api/capsules/leads', {
         ...formData,
         capsuleId,
+        campaignId,
         userId,
       });
       onSuccess();

@@ -11,9 +11,12 @@ import { CapsuleStudioLayout } from './modules/capsules/Studio/CapsuleStudioLayo
 import { CapsuleList } from './modules/capsules/Studio/CapsuleList'
 import { CampaignManager } from './modules/capsules/Studio/CampaignManager'
 import { CapsuleEditor } from './modules/capsules/Studio/CapsuleEditor'
+import { LeadManager } from './modules/capsules/Studio/LeadManager'
+import { CapsuleAnalytics } from './modules/capsules/Studio/CapsuleAnalytics'
+import { AgentsManager } from './modules/agents/AgentsManager'
 
 function AppContent() {
-  const { selectedTenant, tenantLanguages } = useTenant();
+  const { selectedTenant, setSelectedTenant, tenantLanguages, role, setRole, setPermissions } = useTenant();
   const { i18n } = useTranslation();
 
   useEffect(() => {
@@ -26,21 +29,29 @@ function AppContent() {
     return localStorage.getItem('acuacore_auth') === 'true';
   });
   
-  const [role, setRole] = useState<'system' | 'tenant' | 'operator'>(() => {
-    return (localStorage.getItem('acuacore_role') as any) || 'tenant';
-  });
-  
+  const handleLogin = (user: any) => {
+    let userRole: 'system' | 'admin' | 'tenant' | 'operator' = 'tenant';
+    
+    // Map backend roles to frontend role buckets
+    if (user.role === 'SYSTEM') userRole = 'system';
+    else if (user.role === 'ADMIN') userRole = 'admin';
+    else if (user.role === 'OPERATOR') userRole = 'operator';
+    else userRole = 'tenant'; 
 
-  const handleLogin = (email: string) => {
-    let userRole: 'system' | 'tenant' | 'operator' = 'tenant';
-    if (email.includes('system')) userRole = 'system';
-    if (email.includes('operador')) userRole = 'operator';
+    // Set selected tenant from user profile
+    if (user.tenantId) {
+      setSelectedTenant({
+        id: user.tenantId,
+        name: user.tenantName || 'Inquilino',
+        plan: 'FREE' // Default plan if not provided
+      });
+    }
 
     setIsAuthenticated(true);
     setRole(userRole);
+    setPermissions(user.permissions);
     localStorage.setItem('acuacore_auth', 'true');
-    localStorage.setItem('acuacore_role', userRole);
-    localStorage.setItem('acuacore_user_email', email);
+    localStorage.setItem('acuacore_user_email', user.email);
   };
 
 
@@ -57,7 +68,9 @@ function AppContent() {
           !isAuthenticated ? (
             <Login onLogin={handleLogin} />
           ) : (
-            role === 'system' ? <SystemDashboard /> : <OperationalDashboard />
+            (role === 'system' && (!selectedTenant || selectedTenant.id === 'global')) 
+              ? <SystemDashboard /> 
+              : <OperationalDashboard />
           )
         } 
       />
@@ -66,8 +79,9 @@ function AppContent() {
       <Route path="/app/capsules" element={isAuthenticated ? <CapsuleStudioLayout /> : <Navigate to="/" />}>
         <Route index element={<CapsuleList />} />
         <Route path="campaigns" element={<CampaignManager />} />
-        <Route path="leads" element={<div className="p-8 text-slate-500 font-medium">Lead Management (Coming Soon)</div>} />
-        <Route path="analytics" element={<div className="p-8 text-slate-500 font-medium">Analytics Dashboard (Coming Soon)</div>} />
+        <Route path="leads" element={<LeadManager />} />
+        <Route path="analytics" element={<CapsuleAnalytics />} />
+        <Route path="agents" element={<AgentsManager />} />
       </Route>
 
       <Route path="/app/capsules/edit/:id" element={isAuthenticated ? <CapsuleEditor /> : <Navigate to="/" />} />

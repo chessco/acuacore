@@ -16,8 +16,14 @@ export class FeatureFlagGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const tenantId = request.user?.tenantId;
+    const user = request.user;
+    
+    // Bypass for ADMIN and SYSTEM
+    if (user?.role === 'SYSTEM' || user?.role === 'ADMIN') {
+      return true;
+    }
 
+    const tenantId = user?.tenantId;
     if (!tenantId) {
       throw new ForbiddenException('Tenant context missing');
     }

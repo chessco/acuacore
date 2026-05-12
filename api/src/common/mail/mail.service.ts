@@ -54,7 +54,7 @@ export class MailService {
         : this.configService.get('SMTP_USER');
 
       const info = await this.transporter.sendMail({
-        from: `"AcuaCore Studio" <${fromEmail}>`,
+        from: `"Acuaequipos Capsulas Acuicolas" <${fromEmail}>`,
         to,
         subject,
         html: content,

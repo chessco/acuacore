@@ -1,3 +1,4 @@
+import { BrandingSettings } from '../../modules/settings/BrandingSettings'
 import { 
   LayoutDashboard, 
   MessageSquare, 
@@ -21,7 +22,9 @@ import {
   Key,
   Loader2,
   Zap,
-  MessageSquareQuote
+  MessageSquareQuote,
+  Menu,
+  X
 } from 'lucide-react'
 import { 
   CartesianGrid, 
@@ -33,22 +36,11 @@ import {
   YAxis
 } from 'recharts'
 import { useState, useRef, useEffect } from 'react'
-import { Inbox } from './Inbox'
-import { SystemStatus } from './SystemStatus'
-import { KnowledgeBase } from './KnowledgeBase'
-import { UserManager } from './UserManager'
-import { Analytics } from './Analytics'
-import { HITL } from './HITL'
-import { SkillsManager } from './SkillsManager'
-import { AgentsManager } from './AgentsManager'
-import { TenantManager } from './TenantManager'
-import { useTenant } from '../../contexts/TenantContext'
-import { PredictiveHub } from './PredictiveHub'
-import { ProtocolArchitecture } from './ProtocolArchitecture'
-import { VisionLab } from './VisionLab'
-import { CorrectionsManager } from './CorrectionsManager'
 import { motion, AnimatePresence } from 'motion/react'
 import { useTranslation } from 'react-i18next'
+import { useTenant } from '../../contexts/TenantContext'
+import { AVAILABLE_MODULES } from '../../modules/modules.config'
+import { SystemStatus } from '../../modules/settings/SystemStatus'
 
 const chartData = [
   { name: 'Mon', automation: 65, hitl: 12 },
@@ -65,6 +57,8 @@ export function OperationalDashboard() {
     const role = localStorage.getItem('acuacore_role');
     return role === 'operator' ? 'conversations' : 'dashboard';
   })
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const { 
     selectedTenant, 
     setSelectedTenant, 
@@ -77,9 +71,15 @@ export function OperationalDashboard() {
     setFlowApiKey,
     role,
     tenantLanguages,
-    setTenantLanguage
+    setTenantLanguage,
+    permissions
   } = useTenant()
   const { t, i18n } = useTranslation()
+
+  const hasMenu = (menuId: string) => {
+    if (role === 'system') return true;
+    return permissions?.menus?.includes(menuId);
+  };
 
   const userJson = localStorage.getItem('user')
   const user = userJson ? JSON.parse(userJson) : { name: 'Usuario', role: 'Operador', email: '' }
@@ -95,6 +95,19 @@ export function OperationalDashboard() {
   const [stats, setStats] = useState<any>(null)
   const [dashboardChartData, setDashboardChartData] = useState<any[]>([])
   const [loadingStats, setLoadingStats] = useState(true)
+  const [showQuickAction, setShowQuickAction] = useState(false)
+
+  const handleQuickAction = () => {
+    // Aquí podemos definir acciones específicas por pestaña
+    if (activeTab === 'corrections' || activeTab === 'hitl') {
+      setShowQuickAction(true);
+    } else if (activeTab === 'agents') {
+      // setActiveTab('agents'); // Por si quisiéramos forzar algo
+      setShowQuickAction(true);
+    } else {
+      setShowQuickAction(true); // Modal genérico por ahora
+    }
+  }
 
   useEffect(() => {
     if (activeTab === 'dashboard') {
@@ -105,21 +118,45 @@ export function OperationalDashboard() {
   const fetchDashboardStats = async () => {
     setLoadingStats(true)
     try {
-      const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.VITE_API_URL || 'http://localhost:3014') + '';
-      const response = await axios.get(`${apiUrl}/api/analytics/dashboard`, {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+      const isGlobal = selectedTenant?.id === 'global';
+      
+      const endpoint = isGlobal 
+        ? `${apiUrl}/api/tenants/analytics/global` 
+        : `${apiUrl}/api/analytics/dashboard`;
+
+      const response = await axios.get(endpoint, {
         headers: { 
-          'x-tenant-id': selectedTenant?.id || '',
+          'x-tenant-id': isGlobal ? '' : (selectedTenant?.id || ''),
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'x-api-key': flowApiKey,
           'x-operator-email': userEmail || '',
           'x-user-role': user.role || ''
         }
       })
-      setStats({
-        ...response.data.stats,
-        alerts: response.data.alerts,
-        activity: response.data.activity
-      })
-      setDashboardChartData(response.data.chartData)
+
+      if (isGlobal) {
+        setStats({
+          automationRate: '98.5%', // Mocked for global
+          activeConversations: response.data.stats.leads,
+          pendingReviews: 0,
+          tenantUsage: `${response.data.stats.tenants} Activos`,
+          global: response.data.stats,
+          topTenants: response.data.topTenants
+        })
+        setDashboardChartData([
+          { name: 'Tenants', automation: response.data.stats.tenants, hitl: 0 },
+          { name: 'Capsules', automation: response.data.stats.capsules, hitl: 0 },
+          { name: 'Leads', automation: response.data.stats.leads, hitl: 0 },
+        ])
+      } else {
+        setStats({
+          ...response.data.stats,
+          alerts: response.data.alerts,
+          activity: response.data.activity
+        })
+        setDashboardChartData(response.data.chartData)
+      }
     } catch (err) {
       console.error('Error fetching dashboard stats:', err)
     } finally {
@@ -128,113 +165,148 @@ export function OperationalDashboard() {
   }
 
   return (
-    <div className="flex h-screen bg-surface text-text-main overflow-hidden font-sans">
+    <div className="flex h-screen bg-surface text-text-main overflow-hidden font-sans relative">
+      {/* Mobile Overlay */}
+      <AnimatePresence>
+        {isSidebarOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsSidebarOpen(false)}
+            className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-40 lg:hidden"
+          />
+        )}
+      </AnimatePresence>
+
       {/* Sidebar - Light Design */}
-      <aside className="w-64 bg-white border-r border-border flex flex-col">
-        <div className="p-6 mb-4">
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 bg-white border-r border-border flex flex-col transition-all duration-300 ease-in-out
+        lg:translate-x-0 lg:static lg:inset-auto
+        ${isSidebarCollapsed ? 'w-20' : 'w-64'}
+        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+      `}>
+        <div className={`p-6 mb-4 flex items-center ${isSidebarCollapsed ? 'justify-center' : 'justify-between'}`}>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-brand-blue rounded-full flex items-center justify-center shadow-lg shadow-brand-blue/30 text-white">
-              <Fish size={24} />
+            <div className="w-10 h-10 bg-brand-blue rounded-full flex items-center justify-center shadow-lg shadow-brand-blue/30 text-white shrink-0" style={selectedTenant?.brandingConfig?.primaryColor ? { backgroundColor: selectedTenant.brandingConfig.primaryColor } : {}}>
+              {selectedTenant?.brandingConfig?.logoUrl ? (
+                <img src={selectedTenant.brandingConfig.logoUrl} alt="logo" className="w-6 h-6 object-contain" />
+              ) : (
+                <Fish size={24} />
+              )}
             </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight font-display text-brand-deep">AcuaCore AI</h1>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Operaciones</p>
-            </div>
+            {!isSidebarCollapsed && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <h1 className="text-lg font-bold tracking-tight font-display text-brand-deep">
+                  {selectedTenant?.brandingConfig?.brandName || 'AcuaCore AI'}
+                </h1>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Operaciones</p>
+              </motion.div>
+            )}
           </div>
+          
+          <button 
+            onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            className="hidden lg:flex absolute -right-3 top-20 w-6 h-6 bg-white border border-border rounded-full items-center justify-center text-slate-400 hover:text-brand-blue shadow-sm z-50 transition-transform"
+            style={{ transform: isSidebarCollapsed ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          >
+            <Menu size={12} />
+          </button>
+
+          <button 
+            onClick={() => setIsSidebarOpen(false)}
+            className="lg:hidden p-2 text-slate-400 hover:bg-slate-50 rounded-lg"
+          >
+            <X size={20} />
+          </button>
         </div>
 
-        <nav className="flex-1 px-4 space-y-1 overflow-y-auto custom-scrollbar">
-          <NavItem 
-            icon={<LayoutDashboard size={20} />} 
-            label="Panel Control" 
-            active={activeTab === 'dashboard'} 
-            onClick={() => setActiveTab('dashboard')}
-          />
-          <NavItem 
-            icon={<MessageSquare size={20} />} 
-            label="Bandeja" 
-            active={activeTab === 'conversations'} 
-            onClick={() => setActiveTab('conversations')}
-          />
-          <NavItem 
-            icon={<Users size={20} />} 
-            label="Usuarios" 
-            active={activeTab === 'users'} 
-            onClick={() => setActiveTab('users')}
-          />
-          {role !== 'operator' && (
-            <>
-              <NavItem 
-                icon={<ShieldCheck size={20} />} 
-                label="HITL" 
-                active={activeTab === 'hitl'} 
-                onClick={() => setActiveTab('hitl')}
-              />
-              <NavItem 
-                icon={<MessageSquareQuote size={20} />} 
-                label="Correcciones" 
-                active={activeTab === 'corrections'} 
-                onClick={() => setActiveTab('corrections')}
-              />
-              <NavItem 
-                icon={<Database size={20} />} 
-                label="Conocimiento" 
-                active={activeTab === 'kb'} 
-                onClick={() => setActiveTab('kb')}
-              />
-              <a 
-                href="/app/capsules"
-                className="w-full flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200 text-slate-500 hover:bg-slate-50 hover:text-slate-700"
-              >
-                <div className="text-slate-400">
-                  <Zap size={20} />
-                </div>
-                <span className="text-sm">Cápsulas</span>
-              </a>
-              <NavItem 
-                icon={<Sparkles size={20} />} 
-                label={t('agents')} 
-                active={activeTab === 'agents'} 
-                onClick={() => setActiveTab('agents')} 
-              />
-              <NavItem 
-                icon={<Zap size={20} />} 
-                label={t('skills')} 
-                active={activeTab === 'skills'} 
-                onClick={() => setActiveTab('skills')} 
-              />
-              <NavItem 
-                icon={<TrendingUp size={20} />} 
-                label="Hub Predictivo" 
-                active={activeTab === 'predictive'} 
-                onClick={() => setActiveTab('predictive')}
-              />
-              <NavItem 
-                icon={<FileText size={20} />} 
-                label="Arq. Protocolos" 
-                active={activeTab === 'protocols'} 
-                onClick={() => setActiveTab('protocols')}
-              />
-              <NavItem 
-                icon={<Eye size={20} />} 
-                label="Lab Visión" 
-                active={activeTab === 'vision'} 
-                onClick={() => setActiveTab('vision')}
-              />
-              <NavItem 
-                icon={<BarChart3 size={20} />} 
-                label="Analíticas" 
-                active={activeTab === 'analytics'} 
-                onClick={() => setActiveTab('analytics')}
-              />
-            </>
+        <nav className="flex-1 px-4 space-y-4 overflow-y-auto custom-scrollbar pt-4">
+          {/* Categoría: Operativo */}
+          <div>
+            {!isSidebarCollapsed && <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-2">Operaciones</p>}
+            <div className="space-y-1">
+              {AVAILABLE_MODULES.filter(m => m.category === 'operativo' && hasMenu(m.id)).map(module => (
+                <NavItem 
+                  key={module.id}
+                  icon={<module.icon size={20} />} 
+                  label={module.label} 
+                  active={activeTab === module.id} 
+                  collapsed={isSidebarCollapsed}
+                  onClick={() => {
+                    setActiveTab(module.id);
+                    setIsSidebarOpen(false);
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Categoría: Gestión */}
+          {AVAILABLE_MODULES.some(m => m.category === 'gestion' && hasMenu(m.id)) && (
+            <div>
+              {!isSidebarCollapsed && <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-2">Gestión</p>}
+              <div className="space-y-1">
+                {AVAILABLE_MODULES.filter(m => m.category === 'gestion' && hasMenu(m.id)).map(module => (
+                  <NavItem 
+                    key={module.id}
+                    icon={<module.icon size={20} />} 
+                    label={module.label} 
+                    active={activeTab === module.id} 
+                    collapsed={isSidebarCollapsed}
+                    onClick={() => {
+                      setActiveTab(module.id);
+                      setIsSidebarOpen(false);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
           )}
-          <NavItem 
-            icon={<Settings size={20} />} 
-            label="Configuración" 
-            active={activeTab === 'settings'} 
-            onClick={() => setActiveTab('settings')}
-          />
+
+          {/* Categoría: Avanzado */}
+          {AVAILABLE_MODULES.some(m => m.category === 'avanzado' && hasMenu(m.id)) && (
+            <div>
+              {!isSidebarCollapsed && <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-2">Inteligencia</p>}
+              <div className="space-y-1">
+                {AVAILABLE_MODULES.filter(m => m.category === 'avanzado' && hasMenu(m.id)).map(module => (
+                  <NavItem 
+                    key={module.id}
+                    icon={<module.icon size={20} />} 
+                    label={module.label} 
+                    active={activeTab === module.id} 
+                    collapsed={isSidebarCollapsed}
+                    onClick={() => {
+                      setActiveTab(module.id);
+                      setIsSidebarOpen(false);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Categoría: Sistema (Solo para System admins) */}
+          {role === 'system' && AVAILABLE_MODULES.some(m => m.category === 'sistema' && hasMenu(m.id)) && (
+            <div>
+              {!isSidebarCollapsed && <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-2">Sistema</p>}
+              <div className="space-y-1">
+                {AVAILABLE_MODULES.filter(m => m.category === 'sistema' && hasMenu(m.id)).map(module => (
+                  <NavItem 
+                    key={module.id}
+                    icon={<module.icon size={20} />} 
+                    label={module.label} 
+                    active={activeTab === module.id} 
+                    collapsed={isSidebarCollapsed}
+                    onClick={() => {
+                      setActiveTab(module.id);
+                      setIsSidebarOpen(false);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </nav>
 
         <div className="px-4 py-4 border-t border-slate-100 bg-white">
@@ -242,6 +314,7 @@ export function OperationalDashboard() {
             icon={<LogOut size={20} />} 
             label="Cerrar Sesión" 
             active={false} 
+            collapsed={isSidebarCollapsed}
             className="text-rose-500 hover:bg-rose-50"
             onClick={() => {
               localStorage.clear();
@@ -249,14 +322,16 @@ export function OperationalDashboard() {
             }}
           />
           
-          <div className="flex items-center gap-2.5 mt-2 p-2.5 bg-slate-50 rounded-2xl">
-            <div className="w-9 h-9 rounded-full bg-slate-200 overflow-hidden shrink-0">
+          <div className={`flex items-center gap-2.5 mt-2 p-2.5 bg-slate-50 rounded-2xl ${isSidebarCollapsed ? 'justify-center' : ''}`}>
+            <div className="w-9 h-9 rounded-full bg-slate-200 overflow-hidden shrink-0 border-2 border-white shadow-sm">
                <img src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=random`} alt="Avatar" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold truncate text-slate-800">{user.name}</p>
-              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{user.role}</p>
-            </div>
+            {!isSidebarCollapsed && (
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold truncate text-slate-800">{user.name}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{user.role}</p>
+              </div>
+            )}
           </div>
         </div>
       </aside>
@@ -264,14 +339,22 @@ export function OperationalDashboard() {
       {/* Main Content */}
       <main className="flex-1 overflow-hidden relative flex flex-col h-screen">
         {/* Top Header */}
-        <header className="h-20 bg-white border-b border-border flex items-center justify-between px-8 sticky top-0 z-10">
-          <div className="relative w-96">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Buscar conversaciones, inquilinos..." 
-              className="w-full pl-12 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-full text-sm focus:outline-none focus:border-brand-blue transition-all"
-            />
+        <header className="h-20 bg-white border-b border-border flex items-center justify-between px-4 sm:px-8 sticky top-0 z-10">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setIsSidebarOpen(true)}
+              className="lg:hidden p-2 text-slate-500 hover:bg-slate-50 rounded-xl"
+            >
+              <Menu size={24} />
+            </button>
+            <div className="relative w-64 sm:w-96 hidden xs:block">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <input 
+                type="text" 
+                placeholder="Buscar conversaciones, inquilinos..." 
+                className="w-full pl-12 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-full text-sm focus:outline-none focus:border-brand-blue transition-all"
+              />
+            </div>
           </div>
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-4 text-slate-400">
@@ -287,7 +370,22 @@ export function OperationalDashboard() {
             
             <div className="flex items-center gap-3 pl-6 border-l border-border">
               <div className="text-right hidden sm:block">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedTenant?.name || 'Acuaequipos'}</span>
+                {role === 'system' ? (
+                  <select 
+                    value={selectedTenant?.id} 
+                    onChange={(e) => {
+                      const tenant = tenants.find(t => t.id === e.target.value);
+                      if (tenant) setSelectedTenant(tenant);
+                    }}
+                    className="bg-transparent border-none text-[10px] font-black text-brand-blue uppercase tracking-widest focus:ring-0 cursor-pointer text-right appearance-none"
+                  >
+                    {tenants.map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{selectedTenant?.name || 'Acuaequipos'}</span>
+                )}
                 <p className="text-[8px] font-bold text-slate-400 uppercase">{selectedTenant?.plan || 'Admin'}</p>
               </div>
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-xs bg-brand-blue-light text-brand-blue shadow-sm`}>
@@ -311,13 +409,13 @@ export function OperationalDashboard() {
         </header>
 
         {/* Tab Content Wrapper */}
-        <div className="flex-1 relative overflow-hidden">
+        <div className={`flex-1 relative ${activeTab === 'dashboard' || activeTab === 'settings' ? 'overflow-y-auto custom-scrollbar' : 'overflow-hidden'}`}>
           {activeTab === 'dashboard' && (
             <div className="p-8 h-full overflow-y-auto custom-scrollbar">
               <div className="mb-8 flex justify-between items-end">
                 <div>
                   <h2 className="text-2xl font-black font-display text-slate-800">
-                    Panel: <span className="text-brand-blue">{selectedTenant?.name || 'Vista Global'}</span>
+                    Panel: <span className="text-brand-blue">{selectedTenant?.brandingConfig?.brandName || selectedTenant?.name || 'Vista Global'}</span>
                   </h2>
                   <div className="flex items-center gap-2 mt-1">
                     <div className="w-2 h-2 bg-emerald-500 rounded-full" />
@@ -332,38 +430,69 @@ export function OperationalDashboard() {
 
               {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <StatsCard 
-                  title="TASA DE AUTOMATIZACIÓN IA" 
-                  value={loadingStats ? '...' : stats?.automationRate || '0%'} 
-                  trend="+2.4%" 
-                  icon={<Plus size={16} />}
-                  color="blue"
-                />
-                <StatsCard 
-                  title="CONVERSACIONES ACTIVAS" 
-                  value={loadingStats ? '...' : stats?.activeConversations || '0'} 
-                  subtitle="Basado en volumen real"
-                  badge="EN VIVO"
-                  color="amber"
-                />
-                <StatsCard 
-                  title="REVISIONES PENDIENTES" 
-                  value={loadingStats ? '...' : stats?.pendingReviews || '0'} 
-                  subtitle="Requieren intervención humana"
-                  badge="HITL"
-                  color="purple"
-                />
-                <StatsCard 
-                  title="USO POR INQUILINO" 
-                  value={loadingStats ? '...' : stats?.tenantUsage || '0 / 15'} 
-                  badge="ACTIVOS"
-                  avatars={true}
-                  color="slate"
-                />
+                {selectedTenant?.id === 'global' ? (
+                  <>
+                    <StatsCard 
+                      title="INQUILINOS TOTALES" 
+                      value={loadingStats ? '...' : stats?.global?.tenants || '0'} 
+                      trend="+1" 
+                      icon={<Plus size={16} />}
+                      color="blue"
+                    />
+                    <StatsCard 
+                      title="CÁPSULAS TOTALES" 
+                      value={loadingStats ? '...' : stats?.global?.capsules || '0'} 
+                      color="purple"
+                    />
+                    <StatsCard 
+                      title="LEADS GLOBALES" 
+                      value={loadingStats ? '...' : stats?.global?.leads || '0'} 
+                      badge="PLATAFORMA"
+                      color="amber"
+                    />
+                    <StatsCard 
+                      title="ENGAGEMENT (OPEN/CLICK)" 
+                      value={loadingStats ? '...' : `${stats?.global?.opens || 0} / ${stats?.global?.clicks || 0}`} 
+                      badge="CAMPAÑAS"
+                      color="slate"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <StatsCard 
+                      title="TASA DE AUTOMATIZACIÓN IA" 
+                      value={loadingStats ? '...' : stats?.automationRate || '0%'} 
+                      trend="+2.4%" 
+                      icon={<Plus size={16} />}
+                      color="blue"
+                    />
+                    <StatsCard 
+                      title="CONVERSACIONES ACTIVAS" 
+                      value={loadingStats ? '...' : stats?.activeConversations || '0'} 
+                      subtitle="Basado en volumen real"
+                      badge="EN VIVO"
+                      color="amber"
+                    />
+                    <StatsCard 
+                      title="REVISIONES PENDIENTES" 
+                      value={loadingStats ? '...' : stats?.pendingReviews || '0'} 
+                      subtitle="Requieren intervención humana"
+                      badge="HITL"
+                      color="purple"
+                    />
+                    <StatsCard 
+                      title="USO POR INQUILINO" 
+                      value={loadingStats ? '...' : stats?.tenantUsage || '0 / 15'} 
+                      badge="ACTIVOS"
+                      avatars={true}
+                      color="slate"
+                    />
+                  </>
+                )}
               </div>
 
               <div className="grid grid-cols-12 gap-8">
-                <div className="col-span-8 space-y-8">
+                <div className="col-span-12 lg:col-span-8 space-y-8">
                   <div className="dashboard-card p-6">
                     <div className="flex justify-between items-center mb-6">
                       <div className="flex items-center gap-2 text-rose-500">
@@ -423,12 +552,31 @@ export function OperationalDashboard() {
                   </div>
                 </div>
 
-                <div className="col-span-4">
+                <div className="col-span-12 lg:col-span-4">
                   <div className="dashboard-card p-6 h-full flex flex-col">
-                    <h3 className="font-bold text-lg mb-8">Actividad Reciente</h3>
+                    <h3 className="font-bold text-lg mb-8">
+                      {selectedTenant?.id === 'global' ? 'Ranking de Inquilinos' : 'Actividad Reciente'}
+                    </h3>
                     <div className="space-y-8 flex-1 overflow-y-auto pr-2 custom-scrollbar">
                       {loadingStats ? (
-                        <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">Cargando actividad...</div>
+                        <div className="py-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">Cargando...</div>
+                      ) : selectedTenant?.id === 'global' ? (
+                        stats?.topTenants?.map((t: any) => (
+                          <div key={t.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-lg bg-brand-blue text-white flex items-center justify-center font-bold text-xs">
+                                {t.name[0]}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-slate-800">{t.name}</p>
+                                <p className="text-[10px] text-slate-400 font-bold uppercase">{t.plan}</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs font-black text-brand-blue">{t._count.capsules} Caps.</p>
+                            </div>
+                          </div>
+                        ))
                       ) : stats?.activity?.length > 0 ? (
                         stats.activity.map((item: any) => (
                           <ActivityItem 
@@ -461,27 +609,14 @@ export function OperationalDashboard() {
             </div>
           )}
 
-          {activeTab === 'conversations' && (
-            <div className="h-full">
-              <Inbox setActiveTab={setActiveTab} />
+          {AVAILABLE_MODULES.find(m => m.id === activeTab)?.component && (
+            <div className="h-full flex flex-col">
+              {(() => {
+                const ModuleComponent = AVAILABLE_MODULES.find(m => m.id === activeTab)!.component;
+                return <ModuleComponent setActiveTab={setActiveTab} />;
+              })()}
             </div>
           )}
-
-          {activeTab === 'predictive' && <PredictiveHub />}
-          {activeTab === 'protocols' && <ProtocolArchitecture />}
-          {activeTab === 'vision' && <VisionLab />}
-          {activeTab === 'kb' && <KnowledgeBase />}
-          {activeTab === 'analytics' && <Analytics />}
-          {activeTab === 'users' && (
-            <div className="h-full">
-              <UserManager />
-            </div>
-          )}
-          {activeTab === 'hitl' && <HITL />}
-          {activeTab === 'corrections' && <CorrectionsManager />}
-          {activeTab === 'agents' && <AgentsManager />}
-          {activeTab === 'skills' && <SkillsManager />}
-          {activeTab === 'tenants' && <TenantManager />}
           
           {activeTab === 'settings' && (
             <div className="p-8 max-w-4xl mx-auto w-full">
@@ -491,6 +626,11 @@ export function OperationalDashboard() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* BRANDING SECTION */}
+                <div className="dashboard-card p-6 md:col-span-2 border-2 border-brand-blue/10 bg-gradient-to-br from-white to-brand-blue/5">
+                  <BrandingSettings />
+                </div>
+
                 {role === 'system' && (
                   <div className="dashboard-card p-6">
                     <div className="flex items-center gap-3 mb-6">
@@ -605,7 +745,7 @@ export function OperationalDashboard() {
           {![
             'dashboard', 'conversations', 'predictive', 'protocols', 'vision', 
             'kb', 'analytics', 'hitl', 'corrections', 'agents', 'skills', 
-            'tenants', 'settings'
+            'tenants', 'settings', 'module_manager'
           ].includes(activeTab) && (
             <div className="p-8 flex items-center justify-center h-full">
               <div className="text-center">
@@ -617,28 +757,103 @@ export function OperationalDashboard() {
         </div>
 
         {/* Floating Action Button */}
-        <button className="fixed bottom-8 right-8 w-14 h-14 bg-brand-blue text-white rounded-full flex items-center justify-center shadow-xl shadow-brand-blue/40 hover:scale-110 transition-all z-20">
+        <button 
+          onClick={handleQuickAction}
+          className="fixed bottom-8 right-8 w-14 h-14 bg-brand-blue text-white rounded-full flex items-center justify-center shadow-xl shadow-brand-blue/40 hover:scale-110 active:scale-90 transition-all z-20"
+        >
           <Plus size={28} />
         </button>
+
+        {/* Quick Action Modal Overlay */}
+        <AnimatePresence>
+          {showQuickAction && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setShowQuickAction(false)}
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-lg bg-white rounded-[32px] shadow-2xl overflow-hidden"
+              >
+                <div className="p-8">
+                  <div className="flex justify-between items-start mb-6">
+                    <div>
+                      <h3 className="text-2xl font-black text-slate-800">Acción Rápida</h3>
+                      <p className="text-sm text-slate-500 uppercase tracking-widest font-bold mt-1">
+                        {activeTab === 'hitl' || activeTab === 'corrections' ? 'Nueva Respuesta Guardada' : 'Nuevo Registro'}
+                      </p>
+                    </div>
+                    <button onClick={() => setShowQuickAction(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-all">
+                      <X size={20} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block">Título / Atajo</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ej: Saludo Inicial"
+                        className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:outline-none focus:border-brand-blue transition-all"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 block">Contenido de la Respuesta</label>
+                      <textarea 
+                        rows={4}
+                        placeholder="Escribe aquí la respuesta que la IA podrá usar..."
+                        className="w-full px-6 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl focus:outline-none focus:border-brand-blue transition-all resize-none"
+                      />
+                    </div>
+                    <button 
+                      onClick={() => {
+                        alert('Acción guardada con éxito');
+                        setShowQuickAction(false);
+                      }}
+                      className="w-full py-5 bg-brand-blue text-white font-black rounded-2xl shadow-xl shadow-brand-blue/20 hover:scale-[1.02] active:scale-95 transition-all"
+                    >
+                      Guardar y Publicar
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </main>
     </div>
   )
 }
 
-function NavItem({ icon, label, active, onClick, className }: any) {
+function NavItem({ icon, label, active, onClick, className, collapsed }: any) {
   return (
     <button 
       onClick={onClick}
+      title={collapsed ? label : ""}
       className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-all duration-200 ${
         active 
           ? 'bg-brand-blue-light text-brand-blue font-bold shadow-sm' 
           : 'text-slate-500 hover:bg-slate-50 hover:text-slate-700'
-      } ${className || ''}`}
+      } ${collapsed ? 'justify-center' : ''} ${className || ''}`}
     >
-      <div className={`${active ? 'text-brand-blue' : 'text-slate-400'}`}>
+      <div className={`${active ? 'text-brand-blue' : 'text-slate-400'} shrink-0`}>
         {icon}
       </div>
-      <span className="text-sm">{label}</span>
+      {!collapsed && (
+        <motion.span 
+          initial={{ opacity: 0, x: -10 }} 
+          animate={{ opacity: 1, x: 0 }} 
+          className="text-sm truncate"
+        >
+          {label}
+        </motion.span>
+      )}
     </button>
   )
 }

@@ -36,6 +36,19 @@ export class AiController {
   }
 
   @Public()
+  @Post('generate-image')
+  async generateImage(@Body() body: { prompt: string }) {
+    const url = await this.aiService.generateImage(body.prompt);
+    return { url };
+  }
+
+  @Public()
+  @Post('generate-campaign-text')
+  async generateCampaignText(@Body() body: { capsule: any, tone?: string }) {
+    return this.aiService.generateCampaignText(body.capsule, body.tone);
+  }
+
+  @Public()
   @Post('model')
   async setModel(@Body() body: { model: string }) {
     return this.aiService.setActiveModel(body.model);
