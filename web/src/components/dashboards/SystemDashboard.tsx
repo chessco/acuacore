@@ -54,6 +54,17 @@ export function SystemDashboard() {
   const { t, i18n } = useTranslation()
 
   const hasMenu = (menuId: string) => {
+    const module = AVAILABLE_MODULES.find(m => m.id === menuId);
+    
+    // Feature Flag Check (Tenant Level)
+    if (module?.suiteId && selectedTenant?.enabledModules) {
+       const suite = selectedTenant.enabledModules[module.suiteId];
+       if (!suite?.enabled) return false;
+       if (module.featureId && suite.features && suite.features[module.featureId] === false) {
+         return false;
+       }
+    }
+
     if (role === 'system') return true;
     return permissions?.menus?.includes(menuId);
   };

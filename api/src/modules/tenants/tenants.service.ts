@@ -94,7 +94,9 @@ export class TenantsService {
         status: data.status?.toLowerCase() === 'active' || data.status?.toLowerCase() === 'activo' ? 'ACTIVE' : 
                 data.status?.toLowerCase() === 'suspended' || data.status?.toLowerCase() === 'suspendido' ? 'SUSPENDED' : 
                 'ACTIVE',
-        isDefault: data.isDefault
+        isDefault: data.isDefault,
+        enabledModules: data.enabledModules,
+        brandingConfig: data.brandingConfig
       },
     });
   }

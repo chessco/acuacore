@@ -37,6 +37,8 @@ export interface ModuleConfig {
   component: any;       
   description: string;  
   category: 'operativo' | 'gestion' | 'sistema' | 'avanzado';
+  suiteId?: string;
+  featureId?: string;
 }
 
 export const AVAILABLE_MODULES: ModuleConfig[] = [
@@ -62,7 +64,9 @@ export const AVAILABLE_MODULES: ModuleConfig[] = [
     icon: Users,
     component: AgentsManager,
     description: 'Configuración de Personas y Agentes de IA.',
-    category: 'operativo'
+    category: 'operativo',
+    suiteId: 'intelligence',
+    featureId: 'agents'
   },
   {
     id: 'skills',
@@ -94,7 +98,9 @@ export const AVAILABLE_MODULES: ModuleConfig[] = [
     icon: TrendingUp,
     component: PredictiveHub,
     description: 'Análisis predictivo de comportamiento.',
-    category: 'avanzado'
+    category: 'avanzado',
+    suiteId: 'intelligence',
+    featureId: 'predictive'
   },
   {
     id: 'protocols',
@@ -102,7 +108,9 @@ export const AVAILABLE_MODULES: ModuleConfig[] = [
     icon: FileText,
     component: ProtocolArchitecture,
     description: 'Diseño de protocolos de comunicación.',
-    category: 'avanzado'
+    category: 'avanzado',
+    suiteId: 'intelligence',
+    featureId: 'protocols'
   },
   {
     id: 'vision',
@@ -110,7 +118,9 @@ export const AVAILABLE_MODULES: ModuleConfig[] = [
     icon: Eye,
     component: VisionLab,
     description: 'Procesamiento de imágenes y visión artificial.',
-    category: 'avanzado'
+    category: 'avanzado',
+    suiteId: 'intelligence',
+    featureId: 'vision'
   },
   {
     id: 'corrections',

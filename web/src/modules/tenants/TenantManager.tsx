@@ -17,7 +17,12 @@ import {
   Globe,
   Save,
   Cpu,
-  Shield
+  Shield,
+  Eye,
+  BarChart3,
+  GitMerge,
+  ShoppingBag,
+  Package
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import axios from 'axios'
@@ -574,7 +579,11 @@ function TenantModal({ tenant, onClose, onSave }: any) {
     name: tenant?.name || '',
     status: tenant?.status || 'active',
     plan: tenant?.plan || 'Enterprise',
-    isDefault: tenant?.isDefault || false
+    isDefault: tenant?.isDefault || false,
+    enabledModules: tenant?.enabledModules || {
+      intelligence: { enabled: true, features: { vision: true, predictive: true, protocols: true, agents: true } },
+      ecommerce: { enabled: false, features: { catalog: true, orders: true } }
+    }
   })
 
   return (
@@ -651,6 +660,130 @@ function TenantModal({ tenant, onClose, onSave }: any) {
               >
                 <div className={`w-4 h-4 bg-white rounded-full transition-all ${formData.isDefault ? 'translate-x-6' : 'translate-x-0'}`} />
               </button>
+            </div>
+
+            <div className="pt-4 border-t border-slate-100">
+              <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Módulos & Suites</label>
+              
+              <div className="space-y-4">
+                {/* Intelligence Suite */}
+                <div className={`p-4 rounded-2xl border transition-all ${formData.enabledModules?.intelligence?.enabled ? 'bg-brand-blue/5 border-brand-blue/20' : 'bg-slate-50 border-slate-100'}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${formData.enabledModules?.intelligence?.enabled ? 'bg-brand-blue text-white' : 'bg-slate-200 text-slate-400'}`}>
+                        <Cpu size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-800">Intelligence Suite</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase">Núcleo de IA Avanzada</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        const current = formData.enabledModules?.intelligence || { enabled: false, features: {} };
+                        setFormData({
+                          ...formData,
+                          enabledModules: {
+                            ...formData.enabledModules,
+                            intelligence: { ...current, enabled: !current.enabled }
+                          }
+                        })
+                      }}
+                      className={`w-10 h-5 rounded-full transition-all flex items-center px-1 ${formData.enabledModules?.intelligence?.enabled ? 'bg-brand-blue' : 'bg-slate-200'}`}
+                    >
+                      <div className={`w-3 h-3 bg-white rounded-full transition-all ${formData.enabledModules?.intelligence?.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+
+                  {formData.enabledModules?.intelligence?.enabled && (
+                    <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                      {[
+                        { id: 'vision', label: 'Vision Lab', icon: <Eye size={12} /> },
+                        { id: 'predictive', label: 'Predictive Hub', icon: <BarChart3 size={12} /> },
+                        { id: 'protocols', label: 'Protocol Arq', icon: <GitMerge size={12} /> },
+                        { id: 'agents', label: 'AI Agents', icon: <Cpu size={12} /> },
+                      ].map(feat => (
+                        <button 
+                          key={feat.id}
+                          onClick={() => {
+                            const intelligence = formData.enabledModules.intelligence;
+                            const features = { ...intelligence.features, [feat.id]: !intelligence.features?.[feat.id] };
+                            setFormData({
+                              ...formData,
+                              enabledModules: {
+                                ...formData.enabledModules,
+                                intelligence: { ...intelligence, features }
+                              }
+                            })
+                          }}
+                          className={`flex items-center gap-2 p-2 rounded-xl border text-[10px] font-bold transition-all ${formData.enabledModules.intelligence.features?.[feat.id] ? 'bg-white border-brand-blue/20 text-brand-blue shadow-sm' : 'bg-transparent border-slate-200 text-slate-400'}`}
+                        >
+                          {feat.icon}
+                          {feat.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* E-commerce Suite */}
+                <div className={`p-4 rounded-2xl border transition-all ${formData.enabledModules?.ecommerce?.enabled ? 'bg-emerald-50 border-emerald-200' : 'bg-slate-50 border-slate-100'}`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${formData.enabledModules?.ecommerce?.enabled ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
+                        <ShoppingBag size={16} />
+                      </div>
+                      <div>
+                        <p className="text-xs font-black text-slate-800">E-commerce Suite</p>
+                        <p className="text-[8px] font-bold text-slate-400 uppercase">Gestión de Ventas</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        const current = formData.enabledModules?.ecommerce || { enabled: false, features: {} };
+                        setFormData({
+                          ...formData,
+                          enabledModules: {
+                            ...formData.enabledModules,
+                            ecommerce: { ...current, enabled: !current.enabled }
+                          }
+                        })
+                      }}
+                      className={`w-10 h-5 rounded-full transition-all flex items-center px-1 ${formData.enabledModules?.ecommerce?.enabled ? 'bg-emerald-500' : 'bg-slate-200'}`}
+                    >
+                      <div className={`w-3 h-3 bg-white rounded-full transition-all ${formData.enabledModules?.ecommerce?.enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+
+                  {formData.enabledModules?.ecommerce?.enabled && (
+                    <div className="grid grid-cols-2 gap-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                      {[
+                        { id: 'catalog', label: 'Catálogo', icon: <Package size={12} /> },
+                        { id: 'orders', label: 'Órdenes', icon: <ShoppingBag size={12} /> },
+                      ].map(feat => (
+                        <button 
+                          key={feat.id}
+                          onClick={() => {
+                            const ecommerce = formData.enabledModules.ecommerce;
+                            const features = { ...ecommerce.features, [feat.id]: !ecommerce.features?.[feat.id] };
+                            setFormData({
+                              ...formData,
+                              enabledModules: {
+                                ...formData.enabledModules,
+                                ecommerce: { ...ecommerce, features }
+                              }
+                            })
+                          }}
+                          className={`flex items-center gap-2 p-2 rounded-xl border text-[10px] font-bold transition-all ${formData.enabledModules.ecommerce.features?.[feat.id] ? 'bg-white border-emerald-200 text-emerald-600 shadow-sm' : 'bg-transparent border-slate-200 text-slate-400'}`}
+                        >
+                          {feat.icon}
+                          {feat.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
 

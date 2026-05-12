@@ -14,6 +14,7 @@ export interface Tenant {
     footerText?: string;
     heroImage?: string;
   };
+  enabledModules?: any;
 }
 
 interface TenantContextType {
