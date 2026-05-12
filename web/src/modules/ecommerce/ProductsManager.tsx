@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Plus, Search, Edit3, Trash2, Package, Tag, DollarSign, Layers, Loader2, Save, X, Eye } from 'lucide-react'
 import axios from 'axios'
 import { useTenant } from '../../contexts/TenantContext'
+import { SECTOR_CONFIGS } from './sectorConfigs'
 
 export function ProductsManager() {
   const { selectedTenant } = useTenant()
@@ -19,7 +20,8 @@ export function ProductsManager() {
     categoryId: '',
     sku: '',
     imageUrl: '',
-    isActive: true
+    isActive: true,
+    customFields: {} as any
   })
 
   useEffect(() => {
@@ -89,7 +91,7 @@ export function ProductsManager() {
         <button 
           onClick={() => {
             setEditingProduct(null)
-            setFormData({ name: '', description: '', price: 0, stock: 0, categoryId: '', sku: '', imageUrl: '', isActive: true })
+            setFormData({ name: '', description: '', price: 0, stock: 0, categoryId: '', sku: '', imageUrl: '', isActive: true, customFields: {} })
             setIsModalOpen(true)
           }}
           className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:opacity-90 transition-all"
@@ -140,7 +142,8 @@ export function ProductsManager() {
                           categoryId: product.categoryId || '',
                           sku: product.sku || '',
                           imageUrl: product.imageUrl || '',
-                          isActive: product.isActive
+                          isActive: product.isActive,
+                          customFields: product.customFields || {}
                         })
                         setIsModalOpen(true)
                       }}
@@ -240,19 +243,51 @@ export function ProductsManager() {
                     />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Categoría</label>
-                  <select 
-                    value={formData.categoryId}
-                    onChange={(e) => setFormData({...formData, categoryId: e.target.value})}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-emerald-500 appearance-none"
-                  >
-                    <option value="">Seleccionar Categoría</option>
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
                     ))}
                   </select>
                 </div>
+
+                {/* Dynamic Fields by Sector */}
+                {selectedTenant?.sector && SECTOR_CONFIGS[selectedTenant.sector] && (
+                  <div className="col-span-2 grid grid-cols-2 gap-6 pt-4 border-t border-slate-100">
+                    <div className="col-span-2">
+                      <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] mb-1">
+                        Atributos de {SECTOR_CONFIGS[selectedTenant.sector].label}
+                      </h4>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase">Personalización por Sector</p>
+                    </div>
+                    {SECTOR_CONFIGS[selectedTenant.sector].productFields.map(field => (
+                      <div key={field.name}>
+                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{field.label}</label>
+                        {field.type === 'select' ? (
+                          <select 
+                            value={formData.customFields[field.name] || ''}
+                            onChange={(e) => setFormData({
+                              ...formData, 
+                              customFields: { ...formData.customFields, [field.name]: e.target.value }
+                            })}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-emerald-500 appearance-none"
+                          >
+                            <option value="">Seleccionar...</option>
+                            {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        ) : (
+                          <input 
+                            type={field.type} 
+                            value={formData.customFields[field.name] || ''}
+                            onChange={(e) => setFormData({
+                              ...formData, 
+                              customFields: { ...formData.customFields, [field.name]: Number(e.target.value) || e.target.value }
+                            })}
+                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-emerald-500"
+                            placeholder={field.placeholder}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">SKU / Código</label>
                   <input 

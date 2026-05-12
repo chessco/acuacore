@@ -13,6 +13,7 @@ model Tenant {
   name           String
   plan           Plan              @default(FREE)
   status         Status            @default(ACTIVE)
+  sector         String?           @default("retail")
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
   brandingConfig Json?
@@ -369,6 +370,7 @@ model Product {
   stock       Int         @default(0)
   imageUrl    String?     @db.Text
   isActive    Boolean     @default(true)
+  customFields Json?
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
   tenant      Tenant      @relation(fields: [tenantId], references: [id])

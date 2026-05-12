@@ -577,8 +577,9 @@ function TenantRow({ tenant, setSelectedTenant, setActiveTab, onEdit, onShowDeta
 function TenantModal({ tenant, onClose, onSave }: any) {
   const [formData, setFormData] = useState({
     name: tenant?.name || '',
-    status: tenant?.status || 'active',
-    plan: tenant?.plan || 'Enterprise',
+    status: tenant?.status || 'ACTIVE',
+    plan: tenant?.plan || 'ENTERPRISE',
+    sector: tenant?.sector || 'retail',
     isDefault: tenant?.isDefault || false,
     enabledModules: tenant?.enabledModules || {
       intelligence: { enabled: true, features: { vision: true, predictive: true, protocols: true, agents: true } },
@@ -617,7 +618,7 @@ function TenantModal({ tenant, onClose, onSave }: any) {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Estado</label>
                 <select 
@@ -625,9 +626,9 @@ function TenantModal({ tenant, onClose, onSave }: any) {
                   onChange={(e) => setFormData({...formData, status: e.target.value})}
                   className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-brand-blue appearance-none cursor-pointer"
                 >
-                  <option value="active">Activo</option>
-                  <option value="pending">Pendiente</option>
-                  <option value="suspended">Suspendido</option>
+                  <option value="ACTIVE">Activo</option>
+                  <option value="PENDING">Pendiente</option>
+                  <option value="SUSPENDED">Suspendido</option>
                 </select>
               </div>
               <div>
@@ -640,6 +641,18 @@ function TenantModal({ tenant, onClose, onSave }: any) {
                   <option value="ENTERPRISE">Enterprise</option>
                   <option value="PRO">Pro (Scale)</option>
                   <option value="FREE">Free (Starter)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Sector</label>
+                <select 
+                  value={formData.sector || 'retail'}
+                  onChange={(e) => setFormData({...formData, sector: e.target.value})}
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-brand-blue appearance-none cursor-pointer"
+                >
+                  <option value="retail">Retail / General</option>
+                  <option value="acuacultura">Acuacultura</option>
+                  <option value="tecnologia">Tecnología</option>
                 </select>
               </div>
             </div>
