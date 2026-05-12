@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Search, Edit3, Trash2, Package, Tag, DollarSign, Layers, Loader2, Save, X, Eye } from 'lucide-react'
+import { Plus, Search, Edit3, Trash2, Package, Tag, DollarSign, Layers, Loader2, Save, X, Eye, Sparkles } from 'lucide-react'
 import axios from 'axios'
 import { useTenant } from '../../contexts/TenantContext'
 import { SECTOR_CONFIGS } from './sectorConfigs'
@@ -9,6 +9,7 @@ export function ProductsManager() {
   const [products, setProducts] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [isGenerating, setIsGenerating] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<any>(null)
@@ -23,6 +24,43 @@ export function ProductsManager() {
     isActive: true,
     customFields: {} as any
   })
+
+  const handleAiGeneration = async () => {
+    if (!formData.imageUrl) {
+      alert('Primero debes añadir una URL de imagen para analizar')
+      return
+    }
+
+    setIsGenerating(true)
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014'
+      const token = localStorage.getItem('token')
+      const headers = { 
+        'Authorization': `Bearer ${token}`,
+        'x-tenant-id': selectedTenant?.id || ''
+      }
+
+      const res = await axios.post(`${apiUrl}/api/ecommerce/products/generate-description`, {
+        imageUrl: formData.imageUrl,
+        sector: selectedTenant?.sector || 'retail'
+      }, { headers })
+
+      if (res.data) {
+        setFormData(prev => ({
+          ...prev,
+          name: res.data.suggestedName || prev.name,
+          description: res.data.description || prev.description,
+          // Merge custom fields if any are suggested
+          customFields: { ...prev.customFields, ...(res.data.customFields || {}) }
+        }))
+      }
+    } catch (err) {
+      console.error('Error generating AI description:', err)
+      alert('Error al generar la descripción con IA')
+    } finally {
+      setIsGenerating(false)
+    }
+  }
 
   useEffect(() => {
     fetchData()
@@ -200,6 +238,27 @@ export function ProductsManager() {
               </div>
 
               <div className="grid grid-cols-2 gap-6">
+                <div className="col-span-2">
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">URL de Imagen del Producto</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={formData.imageUrl}
+                      onChange={(e) => setFormData({...formData, imageUrl: e.target.value})}
+                      className="flex-1 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-emerald-500"
+                      placeholder="https://ejemplo.com/producto.jpg"
+                    />
+                    <button 
+                      onClick={handleAiGeneration}
+                      disabled={isGenerating || !formData.imageUrl}
+                      className="px-4 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100 hover:bg-emerald-100 transition-all flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {isGenerating ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+                      <span className="text-xs font-black uppercase">Analizar</span>
+                    </button>
+                  </div>
+                  <p className="text-[9px] text-slate-400 mt-2 font-bold uppercase tracking-tighter">✨ Vision Lab: Analiza la imagen para generar nombre y descripción automáticamente.</p>
+                </div>
                 <div className="col-span-2">
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Nombre del Producto</label>
                   <input 

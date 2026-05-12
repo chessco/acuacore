@@ -1,9 +1,37 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../common/database/database.service';
+import { AiService } from '../ai/ai.service';
 
 @Injectable()
 export class EcommerceService {
-  constructor(private db: DatabaseService) {}
+  constructor(
+    private db: DatabaseService,
+    private ai: AiService
+  ) {}
+
+  async generateProductDescription(imageUrl: string, sector: string = 'retail') {
+    const prompt = `Actúa como un experto en marketing y técnico especializado en el sector: ${sector.toUpperCase()}.
+    Analiza la imagen adjunta de un producto y genera:
+    1. Un nombre comercial atractivo.
+    2. Una descripción detallada resaltando beneficios y especificaciones técnicas.
+    3. 3 etiquetas clave (tags).
+    
+    Responde ÚNICAMENTE en formato JSON con la siguiente estructura:
+    {
+      "suggestedName": "...",
+      "description": "...",
+      "tags": ["...", "...", "..."]
+    }`;
+
+    const result = await this.ai.analyzeVision(imageUrl, prompt);
+    try {
+      // Clean result in case of markdown blocks
+      const jsonStr = result.replace(/```json|```/g, '').trim();
+      return JSON.parse(jsonStr);
+    } catch (err) {
+      return { suggestedName: '', description: result, tags: [] };
+    }
+  }
 
   // PRODUCTS
   async findAllProducts(tenantId: string) {

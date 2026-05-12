@@ -10,6 +10,11 @@ export class EcommerceController {
     return this.ecommerceService.findAllProducts(tenantId);
   }
 
+  @Post('products/generate-description')
+  generateDescription(@Body('imageUrl') imageUrl: string, @Body('sector') sector: string) {
+    return this.ecommerceService.generateProductDescription(imageUrl, sector);
+  }
+
   @Post('products')
   createProduct(@Headers('x-tenant-id') tenantId: string, @Body() data: any) {
     return this.ecommerceService.createProduct(tenantId, data);
