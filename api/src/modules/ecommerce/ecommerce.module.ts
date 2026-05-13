@@ -1,3 +1,4 @@
+import { Module } from '@nestjs/common';
 import { EcommerceController } from './ecommerce.controller';
 import { StorefrontController } from './storefront.controller';
 import { EcommerceService } from './ecommerce.service';
