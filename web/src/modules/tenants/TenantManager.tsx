@@ -22,7 +22,8 @@ import {
   BarChart3,
   GitMerge,
   ShoppingBag,
-  Package
+  Package,
+  Layout
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import axios from 'axios'
@@ -773,6 +774,8 @@ function TenantModal({ tenant, onClose, onSave }: any) {
                       {[
                         { id: 'catalog', label: 'Catálogo', icon: <Package size={12} /> },
                         { id: 'orders', label: 'Órdenes', icon: <ShoppingBag size={12} /> },
+                        { id: 'storefront', label: 'Tienda', icon: <Layout size={12} /> },
+                        { id: 'payments', label: 'Pagos', icon: <CreditCard size={12} /> },
                       ].map(feat => (
                         <button 
                           key={feat.id}

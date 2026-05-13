@@ -15,7 +15,8 @@ import {
   Eye,
   LayoutDashboard,
   Package,
-  ShoppingBag
+  ShoppingBag,
+  CreditCard
 } from 'lucide-react';
 import { Inbox } from './inbox/Inbox';
 import { KnowledgeBase } from './knowledge/KnowledgeBase';
@@ -31,6 +32,8 @@ import { ProtocolArchitecture } from './protocols/ProtocolArchitecture';
 import { VisionLab } from './vision/VisionLab';
 import { ProductsManager } from './ecommerce/ProductsManager';
 import { OrdersManager } from './ecommerce/OrdersManager';
+import { StorefrontConfig } from './ecommerce/storefront/StorefrontConfig';
+import { PaymentsConfig } from './ecommerce/storefront/PaymentsConfig';
 import { ModuleManager } from './system/ModuleManager';
 
 export interface ModuleConfig {
@@ -176,6 +179,26 @@ export const AVAILABLE_MODULES: ModuleConfig[] = [
     category: 'gestion',
     suiteId: 'ecommerce',
     featureId: 'orders'
+  },
+  {
+    id: 'storefront',
+    label: 'Tienda Online',
+    icon: Layout,
+    component: StorefrontConfig,
+    description: 'Personalización de la tienda pública.',
+    category: 'gestion',
+    suiteId: 'ecommerce',
+    featureId: 'storefront'
+  },
+  {
+    id: 'payments',
+    label: 'Pasarela Pagos',
+    icon: CreditCard,
+    component: PaymentsConfig,
+    description: 'Configuración de cobros con Stripe.',
+    category: 'gestion',
+    suiteId: 'ecommerce',
+    featureId: 'payments'
   },
   {
     id: 'module_manager',
