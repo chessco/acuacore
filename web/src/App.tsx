@@ -14,6 +14,7 @@ import { CapsuleEditor } from './modules/capsules/Studio/CapsuleEditor'
 import { LeadManager } from './modules/capsules/Studio/LeadManager'
 import { CapsuleAnalytics } from './modules/capsules/Studio/CapsuleAnalytics'
 import { AgentsManager } from './modules/agents/AgentsManager'
+import { Storefront } from './modules/ecommerce/storefront/Storefront'
 
 function AppContent() {
   const { selectedTenant, setSelectedTenant, tenantLanguages, role, setRole, setPermissions } = useTenant();
@@ -60,6 +61,7 @@ function AppContent() {
       {/* Public Routes */}
       <Route path="/capsules/:slug" element={<CapsuleLanding />} />
       <Route path="/capsules" element={<CapsuleCatalog />} />
+      <Route path="/store/:slug" element={<Storefront />} />
       
       {/* Auth Routes */}
       <Route 

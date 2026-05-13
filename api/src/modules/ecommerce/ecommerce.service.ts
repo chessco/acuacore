@@ -178,4 +178,41 @@ export class EcommerceService {
     // In a real app, this would call a fixer.io or similar API
     return 17.50; // Mock rate USD to MXN
   }
+
+  // STOREFRONT (Public)
+  async findPublicProductsBySlug(slug: string) {
+    const tenant = await this.db.mysql.tenant.findUnique({ where: { slug } });
+    if (!tenant) throw new Error('Tenant not found');
+    return this.findAllProducts(tenant.id);
+  }
+
+  async findPublicCategoriesBySlug(slug: string) {
+    const tenant = await this.db.mysql.tenant.findUnique({ where: { slug } });
+    if (!tenant) throw new Error('Tenant not found');
+    return this.findAllCategories(tenant.id);
+  }
+
+  async getOrderStatus(orderId: string) {
+    return this.db.mysql.order.findUnique({
+      where: { id: orderId },
+      include: { items: { include: { product: true } } }
+    });
+  }
+
+  async createPublicOrder(slug: string, data: any) {
+    const tenant = await this.db.mysql.tenant.findUnique({ where: { slug } });
+    if (!tenant) throw new Error('Tenant not found');
+    return this.createOrder(tenant.id, data);
+  }
+
+  async createPaymentIntent(slug: string, amount: number) {
+    const tenant = await this.db.mysql.tenant.findUnique({ where: { slug } });
+    if (!tenant || !tenant.stripeApiKey) throw new Error('Payments not configured for this store');
+    
+    // Stripe integration would go here
+    // const stripe = new Stripe(tenant.stripeApiKey);
+    // return stripe.paymentIntents.create({ amount, currency: 'usd' });
+    
+    return { clientSecret: 'mock_secret_' + Math.random().toString(36).substring(7) };
+  }
 }
