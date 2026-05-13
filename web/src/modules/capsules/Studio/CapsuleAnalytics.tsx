@@ -27,7 +27,7 @@ import {
   ArrowUpRight,
   ArrowDownRight
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 export const CapsuleAnalytics: React.FC = () => {
   const [data, setData] = useState<any>(null);

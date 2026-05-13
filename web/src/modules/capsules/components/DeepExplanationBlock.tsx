@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { 
   BookOpen, Target, Activity, ShieldCheck, TrendingUp, 
   Lightbulb, ChevronRight, Layers, BarChart3, 

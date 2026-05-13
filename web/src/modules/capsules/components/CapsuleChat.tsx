@@ -1,8 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Star, CheckCircle, User, MessageSquare, Thermometer, Database, Fish, Eye } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { 
+  Send, 
+  Star, 
+  CheckCircle, 
+  User, 
+  MessageSquare, 
+  Thermometer, 
+  Database, 
+  Fish, 
+  Eye, 
+  ShoppingCart,
+  Paperclip,
+  Smile,
+  CheckCheck,
+  MoreVertical,
+  Settings,
+  Clock,
+  Zap,
+  BarChart3
+} from 'lucide-react';
 import axios from 'axios';
 import { io, Socket as SocketIO } from 'socket.io-client';
+import ReactMarkdown from 'react-markdown';
 import { useTenant } from '../../../contexts/TenantContext';
 
 interface Message {
@@ -10,6 +30,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   time?: string;
+  status?: 'sent' | 'delivered' | 'read';
 }
 
 interface CapsuleChatProps {
@@ -19,6 +40,7 @@ interface CapsuleChatProps {
   agentGreeting?: string;
   preview?: boolean;
   onPortraitClick?: () => void;
+  agentRoles?: any;
 }
 
 export const CapsuleChat: React.FC<CapsuleChatProps> = ({ 
@@ -27,12 +49,13 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({
   agentPortrait, 
   agentGreeting,
   preview: propPreview,
-  onPortraitClick
+  onPortraitClick,
+  agentRoles
 }) => {
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: 'assistant', 
-      content: agentGreeting || `¡Hola! Soy ${agentName} 🦐\nCuéntame sobre tu cultivo y te ayudaré a optimizar la alimentación para mejorar tu FCA.`,
+      content: agentGreeting || `¡Hola! Soy **${agentName}** 🦐\n\nCuéntame sobre tu cultivo y te ayudaré a optimizar la alimentación para mejorar tu **FCA**.`,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
@@ -40,6 +63,7 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({
   const [loading, setLoading] = useState(false);
   const [capsuleId, setCapsuleId] = useState<string | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [activeAgentSlug, setActiveAgentSlug] = useState<string | null>(null);
   const [isEscalating, setIsEscalating] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const socketRef = useRef<SocketIO | null>(null);
@@ -60,7 +84,7 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, loading]);
 
   // Setup Socket for Real-time human replies
   useEffect(() => {
@@ -121,7 +145,9 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({
     return () => {
       socket.disconnect();
     };
-  }, [slug, isPreview, selectedTenant, flowApiKey]);
+  }, [slug, isPreview, selectedTenant, flowApiKey, conversationId]);
+
+  const activeAgent = activeAgentSlug ? { slug: activeAgentSlug } : null;
 
   const handleSend = async (textOverride?: string) => {
     const text = textOverride || input;
@@ -133,7 +159,8 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({
     setMessages(prev => [...prev, { 
       role: 'user', 
       content: userMsg,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      status: 'sent'
     }]);
     setLoading(true);
 
@@ -153,7 +180,8 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({
       const res = await axios.post(endpoint, {
         message: userMsg,
         userId: userId,
-        history: messages.map(m => ({ role: m.role, content: m.content }))
+        history: messages.map(m => ({ role: m.role, content: m.content })),
+        agentSlug: activeAgent?.slug
       }, {
         headers: isPreview ? {
           'x-tenant-id': selectedTenant?.id || '',
@@ -165,6 +193,20 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({
       if (res.data.conversationId) {
         setConversationId(res.data.conversationId);
       }
+      
+      // Add assistant reply
+      if (res.data.reply) {
+        setMessages(prev => {
+          // Update user message status to read
+          const updated = prev.map(m => m.role === 'user' ? { ...m, status: 'read' as const } : m);
+          return [...updated, {
+            role: 'assistant',
+            content: res.data.reply,
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }];
+        });
+      }
+
       return res.data;
     } catch (err) {
       setMessages(prev => [...prev, { role: 'assistant', content: 'Problema de conexión. Reintenta.', time: 'Ahora' }]);
@@ -208,129 +250,228 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({
   }, [conversationId, loading, isEscalating]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] bg-white rounded-[2rem] overflow-hidden shadow-2xl border border-slate-100">
-      {/* Sidebar Bio */}
-      <div className="bg-[#001A41] overflow-hidden flex flex-col">
+    <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] bg-white rounded-[2rem] overflow-hidden shadow-2xl border border-slate-100 h-[700px] max-h-[85vh]">
+      {/* Sidebar Bio - Estilo Premium WhatsApp Business */}
+      <div className="bg-[#075e54] overflow-hidden flex flex-col border-r border-slate-100">
         <div 
-          className="flex-1 min-h-[250px] md:min-h-[300px] relative cursor-zoom-in"
+          className="h-[250px] relative cursor-zoom-in group"
           onClick={onPortraitClick}
         >
           <img 
             src={agentPortrait || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400"} 
             alt={agentName}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-cover grayscale-[20%] group-hover:grayscale-0 transition-all duration-500"
           />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#075e54] via-transparent to-transparent opacity-60" />
         </div>
-        <div className="p-6 text-white space-y-3">
+        <div className="p-6 text-white space-y-4 flex-1">
           <div>
-            <h3 className="text-xl font-bold">{agentName}</h3>
-            <p className="text-blue-200 text-xs font-medium">Especialista en nutrición y manejo alimenticio</p>
+            <h3 className="text-xl font-black tracking-tight">{agentName}</h3>
+            <p className="text-emerald-200 text-[10px] font-black uppercase tracking-widest mt-1 opacity-80">Especialista Certificado</p>
           </div>
-          <div className="flex items-center gap-1 text-yellow-400">
-            {[1,2,3,4,5].map(i => <Star key={i} size={14} fill="currentColor" />)}
-            <span className="text-white text-xs font-bold ml-1">4.9 (128)</span>
+          
+          <div className="flex items-center gap-1 text-yellow-400 bg-black/10 p-2 rounded-lg backdrop-blur-sm">
+            {[1,2,3,4,5].map(i => <Star key={i} size={12} fill="currentColor" />)}
+            <span className="text-white text-[10px] font-black ml-1.5">4.9 · IA Expert</span>
           </div>
-          <p className="text-blue-100/70 text-[11px] font-bold leading-tight pt-2 border-t border-white/10">
-            +15 años de experiencia en acuicultura
-          </p>
-        </div>
-      </div>
 
-      {/* Chat Area */}
-      <div className="flex flex-col h-[650px] bg-white relative">
-        <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center">
-          <div>
-            <h4 className="font-bold text-slate-900 text-lg">Habla con {agentName}</h4>
-            <p className="text-xs text-slate-500">Asesor experto en alimentación</p>
+          <div className="space-y-4 pt-4 border-t border-white/10">
+             <div className="flex items-center gap-3">
+               <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center">
+                 <CheckCircle size={14} className="text-emerald-400" />
+               </div>
+               <p className="text-[11px] font-bold text-emerald-50 leading-tight">Optimización de FCA garantizada</p>
+             </div>
+             <div className="flex items-center gap-3">
+               <div className="w-8 h-8 bg-white/10 rounded-full flex items-center justify-center">
+                 <Clock size={14} className="text-emerald-400" />
+               </div>
+               <p className="text-[11px] font-bold text-emerald-50 leading-tight">Respuesta en tiempo real 24/7</p>
+             </div>
           </div>
-          <div className="flex items-center gap-2 bg-green-50 px-3 py-1.5 rounded-full">
-            <div className="w-2 h-2 bg-green-500 rounded-full" />
-            <span className="text-xs font-bold text-green-700">En línea</span>
-          </div>
-        </div>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-50/30">
-          <AnimatePresence>
-            {messages.map((msg, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className={`flex flex-col ${msg.role === 'user' ? 'items-end' : 'items-start'}`}
-              >
-                <div className={`flex gap-3 max-w-[85%] ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                  <div 
-                    className="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-slate-200 cursor-zoom-in"
-                    onClick={onPortraitClick}
-                  >
-                    {msg.role === 'assistant' ? (
-                      <img src={agentPortrait} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-slate-500"><User size={20} /></div>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <div className={`p-5 rounded-2xl text-[15px] leading-relaxed shadow-sm ${
-                      msg.role === 'user' 
-                        ? 'bg-blue-600 text-white rounded-tr-none' 
-                        : 'bg-white text-slate-700 border border-slate-100 rounded-tl-none whitespace-pre-wrap'
-                    }`}>
-                      {msg.content}
-                    </div>
-                    <p className={`text-[10px] font-bold text-slate-400 ${msg.role === 'user' ? 'text-right' : 'text-left'}`}>
-                      {msg.time} {msg.role === 'user' && <CheckCircle size={10} className="inline ml-1 text-blue-400" />}
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-          {loading && (
-            <div className="flex justify-start">
-              <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex gap-1">
-                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce" />
-                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce delay-75" />
-                <div className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce delay-150" />
+          {agentRoles && Object.keys(agentRoles).length > 0 && (
+            <div className="pt-6 border-t border-white/10 space-y-3">
+              <p className="text-[9px] font-black text-emerald-300 uppercase tracking-widest">Niveles de Soporte</p>
+              <div className="space-y-2">
+                {Object.entries(agentRoles).map(([role, slug]: [string, any]) => {
+                  if (!slug) return null;
+                  const roleName = role === 'main' ? 'Asistente IA' : role === 'support' ? 'Ventas' : 'Técnico';
+                  
+                  return (
+                    <button 
+                      key={role}
+                      onClick={() => setActiveAgentSlug(slug)}
+                      className={`w-full flex items-center gap-3 p-2.5 rounded-xl transition-all ${activeAgentSlug === slug ? 'bg-white/20 border border-white/20 shadow-lg' : 'hover:bg-white/10'}`}
+                    >
+                      <div className="w-8 h-8 bg-white/10 rounded-lg flex items-center justify-center">
+                        {role === 'support' ? <ShoppingCart size={14} /> : role === 'technical' ? <Settings size={14} /> : <MessageSquare size={14} />}
+                      </div>
+                      <div className="text-left">
+                        <div className="text-[9px] font-black uppercase tracking-widest leading-none">{roleName}</div>
+                        <div className="text-[8px] text-emerald-200 font-bold uppercase opacity-60">{slug}</div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
         </div>
+      </div>
 
-        {/* Chips */}
-        <div className="px-8 py-4 flex gap-3 overflow-x-auto no-scrollbar bg-white">
+       {/* Chat Area - WhatsApp Design */}
+      <div className="h-full bg-[#e5ddd5] relative grid grid-rows-[auto_1fr_auto_auto] overflow-hidden">
+        {/* WhatsApp Doodle Background Pattern */}
+        <div 
+          className="absolute inset-0 opacity-[0.06] pointer-events-none z-0"
+          style={{ 
+            backgroundImage: `url("https://wweb.dev/assets/whatsapp-chat-background.png")`,
+            backgroundSize: '400px'
+          }}
+        />
+
+        {/* Top Bar */}
+        <div className="px-6 py-3 bg-[#f0f2f5] border-b border-slate-200 flex justify-between items-center z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 bg-white">
+              <img src={agentPortrait} className="w-full h-full object-cover" />
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-900 text-sm">{agentName}</h4>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                <span className="text-[10px] font-bold text-slate-500">en línea</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-4 text-slate-500">
+            <button className="hover:text-slate-700 transition-colors"><Eye size={20} /></button>
+            <button className="hover:text-slate-700 transition-colors"><MoreVertical size={20} /></button>
+          </div>
+        </div>
+
+        {/* Message List */}
+        <div 
+          ref={scrollRef} 
+          className="overflow-y-auto p-4 md:p-8 custom-scrollbar z-10 relative scroll-smooth"
+        >
+          <div className="space-y-4 pb-12 min-h-full flex flex-col justify-end">
+            <div className="flex-1" /> {/* Spacer to push messages to bottom if few */}
+            <AnimatePresence>
+              {messages.map((msg, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className={`flex w-full mb-4 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                >
+                  <div className={`relative max-w-[85%] md:max-w-[75%] px-4 py-2.5 rounded-lg shadow-sm ${
+                    msg.role === 'user' 
+                      ? 'bg-[#dcf8c6] text-slate-800 rounded-tr-none' 
+                      : 'bg-white text-slate-800 rounded-tl-none'
+                  }`}>
+                    {/* Bubble Tail */}
+                    <div className={`absolute top-0 w-3 h-3 ${
+                      msg.role === 'user' 
+                        ? '-right-2 bg-[#dcf8c6]' 
+                        : '-left-2 bg-white'
+                    }`} 
+                    style={{ 
+                      clipPath: msg.role === 'user' ? 'polygon(0 0, 0 100%, 100% 0)' : 'polygon(100% 0, 100% 100%, 0 0)' 
+                    }} />
+
+                    <div className="prose prose-sm max-w-none prose-slate">
+                      <ReactMarkdown 
+                        components={{
+                          p: ({children}) => <p className="m-0 text-[14px] leading-relaxed">{children}</p>,
+                          strong: ({children}) => <strong className="font-black text-[#075e54]">{children}</strong>,
+                          ul: ({children}) => <ul className="my-2 pl-4 list-disc">{children}</ul>,
+                          li: ({children}) => <li className="text-[13px]">{children}</li>
+                        }}
+                      >
+                        {msg.content.replace('CHECKOUT_TRIGGER', '')}
+                      </ReactMarkdown>
+                    </div>
+
+                    {msg.content.includes('CHECKOUT_TRIGGER') && (
+                      <div className="mt-3 pt-3 border-t border-slate-100 space-y-3">
+                         <button 
+                           onClick={() => {
+                             document.getElementById('checkout-block')?.scrollIntoView({ behavior: 'smooth' });
+                           }}
+                           className="w-full bg-[#25d366] text-white py-2.5 rounded-lg font-black text-[11px] uppercase tracking-widest shadow-md flex items-center justify-center gap-2 hover:bg-[#128c7e] transition-all"
+                         >
+                           <ShoppingCart size={14} /> Adquirir solución ahora
+                         </button>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-end gap-1 mt-1.5 opacity-60">
+                      <span className="text-[9px] font-medium text-slate-400">{msg.time}</span>
+                      {msg.role === 'user' && (
+                        <CheckCheck size={14} className={msg.status === 'read' ? 'text-blue-500' : 'text-slate-400'} />
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+            {loading && (
+              <div className="flex justify-start mb-4">
+                <div className="bg-white px-4 py-3 rounded-lg shadow-sm flex gap-1 items-center">
+                  <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce" />
+                  <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-75" />
+                  <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-bounce delay-150" />
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Dynamic Chips (Quick Replies) */}
+        <div className="px-4 py-2 flex gap-2 overflow-x-auto no-scrollbar z-10 bg-[#e5ddd5]/80 backdrop-blur-sm">
           {[
-            { label: 'Ajuste por temperatura', icon: Thermometer },
-            { label: 'Cálculo de ración', icon: Database },
-            { label: 'Comportamiento de nado', icon: Fish },
-            { label: 'Signos de saciedad', icon: Eye }
+            { label: '🚀 Optimizar mi cultivo', icon: Zap },
+            { label: '🌡️ Ajuste por clima', icon: Thermometer },
+            { label: '📉 Reducir FCA', icon: BarChart3 },
           ].map(chip => (
             <button 
               key={chip.label}
-              onClick={() => handleSend(chip.label)}
-              className="whitespace-nowrap px-4 py-2 bg-blue-50/50 text-blue-700 rounded-lg text-xs font-bold border border-blue-100 flex items-center gap-2 hover:bg-blue-100 transition-colors"
+              onClick={() => handleSend(chip.label.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ ]/g, "").trim())}
+              className="whitespace-nowrap px-4 py-2 bg-white text-[#075e54] rounded-full text-[11px] font-black border border-white shadow-sm hover:bg-[#f0f2f5] transition-all flex items-center gap-2"
             >
-              <chip.icon size={14} />
+              <chip.icon size={12} />
               {chip.label}
             </button>
           ))}
         </div>
 
-        <div className="p-6 bg-white border-t border-slate-100">
-          <div className="relative flex items-center">
-            <input
-              type="text"
-              className="w-full pl-6 pr-16 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all text-slate-700"
-              placeholder="Escribe tu pregunta aquí..."
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-            />
+        {/* Input Area */}
+        <div className="p-4 bg-[#f0f2f5] z-10">
+          <div className="flex items-center gap-3">
+            <div className="flex gap-1 text-slate-500">
+               <button className="p-2 hover:bg-slate-200 rounded-full transition-colors"><Smile size={24} /></button>
+               <button className="p-2 hover:bg-slate-200 rounded-full transition-colors"><Paperclip size={24} /></button>
+            </div>
+            <div className="flex-1 relative flex items-center">
+              <input
+                type="text"
+                className="w-full px-6 py-3 bg-white border border-transparent rounded-full focus:outline-none transition-all text-slate-700 text-sm shadow-sm"
+                placeholder="Escribe un mensaje..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              />
+            </div>
             <button
               onClick={() => handleSend()}
               disabled={loading || !input.trim()}
-              className="absolute right-3 p-3 bg-[#001A41] text-white rounded-xl hover:bg-slate-800 disabled:opacity-50 transition-colors"
+              className={`p-3 rounded-full transition-all shadow-md flex items-center justify-center ${
+                input.trim() ? 'bg-[#00a884] text-white' : 'bg-slate-300 text-slate-500'
+              }`}
             >
-              <Send size={20} />
+              <Send size={22} fill={input.trim() ? "currentColor" : "none"} />
             </button>
           </div>
         </div>

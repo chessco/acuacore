@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, ShoppingBag, Clock, CheckCircle2, XCircle, Truck, Eye, Loader2, Filter, ChevronDown, User, Phone, Mail, DollarSign } from 'lucide-react'
+import { Search, ShoppingBag, Clock, CheckCircle2, XCircle, Truck, Eye, Loader2, Filter, ChevronDown, User, Phone, Mail, DollarSign, FileDown, MessageCircle } from 'lucide-react'
 import axios from 'axios'
 import { useTenant } from '../../contexts/TenantContext'
 
@@ -32,6 +32,49 @@ export function OrdersManager() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const downloadInvoice = async (orderId: string) => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014'
+      const token = localStorage.getItem('token')
+      const headers = { 
+        'Authorization': `Bearer ${token}`
+      }
+      
+      const res = await axios.get(`${apiUrl}/api/ecommerce/orders/${orderId}/invoice`, { 
+        headers,
+        responseType: 'blob'
+      })
+      
+      const url = window.URL.createObjectURL(new Blob([res.data]))
+      const link = document.createElement('a')
+      link.href = url
+      link.setAttribute('download', `factura-${orderId.slice(0, 8)}.pdf`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+    } catch (err) {
+      console.error('Error downloading invoice:', err)
+      alert('Error al descargar la factura')
+    }
+  }
+
+  const sendWhatsApp = (order: any) => {
+    if (!order.phone) {
+      alert('El cliente no proporcionó un número de teléfono.')
+      return
+    }
+    const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014'
+    const invoiceUrl = `${apiUrl}/api/ecommerce/orders/${order.id}/invoice`
+    const message = encodeURIComponent(`Hola ${order.customerName}, ¡gracias por tu compra! 🌟 
+Adjuntamos el link a tu factura/remisión: ${invoiceUrl}
+
+¡Que tengas un excelente día!`)
+    
+    // Clean phone number (keep only digits)
+    const cleanPhone = order.phone.replace(/\D/g, '')
+    window.open(`https://wa.me/${cleanPhone}?text=${message}`, '_blank')
   }
 
   const getStatusInfo = (status: string) => {
@@ -134,12 +177,28 @@ export function OrdersManager() {
                         </div>
                       </td>
                       <td className="px-4 py-5 text-right">
-                        <button 
-                          onClick={() => setSelectedOrder(order)}
-                          className="p-2 hover:bg-white hover:text-brand-blue hover:shadow-sm rounded-lg transition-all text-slate-400"
-                        >
-                          <Eye size={18} />
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => sendWhatsApp(order)}
+                            className="p-2 hover:bg-white hover:text-emerald-500 hover:shadow-sm rounded-lg transition-all text-slate-400"
+                            title="Enviar por WhatsApp"
+                          >
+                            <MessageCircle size={18} />
+                          </button>
+                          <button 
+                            onClick={() => downloadInvoice(order.id)}
+                            className="p-2 hover:bg-white hover:text-emerald-500 hover:shadow-sm rounded-lg transition-all text-slate-400"
+                            title="Descargar Factura"
+                          >
+                            <FileDown size={18} />
+                          </button>
+                          <button 
+                            onClick={() => setSelectedOrder(order)}
+                            className="p-2 hover:bg-white hover:text-brand-blue hover:shadow-sm rounded-lg transition-all text-slate-400"
+                          >
+                            <Eye size={18} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
@@ -228,12 +287,28 @@ export function OrdersManager() {
               </div>
 
               <div className="mt-10">
-                <button 
-                  onClick={() => setSelectedOrder(null)}
-                  className="w-full py-4 bg-slate-100 text-slate-500 font-bold rounded-2xl text-sm hover:bg-slate-200 transition-all"
-                >
-                  Cerrar Detalle
-                </button>
+                <div className="flex gap-3">
+                    <button 
+                      onClick={() => sendWhatsApp(selectedOrder)}
+                      className="flex-1 py-4 bg-emerald-500 text-white font-bold rounded-2xl text-sm shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                      <MessageCircle size={18} />
+                      Enviar WhatsApp
+                    </button>
+                    <button 
+                      onClick={() => downloadInvoice(selectedOrder.id)}
+                      className="flex-1 py-4 bg-slate-900 text-white font-bold rounded-2xl text-sm shadow-lg shadow-slate-900/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                    >
+                      <FileDown size={18} />
+                      Descargar PDF
+                    </button>
+                  <button 
+                    onClick={() => setSelectedOrder(null)}
+                    className="flex-1 py-4 bg-slate-100 text-slate-500 font-bold rounded-2xl text-sm hover:bg-slate-200 transition-all"
+                  >
+                    Cerrar Detalle
+                  </button>
+                </div>
               </div>
             </div>
           </div>

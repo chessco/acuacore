@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { CheckCircle2, ChevronRight, Menu, X, ArrowRight, Shield, Zap, TrendingUp, Fish, Thermometer, Eye, LayoutGrid, BarChart3, Database, Clock, MessageSquare } from 'lucide-react';
+import { motion } from 'motion/react';
+import { CheckCircle2, ChevronRight, Menu, X, ArrowRight, Shield, Zap, TrendingUp, Fish, Thermometer, Eye, LayoutGrid, BarChart3, Database, Clock, MessageSquare, ShoppingBag, ShoppingCart } from 'lucide-react';
 import axios from 'axios';
 import { CapsuleChat } from './components/CapsuleChat';
 import { LeadForm } from './components/LeadForm';
 import { DeepExplanationBlock } from './components/DeepExplanationBlock';
+import { CheckoutBlock } from './components/CheckoutBlock';
 import { useTenant } from '../../contexts/TenantContext';
+import { Helmet } from 'react-helmet-async';
 
 export const CapsuleLanding: React.FC = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -62,8 +64,28 @@ export const CapsuleLanding: React.FC = () => {
   if (loading) return <div className="h-screen flex items-center justify-center text-slate-400 font-medium">Sincronizando experiencia...</div>;
   if (!capsule) return <div className="h-screen flex items-center justify-center text-red-500 font-bold underline">Cápsula no disponible en este momento.</div>;
 
+  const heroImage = resolveImageUrl(capsule.contentBlocks?.find((b: any) => b.type === 'hero')?.data?.image) || "https://acuacore.io/default-share.png";
+
   return (
     <div className="min-h-screen bg-white font-['Inter'] selection:bg-blue-100 text-slate-900 scroll-smooth">
+      <Helmet>
+        <title>{capsule.title} | AcuaCore</title>
+        <meta name="description" content={capsule.description} />
+        
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={window.location.href} />
+        <meta property="og:title" content={capsule.title} />
+        <meta property="og:description" content={capsule.description} />
+        <meta property="og:image" content={heroImage} />
+
+        {/* Twitter */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:url" content={window.location.href} />
+        <meta name="twitter:title" content={capsule.title} />
+        <meta name="twitter:description" content={capsule.description} />
+        <meta name="twitter:image" content={heroImage} />
+      </Helmet>
       {/* Navigation */}
       <nav className="fixed top-0 w-full bg-white/95 backdrop-blur-md z-50 border-b border-slate-100">
         <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -77,10 +99,20 @@ export const CapsuleLanding: React.FC = () => {
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-10">
+          <div className="hidden md:flex items-center gap-6">
             <a href="/capsules" className="text-sm font-bold text-slate-600 hover:text-[#001A41] transition-colors">Cápsulas</a>
             <a href="#benefits" className="text-sm font-bold text-slate-600 hover:text-[#001A41] transition-colors">Recursos</a>
-            <a href="#about" className="text-sm font-bold text-slate-600 hover:text-[#001A41] transition-colors">Acerca de Acuaequipos</a>
+            <button 
+              onClick={() => {
+                window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(window.location.href)}`, 'facebook-share-dialog', 'width=800,height=600');
+              }}
+              className="p-3 bg-[#1877F2] text-white rounded-xl hover:bg-[#166fe5] transition-all shadow-sm flex items-center gap-2 text-[10px] font-black uppercase tracking-widest"
+            >
+              <svg className="w-4 h-4 fill-currentColor" viewBox="0 0 24 24">
+                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+              </svg>
+              Compartir
+            </button>
             <button 
               onClick={() => {
                 document.getElementById('chat')?.scrollIntoView({ behavior: 'smooth' });
@@ -237,6 +269,35 @@ export const CapsuleLanding: React.FC = () => {
         </section>
       )}
 
+      {/* Checkout Block */}
+      {capsule.contentBlocks?.find((b: any) => b.type === 'checkout') && (
+        <section id="checkout-block" className="py-24 px-6 bg-white overflow-hidden relative">
+          <div className="max-w-7xl mx-auto">
+            <CheckoutBlock 
+              data={capsule.contentBlocks.find((b: any) => b.type === 'checkout').data} 
+              apiUrl={apiUrl} 
+              slug={capsule.slug}
+              tenantId={selectedTenant?.id}
+            />
+          </div>
+        </section>
+      )}
+
+      {/* Product Block */}
+      {capsule.contentBlocks?.find((b: any) => b.type === 'product') && (
+        <section className="py-20 px-6 bg-white overflow-hidden relative">
+          <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_top_right,rgba(16,185,129,0.05),transparent)] pointer-events-none" />
+          <div className="max-w-4xl mx-auto">
+            <ProductBlock 
+              data={capsule.contentBlocks.find((b: any) => b.type === 'product').data} 
+              apiUrl={apiUrl} 
+              slug={capsule.slug}
+              tenantId={selectedTenant?.id}
+            />
+          </div>
+        </section>
+      )}
+
       {/* Chat Section */}
       <section id="chat" className="py-12 px-6 bg-[#F8FAFC]">
         <div className="max-w-6xl mx-auto">
@@ -247,6 +308,7 @@ export const CapsuleLanding: React.FC = () => {
             agentPortrait={resolveImageUrl(capsule.promptConfig?.agentPortrait) || "/don_juan_final.jpg"}
             onPortraitClick={() => setSelectedImage(resolveImageUrl(capsule.promptConfig?.agentPortrait) || "/don_juan_final.jpg")}
             preview={window.location.search.includes('preview=true')}
+            agentRoles={capsule.promptConfig?.agentRoles}
           />
         </div>
       </section>
@@ -383,3 +445,86 @@ const MessageSquareIcon = ({ size, className }: any) => (
     <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
   </svg>
 );
+
+const ProductBlock = ({ data, apiUrl, slug, tenantId }: any) => {
+  const [product, setProduct] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!data.productId) return;
+      try {
+        const res = await axios.get(`${apiUrl}/api/ecommerce/storefront/${slug}/products`);
+        const found = res.data.find((p: any) => p.id === data.productId);
+        setProduct(found);
+      } catch (err) {
+        console.error('Error fetching product for capsule:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchProduct();
+  }, [data.productId, apiUrl, slug]);
+
+  if (loading && data.productId) return <div className="h-40 flex items-center justify-center text-slate-300 font-bold uppercase tracking-widest text-[10px]">Cargando oferta...</div>;
+  if (!product) return null;
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      className="bg-white rounded-[2.5rem] border border-emerald-100 shadow-2xl shadow-emerald-900/5 p-8 md:p-12 flex flex-col md:flex-row items-center gap-12 relative overflow-hidden group"
+    >
+      {data.showBadge && (
+        <div className="absolute top-6 left-6 bg-emerald-500 text-white px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 z-10">
+          {data.badgeText || 'Oferta Exclusiva'}
+        </div>
+      )}
+      
+      <div className="w-full md:w-1/2 aspect-square rounded-[2rem] overflow-hidden bg-slate-50 relative">
+        {product.imageUrl ? (
+          <img src={product.imageUrl.startsWith('http') ? product.imageUrl : `${apiUrl}${product.imageUrl}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" alt={product.name} />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-slate-200">
+            <ShoppingBag size={80} />
+          </div>
+        )}
+      </div>
+
+      <div className="w-full md:w-1/2 space-y-6">
+        <div className="space-y-2">
+          <p className="text-emerald-500 font-black text-xs uppercase tracking-widest">Recomendado por {slug}</p>
+          <h3 className="text-3xl md:text-4xl font-black text-[#001A41] leading-tight">{product.name}</h3>
+        </div>
+        
+        <p className="text-slate-500 font-medium leading-relaxed">
+          {product.description || 'Optimiza tu producción con tecnología de punta diseñada para resultados exponenciales.'}
+        </p>
+
+        <div className="flex items-center gap-6 pt-4">
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Precio Especial</p>
+            <p className="text-3xl font-black text-[#001A41]">${product.price.toFixed(2)} <span className="text-sm text-slate-300">USD</span></p>
+          </div>
+          <div className="h-10 w-px bg-slate-100" />
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stock</p>
+            <p className="text-sm font-bold text-emerald-600">Disponible hoy</p>
+          </div>
+        </div>
+
+        <button 
+          onClick={() => {
+            // Redirect to storefront with item in cart via query param or just link to product
+            window.location.href = `/store/${slug}?addToCart=${product.id}&capsuleId=${slug}`;
+          }}
+          className="w-full bg-[#001A41] hover:bg-emerald-600 text-white py-5 rounded-2xl font-black text-sm uppercase tracking-widest shadow-xl shadow-blue-900/10 hover:shadow-emerald-500/20 transition-all flex items-center justify-center gap-3 active:scale-95"
+        >
+          <ShoppingCart size={18} />
+          {data.buttonText || 'Añadir al Carrito'}
+        </button>
+      </div>
+    </motion.div>
+  );
+};

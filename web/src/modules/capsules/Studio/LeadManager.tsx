@@ -16,7 +16,7 @@ import {
   Tablet,
   Globe
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 
 export const LeadManager: React.FC = () => {
   const [leads, setLeads] = useState<any[]>([]);

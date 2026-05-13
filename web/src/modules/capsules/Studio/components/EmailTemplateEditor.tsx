@@ -14,7 +14,7 @@ import {
   Layout,
   LayoutGrid
 } from 'lucide-react';
-import { motion, Reorder } from 'framer-motion';
+import { motion, Reorder } from 'motion/react';
 import axios from 'axios';
 
 export type EmailBlock = {

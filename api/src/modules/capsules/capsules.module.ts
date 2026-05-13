@@ -11,11 +11,12 @@ import { CombinedAuthGuard } from '../../common/guards/combined-auth.guard';
 import { FeatureFlagGuard } from '../../common/guards/feature-flag.guard';
 
 import { ConversationsModule } from '../conversations/conversations.module';
+import { CrmModule } from '../crm/crm.module';
 
 import { CampaignTrackingController } from './campaign-tracking.controller';
 
 @Module({
-  imports: [DatabaseModule, AiModule, ConversationsModule],
+  imports: [DatabaseModule, AiModule, ConversationsModule, CrmModule],
   controllers: [CapsulesController, CapsuleStudioController, UploadsController, CampaignTrackingController],
   providers: [
     CapsulesService, 

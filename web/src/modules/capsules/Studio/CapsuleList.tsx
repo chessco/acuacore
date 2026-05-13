@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { Plus, Search, Filter, MoreVertical, LayoutGrid, List as ListIcon, ExternalLink, BarChart3, Mail, Users, Settings, Trash2 } from 'lucide-react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';

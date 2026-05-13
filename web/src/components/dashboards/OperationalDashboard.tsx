@@ -106,6 +106,7 @@ export function OperationalDashboard() {
   const [stats, setStats] = useState<any>(null)
   const [dashboardChartData, setDashboardChartData] = useState<any[]>([])
   const [loadingStats, setLoadingStats] = useState(true)
+  const [ecommerceWidgets, setEcommerceWidgets] = useState<any>(null)
   const [showQuickAction, setShowQuickAction] = useState(false)
 
   const handleQuickAction = () => {
@@ -174,6 +175,27 @@ export function OperationalDashboard() {
       setLoadingStats(false)
     }
   }
+
+  const fetchEcommerceWidgets = async () => {
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+      const response = await axios.get(`${apiUrl}/api/ecommerce/dashboard/widgets`, {
+        headers: { 
+          'x-tenant-id': selectedTenant?.id || '',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      })
+      setEcommerceWidgets(response.data)
+    } catch (err) {
+      console.error('Error fetching ecommerce widgets:', err)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'dashboard' && selectedTenant?.id !== 'global') {
+      fetchEcommerceWidgets()
+    }
+  }, [activeTab, selectedTenant])
 
   return (
     <div className="flex h-screen bg-surface text-text-main overflow-hidden font-sans relative">
@@ -275,12 +297,34 @@ export function OperationalDashboard() {
             </div>
           )}
 
-          {/* Categoría: Avanzado */}
+          {/* Categoría: Inteligencia */}
           {AVAILABLE_MODULES.some(m => m.category === 'avanzado' && hasMenu(m.id)) && (
             <div>
               {!isSidebarCollapsed && <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-2">Inteligencia</p>}
               <div className="space-y-1">
                 {AVAILABLE_MODULES.filter(m => m.category === 'avanzado' && hasMenu(m.id)).map(module => (
+                  <NavItem 
+                    key={module.id}
+                    icon={<module.icon size={20} />} 
+                    label={module.label} 
+                    active={activeTab === module.id} 
+                    collapsed={isSidebarCollapsed}
+                    onClick={() => {
+                      setActiveTab(module.id);
+                      setIsSidebarOpen(false);
+                    }}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Categoría: CRM & Ventas */}
+          {AVAILABLE_MODULES.some(m => m.category === 'crm' && hasMenu(m.id)) && (
+            <div>
+              {!isSidebarCollapsed && <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2 ml-2">CRM & Ventas</p>}
+              <div className="space-y-1">
+                {AVAILABLE_MODULES.filter(m => m.category === 'crm' && hasMenu(m.id)).map(module => (
                   <NavItem 
                     key={module.id}
                     icon={<module.icon size={20} />} 
@@ -501,6 +545,61 @@ export function OperationalDashboard() {
                   </>
                 )}
               </div>
+
+              {/* Ecommerce Quick Widgets (Phase 4) */}
+              {selectedTenant?.id !== 'global' && ecommerceWidgets && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+                   <motion.div 
+                     initial={{ opacity: 0, x: -20 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[32px] p-6 text-white shadow-xl shadow-emerald-200/50 flex justify-between items-center overflow-hidden relative group"
+                   >
+                      <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-150 transition-transform duration-700">
+                         <BarChart3 size={120} />
+                      </div>
+                      <div className="relative z-10">
+                         <p className="text-[10px] font-black uppercase tracking-[0.2em] mb-1 opacity-80">Ganancia del Día</p>
+                         <h3 className="text-4xl font-black font-display tracking-tight">${ecommerceWidgets.dailyProfit.toFixed(2)}</h3>
+                         <div className="flex items-center gap-2 mt-2">
+                            <span className="px-2 py-0.5 bg-white/20 rounded-full text-[10px] font-bold">HOY: {ecommerceWidgets.orderCount} ÓRDENES</span>
+                            <span className="text-[10px] font-bold opacity-80">Ventas: ${ecommerceWidgets.dailyRevenue.toFixed(2)}</span>
+                         </div>
+                      </div>
+                      <div className="w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-md">
+                         <TrendingUp size={32} />
+                      </div>
+                   </motion.div>
+
+                   <motion.div 
+                     initial={{ opacity: 0, x: 20 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     className="bg-white border border-slate-100 rounded-[32px] p-6 shadow-xl flex flex-col justify-between"
+                   >
+                      <div className="flex justify-between items-center mb-4">
+                         <div>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Alerta de Inventario</p>
+                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-tight">3 Productos por Agotarse</h3>
+                         </div>
+                         <div className="w-10 h-10 bg-rose-50 text-rose-500 rounded-xl flex items-center justify-center">
+                            <AlertCircle size={20} />
+                         </div>
+                      </div>
+                      <div className="space-y-3">
+                         {ecommerceWidgets.criticalStock.length > 0 ? ecommerceWidgets.criticalStock.map((prod: any) => (
+                            <div key={prod.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100 hover:border-rose-200 transition-colors">
+                               <span className="text-xs font-bold text-slate-700 truncate max-w-[150px]">{prod.name}</span>
+                               <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-black text-rose-500 uppercase">{prod.currentStock} UNID.</span>
+                                  <div className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-pulse" />
+                               </div>
+                            </div>
+                         )) : (
+                            <div className="p-3 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest italic">Todo en orden ✅</div>
+                         )}
+                      </div>
+                   </motion.div>
+                </div>
+              )}
 
               <div className="grid grid-cols-12 gap-8">
                 <div className="col-span-12 lg:col-span-8 space-y-8">

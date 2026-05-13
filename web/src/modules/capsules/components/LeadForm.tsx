@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { motion } from 'framer-motion';
+import { motion } from 'motion/react';
 import { User, Mail, Phone, Send } from 'lucide-react';
 import axios from 'axios';
 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { Save, ArrowLeft, Eye, Settings, Layout, MessageSquare, Zap, ChevronRight, Plus, Trash2, BookOpen, BarChart3, Star, Layers, Wand2 } from 'lucide-react';
+import { motion } from 'motion/react';
+import { Save, ArrowLeft, Eye, Settings, Layout, MessageSquare, Zap, ChevronRight, Plus, Trash2, BookOpen, BarChart3, Star, Layers, Wand2, ShoppingBag, CreditCard } from 'lucide-react';
 import axios from 'axios';
 import { useTenant } from '../../../contexts/TenantContext';
 
@@ -25,11 +25,13 @@ export const CapsuleEditor: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [capsule, setCapsule] = useState<any>(null);
-  const [activeTab, setActiveTab] = useState<'content' | 'ai' | 'preview'>('content');
+  const [activeTab, setActiveTab] = useState<'content' | 'ai' | 'preview' | 'team'>('content');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewKey, setPreviewKey] = useState(0);
   const [availableKBs, setAvailableKBs] = useState<any[]>([]);
+  const [availableProducts, setAvailableProducts] = useState<any[]>([]);
+  const [availableAgents, setAvailableAgents] = useState<any[]>([]);
   const { selectedTenant, flowApiKey } = useTenant();
   let apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
   
@@ -54,6 +56,44 @@ export const CapsuleEditor: React.FC = () => {
       }
     };
     if (selectedTenant) fetchKBs();
+  }, [selectedTenant, flowApiKey, apiUrl]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const role = localStorage.getItem('acuacore_role') || 'tenant';
+      try {
+        const res = await axios.get(apiUrl + '/api/ecommerce/products', {
+          headers: {
+            'x-tenant-id': selectedTenant?.id || '',
+            'x-api-key': flowApiKey,
+            'x-user-role': role.toUpperCase(),
+          }
+        });
+        setAvailableProducts(res.data);
+      } catch (err) {
+        console.error('Error fetching products:', err);
+      }
+    };
+    if (selectedTenant) fetchProducts();
+  }, [selectedTenant, flowApiKey, apiUrl]);
+
+  useEffect(() => {
+    const fetchAgents = async () => {
+      const role = localStorage.getItem('acuacore_role') || 'tenant';
+      try {
+        const res = await axios.get(apiUrl + '/api/agents', {
+          headers: {
+            'x-tenant-id': selectedTenant?.id || '',
+            'x-api-key': flowApiKey,
+            'x-user-role': role.toUpperCase(),
+          }
+        });
+        setAvailableAgents(res.data);
+      } catch (err) {
+        console.error('Error fetching agents:', err);
+      }
+    };
+    if (selectedTenant) fetchAgents();
   }, [selectedTenant, flowApiKey, apiUrl]);
 
   useEffect(() => {
@@ -204,6 +244,12 @@ export const CapsuleEditor: React.FC = () => {
               className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'ai' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500'}`}
             >
               <MessageSquare size={14} /> Configuración IA
+            </button>
+            <button 
+              onClick={() => setActiveTab('team')}
+              className={`px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-2 ${activeTab === 'team' ? 'bg-white text-violet-600 shadow-sm' : 'text-slate-500'}`}
+            >
+              <Layers size={14} /> Equipo
             </button>
             <button 
               onClick={() => setActiveTab('preview')}
@@ -522,44 +568,224 @@ export const CapsuleEditor: React.FC = () => {
                           </div>
                           </div>
                         </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+              <div className="space-y-6 pt-6 border-t border-slate-50">
+                <h3 className="text-sm font-black text-[#001A41] uppercase tracking-widest border-b border-slate-50 pb-4 flex items-center justify-between">
+                  <span className="flex items-center gap-2"><ShoppingBag size={16} className="text-emerald-600" /> Bloque de Producto</span>
+                  {!capsule.contentBlocks?.find((b: any) => b.type === 'product') && (
+                    <button 
+                      onClick={() => {
+                        const newBlocks = [...(capsule.contentBlocks || [])];
+                        newBlocks.push({
+                          type: 'product',
+                          data: {
+                            productId: "",
+                            buttonText: "Comprar ahora",
+                            layout: "vertical",
+                            showBadge: true,
+                            badgeText: "Oferta Exclusiva"
+                          }
+                        });
+                        setCapsule({ ...capsule, contentBlocks: newBlocks });
+                      }}
+                      className="p-1.5 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  )}
+                </h3>
+
+                {capsule.contentBlocks?.find((b: any) => b.type === 'product') && (
+                  <div className="space-y-4">
+                    {(() => {
+                      const block = capsule.contentBlocks.find((b: any) => b.type === 'product');
+                      const updateProductField = (field: string, value: any) => {
+                        const newBlocks = [...capsule.contentBlocks];
+                        const bIdx = newBlocks.findIndex(b => b.type === 'product');
+                        if (bIdx === -1) return;
+                        
+                        newBlocks[bIdx] = { 
+                          ...newBlocks[bIdx], 
+                          data: { ...newBlocks[bIdx].data, [field]: value } 
+                        };
+                        setCapsule({ ...capsule, contentBlocks: newBlocks });
+                      };
+
+                      return (
+                        <div className="space-y-4 p-5 bg-emerald-50/30 rounded-2xl border border-emerald-100/50">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Seleccionar Producto</label>
+                            <select 
+                              value={block.data.productId}
+                              onChange={(e) => updateProductField('productId', e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none"
+                            >
+                              <option value="">-- Elige un producto --</option>
+                              {availableProducts.map(p => (
+                                <option key={p.id} value={p.id}>{p.name} (${p.price})</option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Texto del Botón</label>
+                            <input 
+                              type="text"
+                              value={block.data.buttonText}
+                              onChange={(e) => updateProductField('buttonText', e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none"
+                              placeholder="Ej: Comprar Ahora"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            <div className="flex-1 space-y-1.5">
+                              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Texto de Etiqueta</label>
+                              <input 
+                                type="text"
+                                value={block.data.badgeText}
+                                onChange={(e) => updateProductField('badgeText', e.target.value)}
+                                className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none"
+                              />
+                            </div>
+                            <div className="pt-5">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                  type="checkbox" 
+                                  checked={block.data.showBadge}
+                                  onChange={(e) => updateProductField('showBadge', e.target.checked)}
+                                  className="w-4 h-4 rounded border-slate-300 text-emerald-600"
+                                />
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Mostrar</span>
+                              </label>
+                            </div>
+                          </div>
+
+                          <button 
+                            onClick={() => {
+                              const newBlocks = capsule.contentBlocks.filter((b: any) => b.type !== 'product');
+                              setCapsule({ ...capsule, contentBlocks: newBlocks });
+                            }}
+                            className="text-[9px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1 hover:text-red-600 mt-2"
+                          >
+                            <Trash2 size={12} /> Eliminar Bloque de Producto
+                          </button>
+                        </div>
                       );
                     })()}
                   </div>
                 )}
               </div>
 
-              <div className="space-y-6 pt-6">
+              <div className="space-y-6 pt-6 border-t border-slate-50">
                 <h3 className="text-sm font-black text-[#001A41] uppercase tracking-widest border-b border-slate-50 pb-4 flex items-center justify-between">
-                  <span className="flex items-center gap-2"><Zap size={16} className="text-blue-600" /> Especificaciones Técnicas</span>
-                  <button className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                    <Plus size={16} />
-                  </button>
+                  <span className="flex items-center gap-2"><CreditCard size={16} className="text-blue-600" /> Bloque de Pago Directo</span>
+                  {!capsule.contentBlocks?.find((b: any) => b.type === 'checkout') && (
+                    <button 
+                      onClick={() => {
+                        const newBlocks = [...(capsule.contentBlocks || [])];
+                        newBlocks.push({
+                          type: 'checkout',
+                          data: {
+                            title: "Finalizar Compra",
+                            description: "Adquiere esta solución ahora mismo.",
+                            productIds: [],
+                            buttonText: "Pagar con Tarjeta",
+                            showSummary: true
+                          }
+                        });
+                        setCapsule({ ...capsule, contentBlocks: newBlocks });
+                      }}
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  )}
                 </h3>
-                <div className="space-y-4">
-                  {(capsule.contentBlocks?.find((b: any) => b.type === 'technical_specs')?.items || []).map((item: any, idx: number) => (
-                    <div key={idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3 relative group">
-                      <button className="absolute top-2 right-2 p-1.5 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
-                        <Trash2 size={14} />
-                      </button>
-                      <input 
-                        type="text" 
-                        value={item.name} 
-                        onChange={(e) => updateSpec(idx, 'name', e.target.value)}
-                        className="w-full bg-transparent font-black text-sm text-[#001A41] focus:outline-none"
-                        placeholder="Nombre de la especie/componente"
-                      />
-                      <textarea 
-                        value={item.details || ''} 
-                        onChange={(e) => updateSpec(idx, 'details', e.target.value)}
-                        className="w-full bg-transparent text-xs text-slate-500 font-medium focus:outline-none min-h-[60px]"
-                        placeholder="Detalles técnicos..."
-                      />
-                    </div>
-                  ))}
-                </div>
+
+                {capsule.contentBlocks?.find((b: any) => b.type === 'checkout') && (
+                  <div className="space-y-4">
+                    {(() => {
+                      const block = capsule.contentBlocks.find((b: any) => b.type === 'checkout');
+                      const updateCheckoutField = (field: string, value: any) => {
+                        const newBlocks = [...capsule.contentBlocks];
+                        const bIdx = newBlocks.findIndex(b => b.type === 'checkout');
+                        if (bIdx === -1) return;
+                        
+                        newBlocks[bIdx] = { 
+                          ...newBlocks[bIdx], 
+                          data: { ...newBlocks[bIdx].data, [field]: value } 
+                        };
+                        setCapsule({ ...capsule, contentBlocks: newBlocks });
+                      };
+
+                      return (
+                        <div className="space-y-4 p-5 bg-blue-50/30 rounded-2xl border border-blue-100/50">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Título del Bloque</label>
+                            <input 
+                              type="text"
+                              value={block.data.title}
+                              onChange={(e) => updateCheckoutField('title', e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none"
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Productos a incluir</label>
+                            <div className="space-y-2 max-h-40 overflow-y-auto premium-scrollbar pr-2">
+                              {availableProducts.map(p => (
+                                <label key={p.id} className="flex items-center gap-2 p-2 hover:bg-white rounded-lg cursor-pointer">
+                                  <input 
+                                    type="checkbox"
+                                    checked={block.data.productIds?.includes(p.id)}
+                                    onChange={(e) => {
+                                      const currentIds = block.data.productIds || [];
+                                      const newIds = e.target.checked 
+                                        ? [...currentIds, p.id]
+                                        : currentIds.filter((id: string) => id !== p.id);
+                                      updateCheckoutField('productIds', newIds);
+                                    }}
+                                    className="w-4 h-4 rounded border-slate-300 text-blue-600"
+                                  />
+                                  <span className="text-[11px] font-medium text-slate-600">{p.name} (${p.price})</span>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Texto del Botón</label>
+                            <input 
+                              type="text"
+                              value={block.data.buttonText}
+                              onChange={(e) => updateCheckoutField('buttonText', e.target.value)}
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none"
+                            />
+                          </div>
+
+                          <button 
+                            onClick={() => {
+                              const newBlocks = capsule.contentBlocks.filter((b: any) => b.type !== 'checkout');
+                              setCapsule({ ...capsule, contentBlocks: newBlocks });
+                            }}
+                            className="text-[9px] font-black text-red-500 uppercase tracking-widest flex items-center gap-1 hover:text-red-600 mt-2"
+                          >
+                            <Trash2 size={12} /> Eliminar Bloque de Pago
+                          </button>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
-            </>
-          ) : (
+          </>
+          ) : activeTab === 'ai' ? (
             <div className="space-y-8">
               <div className="space-y-6">
                 <h3 className="text-sm font-black text-[#001A41] uppercase tracking-widest border-b border-slate-50 pb-4 flex items-center gap-2">
@@ -675,6 +901,50 @@ export const CapsuleEditor: React.FC = () => {
                       />
                     </div>
                   </div>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-8">
+              <h3 className="text-sm font-black text-[#001A41] uppercase tracking-widest border-b border-slate-50 pb-4 flex items-center gap-2">
+                <Layers size={16} className="text-violet-600" /> Equipo de Especialistas
+              </h3>
+              <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">Asigna agentes especializados a diferentes momentos de la cápsula para una experiencia multi-experto.</p>
+              
+              <div className="space-y-6">
+                {[
+                  { id: 'main', name: 'Agente Principal (Cápsula)', icon: MessageSquare, color: 'blue' },
+                  { id: 'support', name: 'Especialista en Ventas (Checkout)', icon: ShoppingBag, color: 'emerald' },
+                  { id: 'technical', name: 'Experto en Implementación', icon: Settings, color: 'indigo' }
+                ].map(role => (
+                  <div key={role.id} className="p-6 bg-slate-50 rounded-3xl border border-slate-100 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-${role.color}-600`}>
+                        <role.icon size={20} />
+                      </div>
+                      <div>
+                        <div className="text-sm font-black text-[#001A41]">{role.name}</div>
+                        <div className="text-[9px] font-bold text-slate-400 uppercase">Rol asignado para este contexto</div>
+                      </div>
+                    </div>
+                    <select 
+                      value={capsule.promptConfig?.agentRoles?.[role.id] || ''}
+                      onChange={(e) => {
+                        const roles = { ...(capsule.promptConfig?.agentRoles || {}) };
+                        roles[role.id] = e.target.value;
+                        setCapsule({ 
+                          ...capsule, 
+                          promptConfig: { ...capsule.promptConfig, agentRoles: roles } 
+                        });
+                      }}
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/10"
+                    >
+                      <option value="">(Usar agente por defecto de la cápsula)</option>
+                      {availableAgents.map(a => (
+                        <option key={a.id} value={a.slug}>{a.name} ({a.slug})</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
               </div>
             </div>
           )}

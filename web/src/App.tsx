@@ -62,6 +62,7 @@ function AppContent() {
       <Route path="/capsules/:slug" element={<CapsuleLanding />} />
       <Route path="/capsules" element={<CapsuleCatalog />} />
       <Route path="/store/:slug" element={<Storefront />} />
+      <Route path="/store/:slug/order/:trackingId" element={<Storefront />} />
       
       {/* Auth Routes */}
       <Route 

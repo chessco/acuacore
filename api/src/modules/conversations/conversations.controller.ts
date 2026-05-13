@@ -11,6 +11,11 @@ export class ConversationsController {
     return this.conversationsService.getConversations();
   }
 
+  @Get('by-phone/:phone')
+  async getByPhone(@Param('phone') phone: string) {
+    return this.conversationsService.findConversationByPhone(phone);
+  }
+
   @Get('operators')
   async getOperators() {
     return this.conversationsService.getOperators();

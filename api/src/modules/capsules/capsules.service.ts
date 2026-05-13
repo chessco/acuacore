@@ -4,6 +4,8 @@ import { AiService } from '../ai/ai.service';
 import { CreateCapsuleDto } from './dto/create-capsule.dto';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { ConversationsService } from '../conversations/conversations.service';
+import { WorkflowsService } from '../crm/workflows.service';
+import { CrmService } from '../crm/crm.service';
 
 @Injectable()
 export class CapsulesService {
@@ -13,6 +15,8 @@ export class CapsulesService {
     private db: DatabaseService,
     private ai: AiService,
     private conversationsService: ConversationsService,
+    private workflowsService: WorkflowsService,
+    private crmService: CrmService,
   ) {}
 
   async create(dto: CreateCapsuleDto) {
@@ -157,13 +161,81 @@ export class CapsulesService {
     });
   }
 
-  async createLead(dto: CreateLeadDto & { userId?: string }) {
+  async createLead(dto: CreateLeadDto & { userId?: string, tenantId?: string }) {
     const { userId, ...leadData } = dto;
     
-    // Create the lead record
+    // Resolver tenantId si no viene (ej: desde el widget público)
+    let tenantId = leadData.tenantId;
+    if (!tenantId) {
+      const capsule = await this.db.mysql.capsule.findUnique({
+        where: { id: leadData.capsuleId }
+      });
+      tenantId = capsule?.tenantId || 'DEFAULT';
+    }
+    
+    // Unificación de Identidad: Sincronizar con CRM
+    let contact = null;
+    if (leadData.email || leadData.phone) {
+      contact = await this.db.mysql.contact.findFirst({
+        where: { 
+          tenantId, 
+          OR: [
+            ...(leadData.email ? [{ email: leadData.email }] : []),
+            ...(leadData.phone ? [{ phone: leadData.phone }] : [])
+          ]
+        }
+      });
+
+      if (!contact) {
+        contact = await this.db.mysql.contact.create({
+          data: {
+            tenantId,
+            name: leadData.name,
+            email: leadData.email,
+            phone: leadData.phone,
+            status: 'LEAD'
+          }
+        });
+      } else {
+        // Actualizar información si es necesario
+        await this.db.mysql.contact.update({
+          where: { id: contact.id },
+          data: {
+            name: leadData.name,
+            email: leadData.email || contact.email,
+            phone: leadData.phone || contact.phone
+          }
+        });
+      }
+    }
+
+    // Create the lead record linked to contact
     const lead = await this.db.mysql.lead.create({
-      data: leadData,
+      data: {
+        name: leadData.name,
+        email: leadData.email,
+        phone: leadData.phone,
+        capsuleId: leadData.capsuleId,
+        conversationId: leadData.conversationId,
+        campaignId: leadData.campaignId,
+        metadata: leadData.metadata,
+        tenantId,
+        contactId: contact?.id
+      },
     });
+
+    // Log de Actividad Omnicanal
+    if (contact) {
+      await this.db.mysql.activity.create({
+        data: {
+          tenantId,
+          contactId: contact.id,
+          type: 'NOTE',
+          subject: 'Interacción con Cápsula',
+          content: `Registro de lead desde cápsula: ${leadData.name}.`
+        }
+      });
+    }
 
     // If userId is provided, try to find and update the associated conversation
     if (userId) {
@@ -202,15 +274,28 @@ export class CapsulesService {
       }
     }
 
+    // Trigger de Bienvenida Automático (Workflow)
+    this.workflowsService.triggerWelcomeMessage(lead.id).catch(err => {
+      this.logger.error(`Error in welcome workflow: ${err.message}`);
+    });
+
+    // Recompensa de AcuaPoints por registro de lead
+    if (contact) {
+      await this.crmService.addPoints(contact.id, tenantId, 50, 'Registro inicial en cápsula');
+    }
+
     return lead;
   }
 
   async chat(slug: string, body: any, tenantId?: string, includeDrafts = false, user?: any) {
-    const { message, userId } = body;
+    const { message, userId, agentSlug } = body;
     // Buscamos la cápsula primero para obtener su tenantId real si no viene en el header
     const capsule = await this.findBySlug(slug, tenantId, includeDrafts, user);
     const resolvedTenantId = tenantId || capsule.tenantId || 'DEFAULT_TENANT';
     const finalUserId = userId || 'anon-' + Date.now();
+
+    // Determinar qué agente usar: El solicitado o el por defecto de la cápsula
+    const targetAgentSlug = agentSlug || capsule.agent?.slug;
 
     // Handle via ConversationsService to ensure it appears in Bandeja
     const aiMessage = await this.conversationsService.handleIncomingMessage(
@@ -219,10 +304,22 @@ export class CapsulesService {
       resolvedTenantId,
       undefined, // externalId
       undefined, // skills
-      capsule.agent.slug,
+      targetAgentSlug,
       'capsule',
       { capsuleId: capsule.id, capsuleTitle: capsule.title }
     );
+
+    // Recompensa de AcuaPoints por interacción (si hay contacto vinculado)
+    if (aiMessage.conversationId) {
+      const conv = await this.db.mysql.conversation.findUnique({
+        where: { id: aiMessage.conversationId },
+        include: { leads: { include: { contact: true } } }
+      });
+      const contact = conv?.leads[0]?.contact;
+      if (contact) {
+        await this.crmService.addPoints(contact.id, resolvedTenantId, 5, 'Interacción con el asesor AI');
+      }
+    }
 
     return {
       content: aiMessage.content,
@@ -270,6 +367,8 @@ export class CapsulesService {
   }
 
   async getLeads(tenantId: string) {
+    if (!tenantId) return [];
+    
     return this.db.mysql.lead.findMany({
       where: { 
         OR: [
@@ -281,7 +380,8 @@ export class CapsulesService {
       include: { 
         capsule: true,
         campaign: true,
-        conversation: true
+        conversation: true,
+        contact: true
       },
     });
   }

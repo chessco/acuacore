@@ -16,9 +16,14 @@ import {
   LayoutDashboard,
   Package,
   ShoppingBag,
-  CreditCard
+  CreditCard,
+  Target,
+  Trophy
 } from 'lucide-react';
 import { Inbox } from './inbox/Inbox';
+import { CapsuleList } from './capsules/Studio/CapsuleList';
+import { CampaignManager } from './capsules/Studio/CampaignManager';
+import { LeadManager } from './capsules/Studio/LeadManager';
 import { KnowledgeBase } from './knowledge/KnowledgeBase';
 import { Analytics } from './analytics/Analytics';
 import { AgentsManager } from './agents/AgentsManager';
@@ -34,6 +39,11 @@ import { ProductsManager } from './ecommerce/ProductsManager';
 import { OrdersManager } from './ecommerce/OrdersManager';
 import { StorefrontConfig } from './ecommerce/storefront/StorefrontConfig';
 import { PaymentsConfig } from './ecommerce/storefront/PaymentsConfig';
+import { ProfitabilityReport } from './ecommerce/ProfitabilityReport';
+import { ContactsManager } from './crm/ContactsManager';
+import { DealsBoard } from './crm/DealsBoard';
+import { LeadScoring } from './crm/LeadScoring';
+import { CRMOverview } from './crm/CRMOverview';
 import { ModuleManager } from './system/ModuleManager';
 
 export interface ModuleConfig {
@@ -42,7 +52,7 @@ export interface ModuleConfig {
   icon: any;            
   component: any;       
   description: string;  
-  category: 'operativo' | 'gestion' | 'sistema' | 'avanzado';
+  category: 'operativo' | 'gestion' | 'sistema' | 'avanzado' | 'crm';
   suiteId?: string;
   featureId?: string;
 }
@@ -63,6 +73,36 @@ export const AVAILABLE_MODULES: ModuleConfig[] = [
     component: Inbox,
     description: 'Gestión de mensajes multicanal con Copiloto IA.',
     category: 'operativo'
+  },
+  {
+    id: 'capsules',
+    label: 'Cápsulas AI',
+    icon: Layout,
+    component: CapsuleList,
+    description: 'Gestión de cápsulas de contenido y conversión.',
+    category: 'operativo',
+    suiteId: 'intelligence',
+    featureId: 'capsules'
+  },
+  {
+    id: 'campaigns',
+    label: 'Campañas',
+    icon: Zap,
+    component: CampaignManager,
+    description: 'Gestión de envíos masivos y automatizados.',
+    category: 'operativo',
+    suiteId: 'intelligence',
+    featureId: 'campaigns'
+  },
+  {
+    id: 'leads',
+    label: 'Leads AI',
+    icon: Users,
+    component: LeadManager,
+    description: 'Gestión de prospectos generados por IA.',
+    category: 'operativo',
+    suiteId: 'intelligence',
+    featureId: 'leads'
   },
   {
     id: 'agents',
@@ -199,6 +239,56 @@ export const AVAILABLE_MODULES: ModuleConfig[] = [
     category: 'gestion',
     suiteId: 'ecommerce',
     featureId: 'payments'
+  },
+  {
+    id: 'profitability',
+    label: 'Rentabilidad',
+    icon: TrendingUp,
+    component: ProfitabilityReport,
+    description: 'Análisis de margen y rentabilidad real.',
+    category: 'gestion',
+    suiteId: 'ecommerce',
+    featureId: 'profitability'
+  },
+  {
+    id: 'crm-overview',
+    label: 'Dashboard CRM',
+    icon: LayoutDashboard,
+    component: CRMOverview,
+    description: 'Métricas clave y salud del embudo de ventas.',
+    category: 'crm',
+    suiteId: 'crm',
+    featureId: 'overview'
+  },
+  {
+    id: 'crm',
+    label: 'Contactos CRM',
+    icon: Users,
+    component: ContactsManager,
+    description: 'Gestión inteligente de contactos y leads.',
+    category: 'crm',
+    suiteId: 'crm',
+    featureId: 'contacts'
+  },
+  {
+    id: 'deals',
+    label: 'Pipeline Ventas',
+    icon: Trophy,
+    component: DealsBoard,
+    description: 'Tablero Kanban de oportunidades de venta.',
+    category: 'crm',
+    suiteId: 'crm',
+    featureId: 'deals'
+  },
+  {
+    id: 'scoring',
+    label: 'Scoring IA',
+    icon: Target,
+    component: LeadScoring,
+    description: 'Priorización inteligente de prospectos por comportamiento.',
+    category: 'crm',
+    suiteId: 'crm',
+    featureId: 'scoring'
   },
   {
     id: 'module_manager',

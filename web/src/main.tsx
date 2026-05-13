@@ -5,11 +5,15 @@ import './i18n'
 import App from './App.tsx'
 import { TenantProvider } from './contexts/TenantContext'
 
+import { HelmetProvider } from 'react-helmet-async';
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <TenantProvider>
-      <App />
-    </TenantProvider>
+    <HelmetProvider>
+      <TenantProvider>
+        <App />
+      </TenantProvider>
+    </HelmetProvider>
   </StrictMode>,
 )
 

@@ -5,7 +5,7 @@ import { ShoppingBag, ShoppingCart, X, ChevronRight, Package, Tag, Star, ArrowRi
 import axios from 'axios'
 
 export function Storefront() {
-  const { slug } = useParams()
+  const { slug, trackingId } = useParams()
   const [products, setProducts] = useState<any[]>([])
   const [categories, setCategories] = useState<any[]>([])
   const [cart, setCart] = useState<any[]>([])
@@ -14,13 +14,36 @@ export function Storefront() {
   const [checkoutStep, setCheckoutStep] = useState<'cart' | 'shipping' | 'payment' | 'success'>('cart')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [orderId, setOrderId] = useState<string | null>(null)
+  const [orderId, setOrderId] = useState<string | null>(trackingId || null)
+  
+  // Attribution
+  const capsuleId = new URLSearchParams(window.location.search).get('capsuleId')
+
+  useEffect(() => {
+    if (trackingId) {
+      setCheckoutStep('success');
+      setIsCartOpen(true);
+    }
+  }, [trackingId]);
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014'
 
   useEffect(() => {
     fetchStoreData()
   }, [slug])
+
+  useEffect(() => {
+    const productId = new URLSearchParams(window.location.search).get('addToCart')
+    if (productId && products.length > 0) {
+      const product = products.find(p => p.id === productId)
+      if (product) {
+        addToCart(product)
+        setIsCartOpen(true)
+        // Clean URL
+        window.history.replaceState({}, '', window.location.pathname + window.location.search.replace(`addToCart=${productId}`, ''))
+      }
+    }
+  }, [products])
 
   const fetchStoreData = async () => {
     setLoading(true)
@@ -63,6 +86,7 @@ export function Storefront() {
         const res = await axios.post(`${apiUrl}/api/ecommerce/storefront/${slug}/checkout`, {
           customerName: 'Cliente Público', // In real app, from shipping form
           total: cartTotal,
+          capsuleId: capsuleId, // Atribución
           items: cart.map(item => ({
             productId: item.id,
             quantity: item.quantity,

@@ -14,6 +14,7 @@ export function ProductsManager() {
   const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'MXN'>('USD')
   const [searchTerm, setSearchTerm] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
+  const [predictions, setPredictions] = useState<any[]>([])
   const [isMovementsModalOpen, setIsMovementsModalOpen] = useState(false)
   const [selectedProductMovements, setSelectedProductMovements] = useState<any[]>([])
   const [editingProduct, setEditingProduct] = useState<any>(null)
@@ -21,6 +22,7 @@ export function ProductsManager() {
     name: '',
     description: '',
     price: 0,
+    cost: 0,
     stock: 0,
     minStock: 5,
     currency: 'USD',
@@ -82,14 +84,16 @@ export function ProductsManager() {
         'Authorization': `Bearer ${token}`,
         'x-tenant-id': selectedTenant.id 
       }
-      const [prodRes, catRes, rateRes] = await Promise.all([
+      const [prodRes, catRes, rateRes, predRes] = await Promise.all([
         axios.get(`${apiUrl}/api/ecommerce/products`, { headers }),
         axios.get(`${apiUrl}/api/ecommerce/categories`, { headers }),
-        axios.get(`${apiUrl}/api/ecommerce/exchange-rate`, { headers })
+        axios.get(`${apiUrl}/api/ecommerce/exchange-rate`, { headers }),
+        axios.get(`${apiUrl}/api/ecommerce/reports/stock-predictions`, { headers })
       ])
       setProducts(prodRes.data)
       setCategories(catRes.data)
       setExchangeRate(rateRes.data)
+      setPredictions(predRes.data)
     } catch (err) {
       console.error('Error fetching ecommerce data:', err)
     } finally {
@@ -166,7 +170,7 @@ export function ProductsManager() {
           <button 
             onClick={() => {
               setEditingProduct(null)
-              setFormData({ name: '', description: '', price: 0, stock: 0, minStock: 5, currency: 'USD', categoryId: '', sku: '', imageUrl: '', isActive: true, customFields: {} })
+              setFormData({ name: '', description: '', price: 0, cost: 0, stock: 0, minStock: 5, currency: 'USD', categoryId: '', sku: '', imageUrl: '', isActive: true, customFields: {} })
               setIsModalOpen(true)
             }}
             className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white font-bold rounded-xl shadow-lg shadow-emerald-500/20 hover:opacity-90 transition-all"
@@ -176,6 +180,45 @@ export function ProductsManager() {
           </button>
         </div>
       </div>
+
+      {predictions.some(p => p.status !== 'OK') && (
+        <div className="mb-10 animate-in slide-in-from-top duration-500">
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles size={18} className="text-amber-500" />
+            <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Inteligencia de Inventario</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {predictions.filter(p => p.status !== 'OK').slice(0, 4).map(p => (
+              <div key={p.id} className={`p-4 rounded-2xl border-2 transition-all ${
+                p.status === 'CRITICAL' ? 'bg-rose-50 border-rose-100 text-rose-700' : 'bg-amber-50 border-amber-100 text-amber-700'
+              }`}>
+                <div className="flex justify-between items-start mb-3">
+                  <div className={`p-2 rounded-lg ${p.status === 'CRITICAL' ? 'bg-rose-500 text-white' : 'bg-amber-500 text-white'}`}>
+                    <AlertCircle size={16} />
+                  </div>
+                  <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 bg-white/50 rounded-md">
+                    {p.status === 'CRITICAL' ? 'Crítico' : 'Riesgo'}
+                  </span>
+                </div>
+                <h4 className="font-bold text-sm truncate mb-1">{p.name}</h4>
+                <p className="text-[11px] font-medium opacity-80 mb-3">
+                  Agotamiento en aprox. <span className="font-black underline">{p.daysLeft} días</span>
+                </p>
+                <div className="flex justify-between items-end">
+                  <div>
+                    <p className="text-[9px] font-black uppercase opacity-60">Stock Actual</p>
+                    <p className="text-lg font-black">{p.currentStock}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[9px] font-black uppercase opacity-60">Venta Diaria</p>
+                    <p className="text-xs font-black">{p.dailyRate} / día</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="dashboard-card bg-white p-6">
         <div className="mb-8 relative w-96">
@@ -221,6 +264,7 @@ export function ProductsManager() {
                           name: product.name,
                           description: product.description || '',
                           price: product.price,
+                          cost: product.cost || 0,
                           stock: product.stock,
                           minStock: product.minStock || 5,
                           currency: product.currency || 'USD',
@@ -354,6 +398,18 @@ export function ProductsManager() {
                   </div>
                 </div>
                 <div>
+                  <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Costo (USD)</label>
+                  <div className="relative">
+                    <DollarSign size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input 
+                      type="number" 
+                      value={formData.cost}
+                      onChange={(e) => setFormData({...formData, cost: Number(e.target.value)})}
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+                <div>
                   <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Stock Inicial</label>
                   <div className="relative">
                     <Package size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -404,35 +460,37 @@ export function ProductsManager() {
                       </h4>
                       <p className="text-[9px] font-bold text-slate-400 uppercase">Personalización por Sector</p>
                     </div>
-                    {SECTOR_CONFIGS[selectedTenant.sector].productFields.map(field => (
-                      <div key={field.name}>
-                        <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{field.label}</label>
-                        {field.type === 'select' ? (
-                          <select 
-                            value={formData.customFields[field.name] || ''}
-                            onChange={(e) => setFormData({
-                              ...formData, 
-                              customFields: { ...formData.customFields, [field.name]: e.target.value }
-                            })}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-emerald-500 appearance-none"
-                          >
-                            <option value="">Seleccionar...</option>
-                            {field.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                          </select>
-                        ) : (
-                          <input 
-                            type={field.type} 
-                            value={formData.customFields[field.name] || ''}
-                            onChange={(e) => setFormData({
-                              ...formData, 
-                              customFields: { ...formData.customFields, [field.name]: Number(e.target.value) || e.target.value }
-                            })}
-                            className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-emerald-500"
-                            placeholder={field.placeholder}
-                          />
-                        )}
-                      </div>
-                    ))}
+                    {SECTOR_CONFIGS[selectedTenant.sector].productFields.map((field: any) => {
+                      return (
+                        <div key={field.name}>
+                          <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">{field.label}</label>
+                          {field.type === 'select' ? (
+                            <select 
+                              value={formData.customFields[field.name] || ''}
+                              onChange={(e) => setFormData({
+                                ...formData, 
+                                customFields: { ...formData.customFields, [field.name]: e.target.value }
+                              })}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-emerald-500 appearance-none"
+                            >
+                              <option value="">Seleccionar...</option>
+                              {field.options?.map((opt: any) => <option key={opt} value={opt}>{opt}</option>)}
+                            </select>
+                          ) : (
+                            <input 
+                              type={field.type} 
+                              value={formData.customFields[field.name] || ''}
+                              onChange={(e) => setFormData({
+                                ...formData, 
+                                customFields: { ...formData.customFields, [field.name]: Number(e.target.value) || e.target.value }
+                              })}
+                              className="w-full px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl text-sm font-bold text-slate-700 focus:outline-none focus:border-emerald-500"
+                              placeholder={field.placeholder}
+                            />
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
 

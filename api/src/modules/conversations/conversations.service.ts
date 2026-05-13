@@ -47,6 +47,48 @@ export class ConversationsService {
       this.gateway.server.to(tenantId).emit('conversationUpdate', conversation);
     }
 
+    // Unificación de Identidad: Sincronizar con CRM si es WhatsApp
+    if (channel.toLowerCase() === 'whatsapp') {
+      let contact = await this.db.mysql.contact.findFirst({
+        where: { tenantId, phone: userId }
+      });
+
+      if (!contact) {
+        contact = await this.db.mysql.contact.create({
+          data: {
+            tenantId,
+            name: metadata?.name || userId,
+            phone: userId,
+            status: 'LEAD'
+          }
+        });
+      }
+
+      // Vincular conversación al contacto si no lo está
+      await this.db.mysql.lead.upsert({
+        where: { id: conversation.id }, // Reusing ID or finding related
+        update: { contactId: contact.id },
+        create: {
+          tenantId,
+          capsuleId: 'system-whatsapp', // Placeholder
+          conversationId: conversation.id,
+          contactId: contact.id,
+          name: contact.name,
+          email: contact.email || ''
+        }
+      });
+
+      await this.db.mysql.activity.create({
+        data: {
+          tenantId,
+          contactId: contact.id,
+          type: 'WHATSAPP',
+          subject: 'Mensaje Entrante',
+          content: content.length > 200 ? content.substring(0, 200) + '...' : content
+        }
+      });
+    }
+
     // 2. Save user message
     const savedUserMessage = await this.db.mysql.message.create({
       data: {
@@ -147,6 +189,24 @@ export class ConversationsService {
     }
 
     return savedAiMessage;
+  }
+
+  async findConversationByPhone(phone: string) {
+    const tenantId = getTenantId();
+    return this.db.mysql.conversation.findFirst({
+      where: { 
+        tenantId,
+        OR: [
+          { userId: phone },
+          { externalId: phone }
+        ]
+      },
+      include: {
+        messages: {
+          orderBy: { createdAt: 'asc' }
+        }
+      }
+    });
   }
 
   async getConversations() {

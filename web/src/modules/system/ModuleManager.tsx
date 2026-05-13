@@ -58,7 +58,10 @@ export function ModuleManager() {
       'kb': ['Carga de PDF/Texto', 'Indexación Vectorial', 'Búsqueda Semántica', 'Actualización en Tiempo Real'],
       'analytics': ['Métricas de Conversión', 'Tasa de Automatización', 'Reportes de Ahorro', 'Exportación a PDF/CSV'],
       'predictive': ['Análisis de Sentimiento', 'Predicción de Churn', 'Lead Scoring por IA', 'Detección de Anomalías'],
-      'module_manager': ['Control de Costos', 'Activación por Tenant', 'Gestión de Licencias', 'Auditoría de Uso']
+      'module_manager': ['Control de Costos', 'Activación por Tenant', 'Gestión de Licencias', 'Auditoría de Uso'],
+      'catalog': ['Gestión de SKU', 'Control de Precios', 'Categorización Dinámica', 'Análisis de Inventario'],
+      'orders': ['Facturación PDF', 'Seguimiento en Tiempo Real', 'Historial de Ventas', 'Notificaciones Automáticas'],
+      'profitability': ['Margen de Utilidad Real', 'Cálculo de Costos', 'ROI por Producto', 'Reportes Ejecutivos']
     };
     return features[id] || ['Panel de Administración', 'Acceso Seguro', 'Integración Nativa'];
   };

@@ -19,7 +19,8 @@ import {
   MessageSquareQuote,
   Database as DatabaseIcon,
   Menu,
-  X
+  X,
+  DollarSign
 } from 'lucide-react'
 import { 
   CartesianGrid, 
@@ -71,12 +72,14 @@ export function SystemDashboard() {
 
   const [selectedModel, setSelectedModel] = useState('gemini-2.5-flash')
   const [stats, setStats] = useState<any>(null)
+  const [ecommerceBrief, setEcommerceBrief] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchCurrentModel()
     fetchGlobalStats()
-  }, [])
+    fetchEcommerceBrief()
+  }, [selectedTenant])
 
   const fetchGlobalStats = async () => {
     setLoading(true)
@@ -91,6 +94,28 @@ export function SystemDashboard() {
       console.error('Error fetching global stats:', err)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchEcommerceBrief = async () => {
+    if (!selectedTenant) return
+    try {
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014'
+      const token = localStorage.getItem('token')
+      const headers = { 
+        'Authorization': `Bearer ${token}`,
+        'x-tenant-id': selectedTenant.id
+      }
+      const [profitRes, stockRes] = await Promise.all([
+        axios.get(`${apiUrl}/api/ecommerce/reports/profitability`, { headers }),
+        axios.get(`${apiUrl}/api/ecommerce/reports/stock-predictions`, { headers })
+      ])
+      setEcommerceBrief({
+        profit: profitRes.data,
+        stock: stockRes.data.filter((s: any) => s.status === 'CRITICAL').slice(0, 3)
+      })
+    } catch (err) {
+      console.error('Error fetching ecommerce brief:', err)
     }
   }
 
@@ -279,9 +304,31 @@ export function SystemDashboard() {
         <div className="p-8 h-full flex flex-col">
           {activeTab === 'dashboard' && (
             <>
-              <div className="mb-8">
-                <h2 className="text-2xl font-black font-display text-slate-800">{t('system_command_center')}</h2>
-                <p className="text-sm text-slate-500">{t('system_subtitle')}</p>
+              <div className="mb-8 flex justify-between items-end">
+                <div>
+                  <h2 className="text-2xl font-black font-display text-slate-800">{t('system_command_center')}</h2>
+                  <p className="text-sm text-slate-500">{t('system_subtitle')}</p>
+                </div>
+                <div className="flex gap-4">
+                  <div className="bg-emerald-50 border border-emerald-100 px-4 py-2 rounded-xl flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-emerald-500 text-white flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                      <DollarSign size={16} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Ganancia Neta Hoy</p>
+                      <p className="text-sm font-black text-slate-800">${ecommerceBrief?.profit?.netMargin?.toFixed(2) || '0.00'}</p>
+                    </div>
+                  </div>
+                  <div className="bg-amber-50 border border-amber-100 px-4 py-2 rounded-xl flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-500/20">
+                      <AlertCircle size={16} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Stock Crítico</p>
+                      <p className="text-sm font-black text-slate-800">{ecommerceBrief?.stock?.length || 0} productos</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
@@ -318,7 +365,36 @@ export function SystemDashboard() {
                   </div>
                 </div>
 
-                <div className="col-span-12 lg:col-span-4">
+                <div className="col-span-12 lg:col-span-4 space-y-8">
+                  {/* Stock Alerts Widget */}
+                  <div className="dashboard-card p-6">
+                    <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
+                      <Zap size={20} className="text-amber-500" />
+                      Riesgo de Stock
+                    </h3>
+                    <div className="space-y-4">
+                      {ecommerceBrief?.stock?.length > 0 ? (
+                        ecommerceBrief.stock.map((item: any) => (
+                          <div key={item.id} className="flex items-center justify-between p-3 bg-amber-50 rounded-xl border border-amber-100">
+                             <div className="flex-1">
+                               <p className="text-xs font-black text-slate-800">{item.name}</p>
+                               <p className="text-[10px] text-amber-600 font-bold uppercase tracking-tight">Quedan {item.stock} unidades</p>
+                             </div>
+                             <div className="text-right">
+                               <p className="text-[10px] font-black text-slate-400 uppercase">Agotamiento</p>
+                               <p className="text-xs font-black text-rose-500">~{Math.round(item.daysRemaining)} días</p>
+                             </div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="py-4 text-center">
+                          <CheckCircle2 size={32} className="text-emerald-500 mx-auto mb-2 opacity-20" />
+                          <p className="text-xs text-slate-400 font-medium">Inventario optimizado</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="dashboard-card p-6 h-full">
                     <h3 className="font-bold text-lg mb-6 flex items-center gap-2">
                       <Activity size={20} className="text-brand-blue" />

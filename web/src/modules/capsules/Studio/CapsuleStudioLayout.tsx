@@ -1,7 +1,7 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import { LayoutGrid, Mail, Users, BarChart3, Settings, Zap, ArrowLeft, Menu, X, Brain } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, motion } from 'motion/react';
 
 export const CapsuleStudioLayout: React.FC = () => {
   const location = useLocation();
