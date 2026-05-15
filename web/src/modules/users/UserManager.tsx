@@ -21,7 +21,7 @@ import axios from 'axios'
 import { useTenant } from '../../contexts/TenantContext'
 
 export function UserManager() {
-  const { flowApiKey, selectedTenant } = useTenant()
+  const { flowApiKey, selectedTenant, tenants } = useTenant()
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')

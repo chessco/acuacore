@@ -512,7 +512,7 @@ function TenantRow({ tenant, setSelectedTenant, setActiveTab, onEdit, onShowDeta
           <div>
             <div className="flex items-center gap-2">
               <h5 className="font-bold text-sm text-slate-800 leading-tight group-hover:text-brand-blue transition-all cursor-pointer">{name || 'Sin nombre'}</h5>
-              {isDefault && <Globe size={12} className="text-brand-blue" title="Tenant por Defecto" />}
+              {isDefault && <Globe size={12} className="text-brand-blue" />}
             </div>
             <p className="text-[10px] text-slate-400 mt-0.5 uppercase tracking-tighter font-medium">ID: #{id?.slice(0, 8)}</p>
           </div>

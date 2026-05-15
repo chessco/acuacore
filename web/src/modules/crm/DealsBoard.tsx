@@ -232,7 +232,7 @@ export function DealsBoard() {
                       key={deal.id} 
                       deal={deal} 
                       onMove={(targetStage) => updateDealStage(deal.id, targetStage)}
-                      onDragStart={(e) => handleDragStart(e, deal.id)}
+                      onHtmlDragStart={(e) => handleDragStart(e, deal.id)}
                       isDragging={draggedDealId === deal.id}
                     />
                   ))}
@@ -387,7 +387,7 @@ export function DealsBoard() {
   )
 }
 
-function DealCard({ deal, onMove, onDragStart, isDragging }: { deal: any, onMove: (stage: string) => void, onDragStart: (e: React.DragEvent) => void, isDragging: boolean }) {
+function DealCard({ deal, onMove, onHtmlDragStart, isDragging }: { deal: any, onMove: (stage: string) => void, onHtmlDragStart: (e: React.DragEvent) => void, isDragging: boolean }) {
   const [showActions, setShowActions] = useState(false)
 
   const currentStageIndex = STAGES.findIndex(s => s.id === deal.stage)
@@ -404,7 +404,7 @@ function DealCard({ deal, onMove, onDragStart, isDragging }: { deal: any, onMove
       animate={{ opacity: isDragging ? 0.4 : 1, y: 0, scale: isDragging ? 0.95 : 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       draggable
-      onDragStart={onDragStart}
+      onDragStart={onHtmlDragStart as any}
       className={`group bg-white p-4 rounded-[20px] border shadow-sm hover:shadow-lg hover:border-brand-blue/30 transition-all cursor-grab active:cursor-grabbing relative overflow-hidden ${
         isDragging ? 'border-brand-blue ring-2 ring-brand-blue/10' : 'border-slate-200'
       }`}

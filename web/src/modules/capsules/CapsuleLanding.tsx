@@ -277,7 +277,7 @@ export const CapsuleLanding: React.FC = () => {
               data={capsule.contentBlocks.find((b: any) => b.type === 'checkout').data} 
               apiUrl={apiUrl} 
               slug={capsule.slug}
-              tenantId={selectedTenant?.id}
+              tenantId={selectedTenant?.id || ''}
             />
           </div>
         </section>
@@ -292,7 +292,7 @@ export const CapsuleLanding: React.FC = () => {
               data={capsule.contentBlocks.find((b: any) => b.type === 'product').data} 
               apiUrl={apiUrl} 
               slug={capsule.slug}
-              tenantId={selectedTenant?.id}
+              tenantId={selectedTenant?.id || ''}
             />
           </div>
         </section>

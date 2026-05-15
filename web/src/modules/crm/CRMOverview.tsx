@@ -12,7 +12,8 @@ import {
   MessageSquare,
   ShoppingBag,
   Award,
-  ChevronRight
+  ChevronRight,
+  UserPlus
 } from 'lucide-react'
 import axios from 'axios'
 import { useTenant } from '../../contexts/TenantContext'
@@ -79,6 +80,16 @@ export function CRMOverview() {
       setLoading(false)
     }
   }
+
+  const chartData = stats.forecastChart?.length > 0 ? stats.forecastChart : [
+    { name: 'Lun', leads: 40, deals: 24 },
+    { name: 'Mar', leads: 30, deals: 13 },
+    { name: 'Mie', leads: 20, deals: 98 },
+    { name: 'Jue', leads: 27, deals: 39 },
+    { name: 'Vie', leads: 18, deals: 48 },
+    { name: 'Sab', leads: 23, deals: 38 },
+    { name: 'Dom', leads: 34, deals: 43 },
+  ];
 
   if (loading) {
      return <div className="p-8 text-center text-slate-400 font-bold uppercase tracking-widest">Calculando ROI...</div>

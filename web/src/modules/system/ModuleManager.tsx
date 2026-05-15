@@ -72,7 +72,7 @@ export function ModuleManager() {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
       const token = localStorage.getItem('token');
       
-      const newPermissions = { menus: activeModules };
+      const newPermissions = { menus: activeModules, actions: [] };
       
       await axios.post(`${apiUrl}/api/tenants/${selectedTenant?.id}/features`, {
         features: activeModules
@@ -86,7 +86,7 @@ export function ModuleManager() {
       alert('Configuración de módulos actualizada con éxito.');
     } catch (err) {
       console.error('Error saving modules:', err);
-      const newPerms = { menus: activeModules };
+      const newPerms = { menus: activeModules, actions: [] };
       setPermissions(newPerms);
       localStorage.setItem('user_permissions', JSON.stringify(newPerms));
       alert('Configuración aplicada localmente (Modo Demo).');

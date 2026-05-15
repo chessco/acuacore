@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Search, ShoppingBag, Clock, CheckCircle2, XCircle, Truck, Eye, Loader2, Filter, ChevronDown, User, Phone, Mail, DollarSign, FileDown, MessageCircle } from 'lucide-react'
+import { Search, ShoppingBag, Clock, CheckCircle2, XCircle, Truck, Eye, Loader2, Filter, ChevronDown, User, Phone, Mail, DollarSign, FileDown, MessageCircle, X, Package, GripVertical } from 'lucide-react'
 import axios from 'axios'
 import { useTenant } from '../../contexts/TenantContext'
 

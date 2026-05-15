@@ -5,6 +5,10 @@ export interface Tenant {
   id: string;
   name: string;
   plan: string;
+  slug?: string;
+  status?: string;
+  isDefault?: boolean;
+  sector?: string;
   avatar?: string;
   brandingConfig?: {
     brandName?: string;
@@ -15,6 +19,11 @@ export interface Tenant {
     heroImage?: string;
   };
   enabledModules?: any;
+  stripeApiKey?: string;
+  consumption?: {
+    totalTokens: number;
+    totalCost: number;
+  };
 }
 
 interface TenantContextType {

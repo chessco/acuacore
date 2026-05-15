@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CreditCard, ShieldCheck, Lock, ShoppingCart, CheckCircle2, X, ArrowRight, Loader2 } from 'lucide-react';
+import { CreditCard, ShieldCheck, Lock, ShoppingCart, CheckCircle2, X, ArrowRight, Loader2, Star } from 'lucide-react';
 import axios from 'axios';
 
 interface CheckoutBlockProps {
