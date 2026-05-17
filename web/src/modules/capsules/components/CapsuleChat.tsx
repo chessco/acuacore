@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
+import { PanelLeftClose, PanelLeftOpen, 
   Send, 
   Star, 
   CheckCircle, 
@@ -59,6 +59,7 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ]);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [capsuleId, setCapsuleId] = useState<string | null>(null);
@@ -250,9 +251,9 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({
   }, [conversationId, loading, isEscalating]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[280px_1fr] bg-white rounded-[2rem] overflow-hidden shadow-2xl border border-slate-100 h-[700px] max-h-[85vh]">
+    <div className={`grid grid-cols-1 ${isSidebarCollapsed ? 'md:grid-cols-1' : 'md:grid-cols-[280px_1fr]'} bg-white rounded-[2rem] overflow-hidden shadow-2xl border border-slate-100 h-[700px] max-h-[85vh] transition-all duration-500 ease-in-out`}>
       {/* Sidebar Bio - Estilo Premium WhatsApp Business */}
-      <div className="bg-[#075e54] overflow-hidden flex flex-col border-r border-slate-100">
+      <div className={`bg-[#075e54] overflow-hidden flex flex-col border-r border-slate-100 transition-all duration-500 ${isSidebarCollapsed ? 'w-0 opacity-0 pointer-events-none' : 'w-full opacity-100'}`}>
         <div 
           className="h-[250px] relative cursor-zoom-in group"
           onClick={onPortraitClick}
@@ -334,6 +335,13 @@ export const CapsuleChat: React.FC<CapsuleChatProps> = ({
         {/* Top Bar */}
         <div className="px-6 py-3 bg-[#f0f2f5] border-b border-slate-200 flex justify-between items-center z-10">
           <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              className="p-2 hover:bg-slate-200 rounded-xl transition-all text-slate-500 hover:text-[#075e54] hidden md:block"
+              title={isSidebarCollapsed ? "Mostrar info" : "Colapsar info"}
+            >
+              {isSidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+            </button>
             <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-200 bg-white">
               <img src={agentPortrait} className="w-full h-full object-cover" />
             </div>

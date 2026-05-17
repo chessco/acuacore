@@ -113,7 +113,7 @@ export class CapsulesService {
       }
 
       // Regla: No borrar si tiene campañas enviadas
-      const hasSentCampaigns = capsule.campaigns.some(c => c.sentAt !== null);
+      const hasSentCampaigns = capsule.campaigns.some((c: any) => c.sentAt !== null);
       if (hasSentCampaigns) {
         throw new ConflictException('No se puede eliminar esta cápsula porque tiene campañas que ya fueron enviadas por correo.');
       }
@@ -281,7 +281,7 @@ export class CapsulesService {
 
     // Recompensa de AcuaPoints por registro de lead
     if (contact) {
-      await this.crmService.addPoints(contact.id, tenantId, 50, 'Registro inicial en cápsula');
+      await this.crmService.addPoints(contact.id, tenantId || 'DEFAULT', 50, 'Registro inicial en cápsula');
     }
 
     return lead;
@@ -386,6 +386,89 @@ export class CapsulesService {
     });
   }
 
+  async removeLead(id: string, tenantId: string) {
+    const lead = await this.db.mysql.lead.findFirst({
+      where: {
+        id,
+        OR: [
+          { tenantId },
+          { capsule: { tenantId } }
+        ]
+      }
+    });
+    if (!lead) throw new NotFoundException('Lead no encontrado');
+    return this.db.mysql.lead.delete({
+      where: { id },
+    });
+  }
+
+  async syncLeadToCRM(leadId: string, tenantId: string) {
+    const lead = await this.db.mysql.lead.findFirst({
+      where: {
+        id: leadId,
+        OR: [
+          { tenantId },
+          { capsule: { tenantId } }
+        ]
+      },
+      include: { capsule: true }
+    });
+
+    if (!lead) {
+      throw new NotFoundException('Lead no encontrado');
+    }
+
+    // Buscar contacto existente por email o teléfono bajo el mismo tenant
+    let contact = await this.db.mysql.contact.findFirst({
+      where: {
+        tenantId,
+        OR: [
+          ...(lead.email ? [{ email: lead.email }] : []),
+          ...(lead.phone ? [{ phone: lead.phone }] : [])
+        ]
+      }
+    });
+
+    if (!contact) {
+      // Crear nuevo contacto
+      contact = await this.db.mysql.contact.create({
+        data: {
+          tenantId,
+          name: lead.name,
+          email: lead.email,
+          phone: lead.phone,
+          company: 'Cápsula: ' + (lead.capsule?.title || 'Lead'),
+          status: 'LEAD'
+        }
+      });
+    } else {
+      // Actualizar el contacto existente para asegurar que tenga nombre y compañía
+      contact = await this.db.mysql.contact.update({
+        where: { id: contact.id },
+        data: {
+          name: contact.name || lead.name,
+          phone: contact.phone || lead.phone,
+          company: contact.company || 'Cápsula: ' + (lead.capsule?.title || 'Lead')
+        }
+      });
+    }
+
+    // Vincular el lead con el contacto en la base de datos
+    await this.db.mysql.lead.update({
+      where: { id: leadId },
+      data: { contactId: contact.id }
+    });
+
+    // Recompensa de AcuaPoints por sincronización exitosa
+    await this.crmService.addPoints(contact.id, tenantId, 10, 'Sincronización manual de lead a CRM');
+
+    return {
+      success: true,
+      contactId: contact.id,
+      contact
+    };
+  }
+
   async getLeadJourney(conversationId: string, tenantId: string) {
     const conversation = await this.db.mysql.conversation.findUnique({
       where: { id: conversationId },
@@ -424,7 +507,7 @@ export class CapsulesService {
           orderBy: { createdAt: 'asc' }
         });
 
-        events.forEach(event => {
+        events.forEach((event: any) => {
           timeline.push({
             type: event.type === 'OPEN' ? 'EMAIL_OPEN' : 'EMAIL_CLICK',
             title: event.type === 'OPEN' ? 'Email Abierto' : 'Clic en Enlace',
@@ -450,5 +533,65 @@ export class CapsulesService {
     });
 
     return timeline.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }
+
+  async generateOgHtml(slug: string) {
+    try {
+      const capsule = await this.db.mysql.capsule.findUnique({
+        where: { slug },
+        include: { agent: true, tenant: true },
+      });
+
+      if (!capsule) return '<html><title>AcuaCore</title></html>';
+
+      // Extraer datos para OG
+      const title = capsule.title || 'AcuaCore - Cápsula Interactiva';
+      const description = capsule.description || 'Descubre esta nueva experiencia interactiva impulsada por IA.';
+      const url = `https://acuacore.pitayacode.io/capsules/${slug}`;
+      
+      // Buscar imagen (Hero o Logo del Tenant)
+      let imageUrl = 'https://acuacore.pitayacode.io/logo192.png';
+      if (capsule.contentBlocks) {
+        const blocks = capsule.contentBlocks as any[];
+        const heroBlock = blocks.find(b => b.type === 'hero');
+        if (heroBlock?.data?.imageUrl) {
+          imageUrl = heroBlock.data.imageUrl;
+        }
+      }
+
+      return `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>${title}</title>
+    <meta name="description" content="${description}">
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="${url}">
+    <meta property="og:title" content="${title}">
+    <meta property="og:description" content="${description}">
+    <meta property="og:image" content="${imageUrl}">
+
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="${url}">
+    <meta property="twitter:title" content="${title}">
+    <meta property="twitter:description" content="${description}">
+    <meta property="twitter:image" content="${imageUrl}">
+
+    <!-- Redirección para humanos -->
+    <script>window.location.href = '${url}';</script>
+</head>
+<body>
+    <h1>${title}</h1>
+    <p>${description}</p>
+    <img src="${imageUrl}" alt="${title}">
+</body>
+</html>`;
+    } catch (error) {
+      return '<html><title>AcuaCore</title></html>';
+    }
   }
 }

@@ -165,32 +165,45 @@ export const CapsuleEditor: React.FC = () => {
       });
 
       const imageUrl = res.data.url;
-      let updatedCapsule = { ...capsule };
+      
+      // Usar actualización funcional para evitar race conditions
+      setCapsule((prev: any) => {
+        let updated = { ...prev };
 
-      if (isBlock) {
-        const newBlocks = [...capsule.contentBlocks];
-        const bIdx = newBlocks.findIndex(b => b.type === blockType);
-        if (bIdx !== -1) {
+        if (isBlock) {
+          const newBlocks = [...(prev.contentBlocks || [])];
+          let bIdx = newBlocks.findIndex(b => b.type === blockType);
+          
+          // Si el bloque no existe, lo creamos dinámicamente
+          if (bIdx === -1) {
+             newBlocks.unshift({ type: blockType, data: {} });
+             bIdx = 0;
+          }
+
           newBlocks[bIdx] = { 
             ...newBlocks[bIdx], 
-            data: { ...newBlocks[bIdx].data, [targetField]: imageUrl } 
+            data: { 
+              ...newBlocks[bIdx].data, 
+              [targetField]: imageUrl,
+              imageUrl: imageUrl // Compatibilidad doble
+            } 
           };
-          updatedCapsule = { ...capsule, contentBlocks: newBlocks };
+          updated = { ...prev, contentBlocks: newBlocks };
+        } else if (targetField.startsWith('promptConfig.')) {
+          const field = targetField.split('.')[1];
+          updated = {
+            ...prev,
+            promptConfig: { ...prev.promptConfig, [field]: imageUrl }
+          };
+        } else {
+          updated = { ...prev, [targetField]: imageUrl };
         }
-      } else if (targetField.startsWith('promptConfig.')) {
-        const field = targetField.split('.')[1];
-        updatedCapsule = {
-          ...capsule,
-          promptConfig: { ...capsule.promptConfig, [field]: imageUrl }
-        };
-      } else {
-        updatedCapsule = { ...capsule, [targetField]: imageUrl };
-      }
 
-      setCapsule(updatedCapsule);
-
-      // Guardar inmediatamente con los datos frescos
-      await handleSave(updatedCapsule);
+        // Disparar el guardado automático con los datos actualizados
+        // Lo envolvemos en una promesa para asegurar que se procese
+        setTimeout(() => handleSave(updated), 0);
+        return updated;
+      });
 
     } catch (err) {
       console.error('Error uploading image:', err);
@@ -300,28 +313,30 @@ export const CapsuleEditor: React.FC = () => {
                   <div className="space-y-2 pt-2">
                     <label className="text-xs font-bold text-slate-400">Imagen Hero (Portada)</label>
                     <div className="relative group rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 aspect-video">
-                      {capsule.contentBlocks?.find((b: any) => b.type === 'hero')?.data?.image ? (
-                        <img 
-                          src={resolveImageUrl(capsule.contentBlocks?.find((b: any) => b.type === 'hero')?.data?.image)} 
-                          className="w-full h-full object-cover" 
-                          alt="Hero Preview"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-2">
-                          <Zap size={24} />
-                          <span className="text-[10px] font-bold uppercase">Sin imagen de portada</span>
-                        </div>
-                      )}
+                      {(() => {
+                        const heroBlock = capsule.contentBlocks?.find((b: any) => b.type === 'hero');
+                        const imgPath = heroBlock?.data?.image || heroBlock?.data?.imageUrl;
+                        
+                        if (imgPath) {
+                          return (
+                            <img 
+                              src={resolveImageUrl(imgPath)} 
+                              className="w-full h-full object-cover" 
+                              alt="Hero Preview"
+                            />
+                          );
+                        }
+                        return (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-slate-400 gap-2">
+                            <Zap size={24} />
+                            <span className="text-[10px] font-bold uppercase">Sin imagen de portada</span>
+                          </div>
+                        );
+                      })()}
                       <label className="absolute inset-0 bg-[#001A41]/60 opacity-0 group-hover:opacity-100 transition-all flex flex-col items-center justify-center gap-2 cursor-pointer">
                         <Plus className="text-white" size={32} />
                         <span className="text-white text-[10px] font-black uppercase tracking-widest">Cambiar Imagen</span>
                         <input type="file" className="hidden" onChange={(e) => {
-                          const hIdx = capsule.contentBlocks?.findIndex((b: any) => b.type === 'hero');
-                          if (hIdx === -1) {
-                            const newBlocks = [...(capsule.contentBlocks || [])];
-                            newBlocks.unshift({ type: 'hero', data: { image: '' } });
-                            setCapsule({ ...capsule, contentBlocks: newBlocks });
-                          }
                           handleImageUpload(e, 'image', true, 'hero');
                         }} />
                       </label>

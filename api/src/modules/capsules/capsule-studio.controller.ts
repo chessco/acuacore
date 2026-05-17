@@ -103,4 +103,14 @@ export class CapsuleStudioController {
   getLeads(@Request() req: any) {
     return this.capsulesService.getLeads(req.user.tenantId);
   }
+
+  @Delete('leads/:id')
+  removeLead(@Request() req: any, @Param('id') id: string) {
+    return this.capsulesService.removeLead(id, req.user.tenantId);
+  }
+
+  @Post('leads/:id/sync')
+  syncLeadToCRM(@Request() req: any, @Param('id') id: string) {
+    return this.capsulesService.syncLeadToCRM(id, req.user.tenantId);
+  }
 }

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
+import { useRegisterSW } from 'virtual:pwa-register/react'
 import { SystemDashboard } from './components/dashboards/SystemDashboard'
 import { OperationalDashboard } from './components/dashboards/OperationalDashboard'
 import { Login } from './components/dashboards/Login'
@@ -19,6 +20,16 @@ import { Storefront } from './modules/ecommerce/storefront/Storefront'
 function AppContent() {
   const { selectedTenant, setSelectedTenant, tenantLanguages, role, setRole, setPermissions } = useTenant();
   const { i18n } = useTranslation();
+
+  // PWA Update Logic: Force reload when update is found
+  const {
+    updateServiceWorker,
+  } = useRegisterSW({
+    onNeedRefresh() {
+      console.log('Update found! Forcing reload...');
+      updateServiceWorker(true);
+    },
+  });
 
   useEffect(() => {
     if (selectedTenant && tenantLanguages[selectedTenant.id]) {

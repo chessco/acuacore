@@ -78,3 +78,9 @@ api/prisma/seed.js.bak
 api/public/
 web/public/hero-*.png
 web/public/nano-*.png
+
+# Temporary and local scripts
+*.tar.gz
+*.temp
+*.temp.*
+*.sql

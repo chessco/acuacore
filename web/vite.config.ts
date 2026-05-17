@@ -10,7 +10,23 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: 'auto',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
+      workbox: {
+        // Force new SW to activate immediately without waiting for old tabs to close
+        skipWaiting: true,
+        clientsClaim: true,
+        // Remove outdated caches from previous builds
+        cleanupOutdatedCaches: true,
+        // Don't cache the main HTML — always fetch it fresh from network
+        navigateFallbackDenylist: [/^\/api\//],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/acuacore\.pitayacode\.io\/api\//,
+            handler: 'NetworkOnly',
+          }
+        ]
+      },
       manifest: {
         name: 'AcuaCore AI - Operaciones',
         short_name: 'AcuaCore',

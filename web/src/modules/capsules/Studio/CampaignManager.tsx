@@ -77,7 +77,10 @@ export const CampaignManager: React.FC = () => {
           axios.get(apiUrl + '/api/capsule-studio/branding', { headers })
         ]);
         setCapsules(capsulesRes.data);
-        setCampaigns(campaignsRes.data);
+        const sortedCampaigns = (campaignsRes.data || []).sort((a: any, b: any) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setCampaigns(sortedCampaigns);
         if (brandingRes.data && Object.keys(brandingRes.data).length > 0) {
           setBranding(brandingRes.data);
         }
@@ -449,6 +452,19 @@ export const CampaignManager: React.FC = () => {
                       <div className="text-xl font-black text-[#001A41]">{camp.clicksCount || 0}</div>
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Clics</div>
                     </div>
+                    {!camp.sentAt && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleSendCampaign(camp.id);
+                        }}
+                        disabled={loading}
+                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50"
+                      >
+                        <Send size={14} />
+                        Enviar
+                      </button>
+                    )}
                     {(!camp.sentAt || role?.toLowerCase() === 'system' || role?.toLowerCase() === 'admin') && (
                       <button 
                         onClick={(e) => {

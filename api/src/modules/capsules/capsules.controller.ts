@@ -54,4 +54,10 @@ export class CapsulesController {
   async createLead(@Body() dto: CreateLeadDto) {
     return this.capsulesService.createLead(dto);
   }
+
+  @Public()
+  @Get('public/og/:slug')
+  async getOgMetadata(@Param('slug') slug: string) {
+    return this.capsulesService.generateOgHtml(slug);
+  }
 }

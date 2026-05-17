@@ -1,8 +1,49 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
   RewriteBase /
+  
+  # 1. Regla para Bots (Facebook, WhatsApp, Twitter, LinkedIn)
+  # Redirige permanentemente a la API para que genere el HTML con OG tags.
+  RewriteCond %{HTTP_USER_AGENT} (facebookexternalhit|WhatsApp|Twitterbot|LinkedInBot|bot|google|slack) [NC]
+  RewriteCond %{REQUEST_URI} ^/capsules/([^/]+)/?$ [NC]
+  RewriteRule ^capsules/([^/]+)/?$ https://acuacore-api.pitayacode.io/api/capsules/public/og/%1 [R=301,L]
+
+  # 2. Reglas SPA por defecto
   RewriteRule ^index\.html$ - [L]
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
   RewriteRule . /index.html [L]
+</IfModule>
+<IfModule mod_headers.c>
+  # 1. Assets con hash en el nombre: caché inmutable de 1 año
+  #    (PRIMER bloque — puede ser sobreescrito por los de abajo)
+  <FilesMatch "\.(js|css|png|jpg|jpeg|svg|woff|woff2|ttf|ico)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+
+  # 2. Service Worker — NUNCA cachear (usa "always" para sobrescribir)
+  <FilesMatch "^sw\.js$">
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header always set Pragma "no-cache"
+    Header always set Expires "Thu, 01 Jan 1970 00:00:00 GMT"
+  </FilesMatch>
+
+  # 3. Workbox runtime — NUNCA cachear
+  <FilesMatch "^workbox-.+\.js$">
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header always set Pragma "no-cache"
+    Header always set Expires "Thu, 01 Jan 1970 00:00:00 GMT"
+  </FilesMatch>
+
+  # 4. index.html — NUNCA cachear
+  <FilesMatch "^index\.html$">
+    Header always set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
+    Header always set Pragma "no-cache"
+    Header always set Expires "Thu, 01 Jan 1970 00:00:00 GMT"
+  </FilesMatch>
+
+  # 5. Manifest — revalidar siempre
+  <FilesMatch "\.(webmanifest|manifest\.json)$">
+    Header always set Cache-Control "no-cache, must-revalidate, max-age=0"
+  </FilesMatch>
 </IfModule>

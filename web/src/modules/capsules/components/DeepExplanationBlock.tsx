@@ -5,6 +5,7 @@ import {
   Lightbulb, ChevronRight, Layers, BarChart3, 
   ArrowUpRight, Globe, Zap, Beaker
 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 
 interface DeepExplanationProps {
   data: {
@@ -34,69 +35,30 @@ const ParsedContent: React.FC<{ content: string; variant?: 'light' | 'dark' }> =
   const titleColor = isDark ? 'text-blue-400' : 'text-blue-600';
   const bodyColor = isDark ? 'text-blue-100/90' : 'text-slate-500';
   const bulletColor = isDark ? 'bg-blue-400' : 'bg-blue-600';
-  const colTextColor = isDark ? 'text-blue-50' : 'text-slate-600';
-
-  // Simple parser for [cols] blocks
-  const parts = content.split(/(\[cols\]|\[\/cols\])/);
-  let isCols = false;
 
   return (
-    <>
-      {parts.map((part, i) => {
-        if (part === '[cols]') {
-          isCols = true;
-          return null;
-        }
-        if (part === '[/cols]') {
-          isCols = false;
-          return null;
-        }
-
-        const lines = part.split('\n').filter(l => l.trim());
-        if (lines.length === 0) return null;
-
-        if (isCols) {
-          return (
-            <div key={i} className="grid grid-cols-2 gap-x-8 gap-y-4 my-6">
-              {lines.map((line, j) => (
-                <div key={j} className="flex items-start gap-3">
-                  <div className={`mt-1.5 w-1.5 h-1.5 ${bulletColor} rounded-full shrink-0`} />
-                  <span className={`${colTextColor} text-sm font-medium leading-relaxed`}>{line.replace(/^[-*•]\s*/, '')}</span>
-                </div>
-              ))}
-            </div>
-          );
-        }
-
-        return (
-          <div key={i} className="space-y-2 my-2">
-            {lines.map((line, j) => {
-              const cleanLine = line.trim();
-              
-              // Blue Titles (Markdown style ###)
-              if (cleanLine.startsWith('###')) {
-                return (
-                  <h5 key={j} className={`${titleColor} font-black text-xs uppercase tracking-[0.2em] pt-4 mb-2`}>
-                    {cleanLine.replace(/^###\s*/, '')}
-                  </h5>
-                );
-              }
-
-              return (
-                <p key={j} className={`${bodyColor} text-lg font-medium leading-relaxed whitespace-pre-line`}>
-                  {line.trim().startsWith('-') || line.trim().startsWith('*') || line.trim().startsWith('•') ? (
-                    <span className="flex items-start gap-3">
-                      <span className={`mt-2.5 w-1.5 h-1.5 ${bulletColor} rounded-full shrink-0`} />
-                      <span>{line.trim().replace(/^[-*•]\s*/, '')}</span>
-                    </span>
-                  ) : line}
-                </p>
-              );
-            })}
-          </div>
-        );
-      })}
-    </>
+    <div className="markdown-content">
+      <ReactMarkdown
+        components={{
+          h1: ({ children }) => <h1 className={`${titleColor} text-3xl font-black mb-4 tracking-tighter`}>{children}</h1>,
+          h2: ({ children }) => <h2 className={`${titleColor} text-2xl font-black mb-3 tracking-tight`}>{children}</h2>,
+          h3: ({ children }) => <h3 className={`${titleColor} text-xl font-black mb-3 tracking-tight`}>{children}</h3>,
+          h4: ({ children }) => <h4 className={`${titleColor} text-lg font-black mb-2`}>{children}</h4>,
+          h5: ({ children }) => <h5 className={`${titleColor} font-black text-xs uppercase tracking-[0.2em] pt-4 mb-2`}>{children}</h5>,
+          p: ({ children }) => <p className={`${bodyColor} text-lg font-medium leading-relaxed mb-4 last:mb-0`}>{children}</p>,
+          ul: ({ children }) => <ul className="space-y-3 my-6">{children}</ul>,
+          li: ({ children }) => (
+            <li className="flex items-start gap-3">
+              <div className={`mt-2.5 w-1.5 h-1.5 ${bulletColor} rounded-full shrink-0`} />
+              <span className={`${bodyColor} text-lg font-medium leading-relaxed`}>{children}</span>
+            </li>
+          ),
+          strong: ({ children }) => <strong className="font-black text-blue-500">{children}</strong>,
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    </div>
   );
 };
 
@@ -375,4 +337,3 @@ export const DeepExplanationBlock: React.FC<DeepExplanationProps> = ({ data }) =
     </section>
   );
 };
-

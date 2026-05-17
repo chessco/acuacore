@@ -20,7 +20,8 @@ import {
   Target,
   Sparkles,
   History,
-  Zap
+  Zap,
+  Edit
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import axios from 'axios';
@@ -40,7 +41,39 @@ export function ContactsManager() {
   const [segments, setSegments] = useState<any[]>([]);
   const [activeSegment, setActiveSegment] = useState<string | null>(null);
   const [newContact, setNewContact] = useState({ name: '', email: '', phone: '', company: '', status: 'LEAD' });
+  const [isEditing, setIsEditing] = useState(false);
+  const [editContact, setEditContact] = useState({ name: '', email: '', phone: '', company: '', status: 'LEAD' });
   const { selectedTenant, flowApiKey } = useTenant();
+
+  const handleStartEdit = () => {
+    if (!selectedContact) return;
+    setEditContact({
+      name: selectedContact.name || '',
+      email: selectedContact.email || '',
+      phone: selectedContact.phone || '',
+      company: selectedContact.company || '',
+      status: selectedContact.status || 'LEAD'
+    });
+    setIsEditing(true);
+  };
+
+  const handleEditContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const token = localStorage.getItem('token');
+      await axios.patch(`${apiUrl}/api/crm/contacts/${selectedContact.id}`, editContact, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': selectedTenant?.id || '' 
+        }
+      });
+      setIsEditing(false);
+      fetchContactDetail(selectedContact.id);
+      fetchContacts();
+    } catch (err) {
+      console.error('Error updating contact:', err);
+    }
+  };
 
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
 
@@ -299,26 +332,44 @@ export function ContactsManager() {
                     </div>
                     <div className="w-px h-8 bg-slate-100" />
                     <div className="flex-1 flex justify-center gap-2">
-                       <button 
-                         onClick={(e) => {
-                           e.stopPropagation();
-                           window.open(`https://wa.me/${contact.phone}`, '_blank');
-                         }}
-                         className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 transition-all"
-                         title="WhatsApp"
-                       >
-                         <MessageSquare size={14} />
-                       </button>
-                       <button 
-                         onClick={(e) => {
-                           e.stopPropagation();
-                           window.location.href = `mailto:${contact.email}`;
-                         }}
-                         className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-all"
-                         title="Enviar Email"
-                       >
-                         <Mail size={14} />
-                       </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedContact(contact);
+                            setEditContact({
+                              name: contact.name || '',
+                              email: contact.email || '',
+                              phone: contact.phone || '',
+                              company: contact.company || '',
+                              status: contact.status || 'LEAD'
+                            });
+                            setIsEditing(true);
+                          }}
+                          className="p-2 bg-amber-50 text-amber-600 rounded-lg hover:bg-amber-100 hover:scale-110 transition-all"
+                          title="Editar Contacto"
+                        >
+                          <Edit size={14} />
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(`https://wa.me/${contact.phone}`, '_blank');
+                          }}
+                          className="p-2 bg-emerald-50 text-emerald-600 rounded-lg hover:bg-emerald-100 hover:scale-110 transition-all"
+                          title="WhatsApp"
+                        >
+                          <MessageSquare size={14} />
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.location.href = `mailto:${contact.email}`;
+                          }}
+                          className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 hover:scale-110 transition-all"
+                          title="Enviar Email"
+                        >
+                          <Mail size={14} />
+                        </button>
                     </div>
                   </div>
                 </motion.div>
@@ -359,10 +410,17 @@ export function ContactsManager() {
                    <button 
                      onClick={() => setIsSchedulerOpen(true)}
                      className="p-2.5 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-all"
+                     title="Agendar Cita"
                    >
                      <Calendar size={18} />
                    </button>
-                   <button className="p-2.5 bg-slate-50 text-slate-600 rounded-xl hover:bg-slate-100 transition-all"><MoreHorizontal size={18} /></button>
+                   <button 
+                     onClick={handleStartEdit}
+                     className="p-2.5 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-100 transition-all hover:scale-105"
+                     title="Editar Contacto"
+                   >
+                     <Edit size={18} />
+                   </button>
                 </div>
               </div>
 
@@ -659,6 +717,110 @@ export function ContactsManager() {
             onSuccess={() => fetchContacts()} // Refresh to show new task
           />
         )}
+
+        {/* Edit Contact Modal */}
+        <AnimatePresence>
+          {isEditing && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsEditing(false)}
+                className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm"
+              />
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                className="relative w-full max-w-lg bg-white rounded-[2.5rem] shadow-2xl overflow-hidden"
+              >
+                <form onSubmit={handleEditContact} className="p-8">
+                  <div className="flex justify-between items-center mb-8">
+                    <div>
+                      <h3 className="text-2xl font-black text-[#001A41]">Editar Contacto</h3>
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">Actualizar Datos en el CRM Maestro</p>
+                    </div>
+                    <button type="button" onClick={() => setIsEditing(false)} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400">
+                      <Plus size={24} className="rotate-45" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nombre Completo</label>
+                        <input 
+                          required
+                          value={editContact.name}
+                          onChange={(e) => setEditContact({...editContact, name: e.target.value})}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/10 focus:border-amber-400 transition-all font-bold text-[#001A41]"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Empresa</label>
+                        <input 
+                          value={editContact.company}
+                          onChange={(e) => setEditContact({...editContact, company: e.target.value})}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/10 focus:border-amber-400 transition-all font-bold text-[#001A41]"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Correo Electrónico</label>
+                      <input 
+                        type="email"
+                        value={editContact.email}
+                        onChange={(e) => setEditContact({...editContact, email: e.target.value})}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/10 focus:border-amber-400 transition-all font-bold text-[#001A41]"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Teléfono / WhatsApp</label>
+                      <input 
+                        value={editContact.phone}
+                        onChange={(e) => setEditContact({...editContact, phone: e.target.value})}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/10 focus:border-amber-400 transition-all font-bold text-[#001A41]"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Estado</label>
+                      <select 
+                        value={editContact.status}
+                        onChange={(e) => setEditContact({...editContact, status: e.target.value})}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/10 focus:border-amber-400 transition-all appearance-none font-bold text-[#001A41]"
+                      >
+                        <option value="LEAD">Lead</option>
+                        <option value="PROSPECT">Prospecto</option>
+                        <option value="CUSTOMER">Cliente</option>
+                        <option value="VIP">Cliente VIP</option>
+                      </select>
+                    </div>
+
+                    <div className="flex gap-4 mt-6">
+                      <button 
+                        type="button"
+                        onClick={() => setIsEditing(false)}
+                        className="flex-1 py-4 bg-slate-100 text-slate-600 font-black rounded-2xl hover:bg-slate-200 transition-all"
+                      >
+                        Cancelar
+                      </button>
+                      <button 
+                        type="submit"
+                        className="flex-1 py-4 bg-amber-500 text-white font-black rounded-2xl shadow-xl shadow-amber-500/10 hover:bg-amber-600 transition-all"
+                      >
+                        Guardar Cambios
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

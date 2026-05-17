@@ -34,6 +34,8 @@ services:
       dockerfile: Dockerfile
     container_name: acua-core-api
     restart: always
+    env_file:
+      - ./api/.env.prod
     environment:
       DATABASE_URL: "mysql://root:acuacore_pass@luxury-mysql-prod:3306/acuacore_db"
       VECTOR_DATABASE_URL: "postgresql://acuacore_user:acuacore_pass@acua-core-postgres:5432/acuacore_vectors"

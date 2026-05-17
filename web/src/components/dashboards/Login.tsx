@@ -131,11 +131,15 @@ export function Login({ onLogin }: LoginProps) {
         </form>
 
         <div className="mt-10 pt-10 border-t border-slate-50 text-center">
-          <div className="flex items-center justify-center gap-2 text-slate-300">
+          <div className="flex items-center justify-center gap-3 text-slate-300">
             <Sparkles size={14} />
             <span className="text-[10px] font-black uppercase tracking-[0.2em]">Powered by Pitaya AI</span>
+            <span className="text-[9px] font-bold text-slate-200 bg-slate-50 px-2 py-0.5 rounded-full border border-slate-100">
+              v1.2.0
+            </span>
           </div>
         </div>
+
       </motion.div>
     </div>
   );

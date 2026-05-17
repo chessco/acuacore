@@ -54,9 +54,16 @@ import axios from 'axios'
 
 export function OperationalDashboard() {
   const [activeTab, setActiveTab] = useState(() => {
+    const savedTab = localStorage.getItem('acuacore_active_tab');
+    if (savedTab) return savedTab;
+    
     const role = localStorage.getItem('acuacore_role');
     return role === 'operator' ? 'conversations' : 'dashboard';
   })
+
+  useEffect(() => {
+    localStorage.setItem('acuacore_active_tab', activeTab);
+  }, [activeTab]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const { 
@@ -384,11 +391,15 @@ export function OperationalDashboard() {
             {!isSidebarCollapsed && (
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold truncate text-slate-800">{user.name}</p>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{user.role}</p>
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{user.role}</p>
+                  <p className="text-[8px] font-bold text-blue-500/50">v1.0.5</p>
+                </div>
               </div>
             )}
           </div>
         </div>
+
       </aside>
 
       {/* Main Content */}
@@ -464,9 +475,9 @@ export function OperationalDashboard() {
         </header>
 
         {/* Tab Content Wrapper */}
-        <div className={`flex-1 relative ${activeTab === 'dashboard' || activeTab === 'settings' ? 'overflow-y-auto custom-scrollbar' : 'overflow-hidden'}`}>
+        <div className="flex-1 relative overflow-y-auto custom-scrollbar bg-slate-50/50">
           {activeTab === 'dashboard' && (
-            <div className="p-8 h-full overflow-y-auto custom-scrollbar">
+            <div className="p-8">
               <div className="mb-8 flex justify-between items-end">
                 <div>
                   <h2 className="text-2xl font-black font-display text-slate-800">
@@ -720,7 +731,7 @@ export function OperationalDashboard() {
           )}
 
           {AVAILABLE_MODULES.find(m => m.id === activeTab)?.component && (
-            <div className="h-full flex flex-col">
+            <div className="flex flex-col min-h-0">
               {(() => {
                 const ModuleComponent = AVAILABLE_MODULES.find(m => m.id === activeTab)!.component;
                 return <ModuleComponent setActiveTab={setActiveTab} />;
@@ -851,12 +862,10 @@ export function OperationalDashboard() {
               </div>
             </div>
           )}
-          {/* Fallback for other tabs */}
+          {/* Fallback for other tabs only if they are not in AVAILABLE_MODULES and not special tabs */}
           {![
-            'dashboard', 'conversations', 'predictive', 'protocols', 'vision', 
-            'kb', 'analytics', 'hitl', 'corrections', 'agents', 'skills', 
-            'tenants', 'settings', 'module_manager'
-          ].includes(activeTab) && (
+            'dashboard', 'settings'
+          ].includes(activeTab) && !AVAILABLE_MODULES.find(m => m.id === activeTab)?.component && (
             <div className="p-8 flex items-center justify-center h-full">
               <div className="text-center">
                 <h2 className="text-xl font-bold text-slate-400 uppercase tracking-widest">{activeTab} Section</h2>

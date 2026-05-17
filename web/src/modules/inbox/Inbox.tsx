@@ -18,7 +18,9 @@ import {
   Eye,
   MousePointer2,
   MessageSquare,
-  Clock
+  Clock,
+  PanelLeftClose,
+  PanelLeftOpen
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'motion/react'
@@ -59,6 +61,7 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
   const [quickReplies, setQuickReplies] = useState<any[]>([])
   const [isQuickRepliesLoading, setIsQuickRepliesLoading] = useState(false)
   const [isKbModalOpen, setIsKbModalOpen] = useState(false)
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [kbData, setKbData] = useState({ title: '', content: '' })
   const [isSavingKb, setIsSavingKb] = useState(false)
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -424,7 +427,7 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
 
   return (
     <div className="flex h-full bg-white overflow-hidden relative">
-      <div className={`${activeConversationId ? 'hidden md:flex' : 'flex'} w-full md:w-80 border-r border-border flex-col bg-slate-50/30`}>
+      <div className={`${activeConversationId ? (isSidebarCollapsed ? 'hidden' : 'hidden md:flex') : 'flex'} w-full ${isSidebarCollapsed ? 'md:w-0' : 'md:w-80'} border-r border-border flex-col bg-slate-50/30 transition-all duration-500 ease-in-out overflow-hidden`}>
         <div className="p-4 sm:p-6">
           <div className="mb-1 flex items-center gap-2">
             <div className="w-1.5 h-1.5 bg-brand-blue rounded-full" />
@@ -456,6 +459,15 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
       <div className={`${activeConversationId ? 'flex' : 'hidden md:flex'} flex-1 flex-col bg-white relative h-full`}>
         <div className="h-20 border-b border-border flex items-center justify-between px-3 sm:px-6 bg-white/95 backdrop-blur-md sticky top-0 z-20">
           <div className="flex items-center gap-2 sm:gap-4 overflow-hidden flex-1">
+            {activeConversationId && (
+              <button 
+                onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                className="hidden md:flex p-2 text-slate-500 hover:bg-slate-50 rounded-lg shrink-0 transition-all"
+                title={isSidebarCollapsed ? "Mostrar lista" : "Ocultar lista"}
+              >
+                {isSidebarCollapsed ? <PanelLeftOpen size={20} /> : <PanelLeftClose size={20} />}
+              </button>
+            )}
             {activeConversationId && (
               <button onClick={() => setActiveConversationId(null)} className="md:hidden p-2 -ml-2 text-slate-500 hover:bg-slate-50 rounded-lg shrink-0"><ChevronLeft size={24} /></button>
             )}
