@@ -71,12 +71,14 @@ export class MailService {
 
       let fromEmail = this.configService.get('SMTP_USER');
       if (provider === 'resend') {
-        fromEmail = 'onboarding@resend.dev'; // Default Resend test email, should be changed to a verified domain in prod
+        fromEmail = 'onboarding@resend.dev'; // Default Resend test email
         try {
           const setting = await this.db.mysql.systemSetting.findUnique({ where: { key: 'RESEND_FROM_EMAIL' } });
           if (setting?.value) fromEmail = setting.value;
+          else if (this.configService.get('RESEND_FROM_EMAIL')) fromEmail = this.configService.get('RESEND_FROM_EMAIL');
         } catch (error) {
-           console.warn('Could not fetch RESEND_FROM_EMAIL from DB', error);
+           if (this.configService.get('RESEND_FROM_EMAIL')) fromEmail = this.configService.get('RESEND_FROM_EMAIL');
+           else console.warn('Could not fetch RESEND_FROM_EMAIL', error);
         }
       }
 
