@@ -162,7 +162,7 @@ export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
               <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden relative">
                 {block.type === 'header' && (
                   <div className="p-8 text-center space-y-6" style={{ background: `linear-gradient(135deg, ${branding.primaryColor} 0%, #0044CC 100%)` }}>
-                    <img src={branding.logoUrl} alt="Logo" className="h-8 mx-auto object-contain" />
+                    <img src={branding.logoUrl?.startsWith('/') ? `${apiUrl}${branding.logoUrl}` : branding.logoUrl} alt="Logo" className="h-8 mx-auto object-contain" />
                     <input 
                       type="text" 
                       value={block.content.title}
@@ -249,7 +249,7 @@ export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
 
                 {block.type === 'image' && (
                   <div className="relative group/img">
-                    <img src={block.content.url} alt={block.content.alt} className="w-full h-48 object-cover" />
+                    <img src={block.content.url?.startsWith('/') ? `${apiUrl}${block.content.url}` : block.content.url} alt={block.content.alt} className="w-full h-48 object-cover" />
                     <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center gap-2 p-4">
                         <input 
                             type="text" 

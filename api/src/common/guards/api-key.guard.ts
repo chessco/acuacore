@@ -20,7 +20,7 @@ export class ApiKeyGuard implements CanActivate {
       request.user = {
         userId: 'system-api',
         email: 'system@acuacore.ai',
-        role: 'SYSTEM_ADMIN',
+        role: 'SYSTEM',
         tenantId: tenantId // Pass the tenant ID from header
       };
       return true;

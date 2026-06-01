@@ -5,7 +5,7 @@ async function main() {
   const prisma = new PrismaClient({
     datasources: {
       db: {
-        url: 'mysql://root:acuacore_pass@localhost:3314/acuacore_db'
+        url: 'mysql://root:acuacore_pass@localhost:3306/acuacore_db'
       }
     }
   });
@@ -17,7 +17,7 @@ async function main() {
       }
     });
 
-    console.log('--- TENANTS EN LA DB REAL (3314) ---');
+    console.log('--- TENANTS EN LA DB REAL (3306) ---');
     if (tenants.length === 0) {
         console.log('No se encontraron tenants con "Acuaequipos"');
     }

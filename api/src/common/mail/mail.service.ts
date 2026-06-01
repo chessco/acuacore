@@ -1,24 +1,41 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { DatabaseService } from '../database/database.service';
 
 @Injectable()
 export class MailService {
-  private transporter: any;
+  constructor(
+    private configService: ConfigService,
+    private db: DatabaseService
+  ) {}
 
-  constructor(private configService: ConfigService) {
-    this.initTransporter();
+  private async getActiveProvider(): Promise<string> {
+    try {
+      const setting = await this.db.mysql.systemSetting.findUnique({
+        where: { key: 'MAIL_PROVIDER' }
+      });
+      return setting?.value || this.configService.get<string>('MAIL_PROVIDER') || 'gmail';
+    } catch (error) {
+      console.warn('Could not fetch MAIL_PROVIDER from DB, falling back to env', error);
+      return this.configService.get<string>('MAIL_PROVIDER') || 'gmail';
+    }
   }
 
-  private initTransporter() {
-    const provider = this.configService.get<string>('MAIL_PROVIDER') || 'gmail';
-    
+  private async getTransporter(provider: string) {
     if (provider === 'resend') {
-      const apiKey = this.configService.get<string>('RESEND_API_KEY');
-      this.transporter = nodemailer.createTransport({
+      let apiKey = this.configService.get<string>('RESEND_API_KEY');
+      try {
+        const setting = await this.db.mysql.systemSetting.findUnique({ where: { key: 'RESEND_API_KEY' } });
+        if (setting?.value) apiKey = setting.value;
+      } catch (error) {
+        console.warn('Could not fetch RESEND_API_KEY from DB', error);
+      }
+
+      return nodemailer.createTransport({
         host: 'smtp.resend.com',
-        port: 465,
-        secure: true,
+        port: 587,
+        secure: false,
         auth: {
           user: 'resend',
           pass: apiKey,
@@ -31,7 +48,7 @@ export class MailService {
       const user = this.configService.get<string>('SMTP_USER');
       const pass = this.configService.get<string>('SMTP_PASS');
 
-      this.transporter = nodemailer.createTransport({
+      return nodemailer.createTransport({
         host,
         port,
         secure: port === 465,
@@ -47,13 +64,23 @@ export class MailService {
   }
 
   async sendMail(to: string, subject: string, content: string) {
+    let provider = 'gmail';
     try {
-      const provider = this.configService.get<string>('MAIL_PROVIDER');
-      const fromEmail = provider === 'resend' 
-        ? 'onboarding@resend.dev' // Default Resend test email, should be changed to a verified domain in prod
-        : this.configService.get('SMTP_USER');
+      provider = await this.getActiveProvider();
+      const transporter = await this.getTransporter(provider);
 
-      const info = await this.transporter.sendMail({
+      let fromEmail = this.configService.get('SMTP_USER');
+      if (provider === 'resend') {
+        fromEmail = 'onboarding@resend.dev'; // Default Resend test email, should be changed to a verified domain in prod
+        try {
+          const setting = await this.db.mysql.systemSetting.findUnique({ where: { key: 'RESEND_FROM_EMAIL' } });
+          if (setting?.value) fromEmail = setting.value;
+        } catch (error) {
+           console.warn('Could not fetch RESEND_FROM_EMAIL from DB', error);
+        }
+      }
+
+      const info = await transporter.sendMail({
         from: `"Acuaequipos Capsulas Acuicolas" <${fromEmail}>`,
         to,
         subject,
@@ -63,7 +90,7 @@ export class MailService {
       console.log(`Message sent via ${provider}: %s`, info.messageId);
       return info;
     } catch (error) {
-      console.error(`Error sending email via ${this.configService.get('MAIL_PROVIDER')}:`, error);
+      console.error(`Error sending email via ${provider}:`, error);
       // Fallback logic could be added here
       throw error;
     }

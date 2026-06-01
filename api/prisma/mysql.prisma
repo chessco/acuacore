@@ -37,6 +37,7 @@ model Tenant {
   orders         Order[]
   stockMovements StockMovement[]
   contacts       Contact[]
+  audiences      Audience[]
 }
 
 model HumanCorrection {
@@ -306,6 +307,7 @@ model Campaign {
   id             String          @id @default(uuid())
   tenantId       String
   capsuleId      String
+  audienceId     String?
   name           String
   audience       String?         @db.Text
   subject        String
@@ -318,12 +320,14 @@ model Campaign {
   opensCount     Int             @default(0)
   clicksCount    Int             @default(0)
   capsule        Capsule         @relation(fields: [capsuleId], references: [id])
+  audienceList   Audience?       @relation(fields: [audienceId], references: [id])
   tenant         Tenant          @relation(fields: [tenantId], references: [id])
   leads          Lead[]
   events         CampaignEvent[]
 
   @@index([capsuleId], map: "Campaign_capsuleId_fkey")
   @@index([tenantId], map: "Campaign_tenantId_fkey")
+  @@index([audienceId])
 }
 
 model CampaignEvent {
@@ -564,3 +568,41 @@ enum DealStatus {
   WON
   LOST
 }
+
+model SystemSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model Audience {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  members     AudienceMember[]
+  campaigns   Campaign[]
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model AudienceMember {
+  id         String   @id @default(uuid())
+  audienceId String
+  email      String
+  firstName  String?
+  lastName   String?
+  phone      String?
+  metadata   Json?    // Stores generic columns from Google Sheets
+  status     String   @default("SUBSCRIBED") // SUBSCRIBED, UNSUBSCRIBED, BOUNCED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  audience   Audience @relation(fields: [audienceId], references: [id], onDelete: Cascade)
+
+  @@unique([audienceId, email])
+  @@index([audienceId])
+}
+

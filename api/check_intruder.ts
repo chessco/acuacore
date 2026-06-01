@@ -4,7 +4,7 @@ async function main() {
   const prisma = new PrismaClient({
     datasources: {
       db: {
-        url: 'mysql://root:acuacore_pass@localhost:3314/acuacore_db'
+        url: 'mysql://root:acuacore_pass@localhost:3306/acuacore_db'
       }
     }
   });

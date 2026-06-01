@@ -83,24 +83,64 @@ export class CampaignService {
     const ctaText = config.ctaText || 'Explorar Cápsula Interactiva';
     const footerText = config.footerText || '© 2026 Acuaequipos Capsulas Acuicolas. Todos los derechos reservados.';
     
-    // Extract hero image: priority 1: branding config, priority 2: capsule hero block, priority 3: null
+    const emailBlocks = campaignConfig.blocks || [];
+    const emailImageBlock = emailBlocks.find((b: any) => b.type === 'image');
+    const emailHeroImage = emailImageBlock?.content?.url;
+    const emailHeaderBlock = emailBlocks.find((b: any) => b.type === 'header');
+    const emailHeaderTitle = emailHeaderBlock?.content?.title || campaign.name;
+
+    // Extract hero image: priority 1: email block image, priority 2: branding config, priority 3: capsule hero block, priority 4: null
     const capsuleBlocks = (campaign.capsule?.contentBlocks as any[]) || [];
     const heroBlock = capsuleBlocks.find(b => b.type === 'hero');
     const capsuleHeroImage = heroBlock?.data?.image || heroBlock?.data?.imageUrl;
-    const heroImage = config.heroImage || capsuleHeroImage || null;
+    const heroImage = emailHeroImage || config.heroImage || capsuleHeroImage || null;
 
     const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
     const apiUrl = this.configService.get('API_URL') || 'http://localhost:3014';
 
-    // Helper to ensure absolute URLs
-    const makeAbsolute = (url: string) => {
+    // Helper to download external images and serve them locally
+    const ensureLocalImage = async (url: string) => {
       if (!url) return url;
-      if (url.startsWith('http')) return url;
-      return `${apiUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+      if (url.startsWith(apiUrl) || url.startsWith('/')) {
+        return url.startsWith('http') ? url : `${apiUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+      }
+      
+      try {
+        const crypto = require('crypto');
+        const fs = require('fs');
+        const path = require('path');
+        
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        
+        let ext = '.png';
+        try { ext = path.extname(new URL(url).pathname) || '.png'; } catch (e) {}
+        
+        const hash = crypto.createHash('md5').update(url).digest('hex');
+        const filename = `proxy_${hash}${ext}`;
+        
+        const uploadPath = path.join(process.cwd(), 'public', 'uploads');
+        if (!fs.existsSync(uploadPath)) {
+          fs.mkdirSync(uploadPath, { recursive: true });
+        }
+        
+        const filePath = path.join(uploadPath, filename);
+        if (!fs.existsSync(filePath)) {
+          fs.writeFileSync(filePath, buffer);
+        }
+        
+        return `${apiUrl}/static/uploads/${filename}`;
+      } catch (err) {
+        console.warn(`Failed to proxy image ${url}:`, err.message);
+        return url; 
+      }
     };
 
-    const finalLogoUrl = makeAbsolute(logoUrl);
-    const finalHeroImage = makeAbsolute(heroImage);
+    const finalLogoUrl = await ensureLocalImage(logoUrl);
+    const finalHeroImage = await ensureLocalImage(heroImage);
 
     console.log(`[CampaignService] Sending email. Logo: ${finalLogoUrl}, Hero: ${finalHeroImage}`);
 
@@ -112,8 +152,19 @@ export class CampaignService {
     const trackingClickUrl = `${apiUrl}/api/campaign-tracking/click/${campaign.id}?redirect=`;
 
     // Send emails to the audience
-    if (campaign.audience) {
-      const emails = campaign.audience.split(/[,|\n]/).filter((e: string) => e.trim());
+    let emails: string[] = [];
+
+    if (campaign.audienceId) {
+      const members = await this.db.mysql.audienceMember.findMany({
+        where: { audienceId: campaign.audienceId, status: 'SUBSCRIBED' },
+        select: { email: true }
+      });
+      emails = members.map(m => m.email);
+    } else if (campaign.audience) {
+      emails = campaign.audience.split(/[,|\n]/).filter((e: string) => e.trim());
+    }
+
+    if (emails.length > 0) {
       console.log(`Sending campaign "${campaign.name}" to ${emails.length} recipients: ${emails.join(', ')}`);
       for (const email of emails) {
         const recipientEmail = email.trim();
@@ -141,7 +192,7 @@ export class CampaignService {
                         <td align="center" style="background: linear-gradient(135deg, ${primaryColor} 0%, #0044CC 100%); padding: 60px 40px;">
                             <img src="${finalLogoUrl}" alt="Logo" width="120" style="margin-bottom: 24px; display: block;">
                             <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.2;">
-                                ${campaign.name}
+                                ${emailHeaderTitle}
                             </h1>
                         </td>
                     </tr>

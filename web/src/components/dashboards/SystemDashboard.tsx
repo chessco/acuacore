@@ -1,4 +1,5 @@
 import { BrandingSettings } from '../../modules/settings/BrandingSettings'
+import { SystemSettingsPanel } from '../../modules/system/SystemSettingsPanel'
 import { 
   LayoutDashboard, 
   Settings, 
@@ -167,7 +168,7 @@ export function SystemDashboard() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-brand-deep rounded-full flex items-center justify-center shadow-lg shadow-brand-deep/30 text-white" style={selectedTenant?.brandingConfig?.primaryColor ? { backgroundColor: selectedTenant.brandingConfig.primaryColor } : {}}>
               {selectedTenant?.brandingConfig?.logoUrl ? (
-                <img src={selectedTenant.brandingConfig.logoUrl} alt="logo" className="w-6 h-6 object-contain" />
+                <img src={selectedTenant.brandingConfig.logoUrl?.startsWith('/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:3014'}${selectedTenant.brandingConfig.logoUrl}` : selectedTenant.brandingConfig.logoUrl} alt="logo" className="w-6 h-6 object-contain" />
               ) : (
                 <Fish size={24} />
               )}
@@ -460,6 +461,9 @@ export function SystemDashboard() {
                 <div className="dashboard-card p-8 border-2 border-brand-blue/10 bg-gradient-to-br from-white to-brand-blue/5">
                   <BrandingSettings />
                 </div>
+                
+                <SystemSettingsPanel />
+                
                 
                 <div className="dashboard-card p-8">
                   <div className="flex items-center gap-3 mb-6">

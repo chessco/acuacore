@@ -3,6 +3,8 @@ import { CapsulesService } from './capsules.service';
 import { CampaignService } from './campaign.service';
 import { CapsulesController } from './capsules.controller';
 import { CapsuleStudioController } from './capsule-studio.controller';
+import { AudiencesController } from './audiences.controller';
+import { AudiencesService } from './audiences.service';
 import { UploadsController } from './uploads.controller';
 import { DatabaseModule } from '../../common/database/database.module';
 import { AiModule } from '../ai/ai.module';
@@ -17,10 +19,11 @@ import { CampaignTrackingController } from './campaign-tracking.controller';
 
 @Module({
   imports: [DatabaseModule, AiModule, ConversationsModule, CrmModule],
-  controllers: [CapsulesController, CapsuleStudioController, UploadsController, CampaignTrackingController],
+  controllers: [CapsulesController, CapsuleStudioController, AudiencesController, UploadsController, CampaignTrackingController],
   providers: [
     CapsulesService, 
     CampaignService,
+    AudiencesService,
     ApiKeyGuard,
     CombinedAuthGuard,
     FeatureFlagGuard

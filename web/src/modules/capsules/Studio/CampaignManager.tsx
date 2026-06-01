@@ -23,15 +23,17 @@ import { useTenant } from '../../../contexts/TenantContext';
 
 import { EmailTemplateEditor } from './components/EmailTemplateEditor';
 import type { EmailBlock } from './components/EmailTemplateEditor';
+import { AudienceManager } from './components/AudienceManager';
 
 export const CampaignManager: React.FC = () => {
   const { selectedTenant, flowApiKey, role } = useTenant();
-  const [activeTab, setActiveTab] = useState<'campaigns' | 'branding'>('campaigns');
+  const [activeTab, setActiveTab] = useState<'campaigns' | 'audiences' | 'branding'>('campaigns');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
   const [capsules, setCapsules] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [audiencesList, setAudiencesList] = useState<any[]>([]);
   const [hasError, setHasError] = useState(false);
   const [branding, setBranding] = useState({
     primaryColor: '#001A41',
@@ -47,7 +49,8 @@ export const CampaignManager: React.FC = () => {
     subject: '',
     description: '',
     ctaText: 'Explorar Cápsula Interactiva',
-    audience: ''
+    audience: '',
+    audienceId: ''
   });
   const [emailBlocks, setEmailBlocks] = useState<EmailBlock[]>([]);
 
@@ -71,18 +74,20 @@ export const CampaignManager: React.FC = () => {
       };
 
       try {
-        const [capsulesRes, campaignsRes, brandingRes] = await Promise.all([
+        const [capsulesRes, campaignsRes, brandingRes, audiencesRes] = await Promise.all([
           axios.get(apiUrl + '/api/capsule-studio/capsules', { headers }),
           axios.get(apiUrl + '/api/capsule-studio/campaigns', { headers }),
-          axios.get(apiUrl + '/api/capsule-studio/branding', { headers })
+          axios.get(apiUrl + '/api/capsule-studio/branding', { headers }),
+          axios.get(apiUrl + '/api/capsule-studio/audiences', { headers }).catch(() => ({ data: [] }))
         ]);
         setCapsules(capsulesRes.data);
         const sortedCampaigns = (campaignsRes.data || []).sort((a: any, b: any) => 
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
         setCampaigns(sortedCampaigns);
+        setAudiencesList(audiencesRes.data || []);
         if (brandingRes.data && Object.keys(brandingRes.data).length > 0) {
-          setBranding(brandingRes.data);
+          setBranding(prev => ({ ...prev, ...brandingRes.data }));
         }
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -103,7 +108,7 @@ export const CampaignManager: React.FC = () => {
       const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:3014'}/api/ai/generate-campaign-text`, {
         capsule: { title: selected.title, description: selected.description },
         tone: tone
-      }, { headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey } });
+      }, { headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey, 'x-user-role': (role || 'admin').toUpperCase() } });
       
       setCampaignData(prev => ({ 
         ...prev, 
@@ -125,7 +130,7 @@ export const CampaignManager: React.FC = () => {
       const res = await axios.post(`${import.meta.env.VITE_API_URL || 'http://localhost:3014'}/api/ai/generate-image`, {
         prompt: selected ? `Topic: ${selected.title}. Description: ${selected.description}` : 'High quality professional aquaculture design'
       }, {
-        headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey }
+        headers: { 'x-tenant-id': selectedTenant?.id || '', 'x-api-key': flowApiKey, 'x-user-role': (role || 'admin').toUpperCase() }
       });
       setBranding(prev => ({ ...prev, heroImage: res.data.url }));
     } catch (err) {
@@ -227,7 +232,8 @@ export const CampaignManager: React.FC = () => {
       subject: '',
       description: '',
       ctaText: 'Explorar Cápsula Interactiva',
-      audience: ''
+      audience: '',
+      audienceId: ''
     });
     setEmailBlocks([]);
   };
@@ -270,7 +276,8 @@ export const CampaignManager: React.FC = () => {
       const headers = { 
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
         'x-tenant-id': selectedTenant?.id || '',
-        'x-api-key': flowApiKey
+        'x-api-key': flowApiKey,
+        'x-user-role': (role || 'admin').toUpperCase()
       };
 
       await axios.post(`${apiUrl}/api/capsule-studio/campaigns/${id}/send`, {}, { headers });
@@ -294,7 +301,9 @@ export const CampaignManager: React.FC = () => {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
       const headers = { 
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'x-tenant-id': selectedTenant?.id || ''
+        'x-tenant-id': selectedTenant?.id || '',
+        'x-api-key': flowApiKey,
+        'x-user-role': (role || 'admin').toUpperCase()
       };
 
       await axios.delete(`${apiUrl}/api/capsule-studio/campaigns/${id}`, { headers });
@@ -310,7 +319,9 @@ export const CampaignManager: React.FC = () => {
       const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
       const headers = { 
         'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        'x-tenant-id': selectedTenant?.id || ''
+        'x-tenant-id': selectedTenant?.id || '',
+        'x-api-key': flowApiKey,
+        'x-user-role': (role || 'admin').toUpperCase()
       };
 
       await axios.post(`${apiUrl}/api/capsule-studio/branding`, branding, { headers });
@@ -335,7 +346,10 @@ export const CampaignManager: React.FC = () => {
       const res = await axios.post(`${apiUrl}/api/capsule-studio/upload`, formData, {
         headers: { 
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'multipart/form-data' 
+          'Content-Type': 'multipart/form-data',
+          'x-tenant-id': selectedTenant?.id || '',
+          'x-api-key': flowApiKey,
+          'x-user-role': (role || 'admin').toUpperCase()
         }
       });
       setBranding(prev => ({ ...prev, [field]: res.data.url }));
@@ -364,6 +378,12 @@ export const CampaignManager: React.FC = () => {
               Campañas
             </button>
             <button 
+              onClick={() => setActiveTab('audiences')}
+              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'audiences' ? 'bg-white text-[#001A41] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+            >
+              Listas (Audiencias)
+            </button>
+            <button 
               onClick={() => setActiveTab('branding')}
               className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'branding' ? 'bg-white text-[#001A41] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
@@ -385,7 +405,8 @@ export const CampaignManager: React.FC = () => {
         )}
       </div>
 
-      {activeTab === 'campaigns' ? (
+      {activeTab === 'audiences' && <AudienceManager />}
+      {activeTab === 'campaigns' && (
         <>
           {hasError && (
             <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-3 text-red-600 text-sm font-medium">
@@ -536,12 +557,23 @@ export const CampaignManager: React.FC = () => {
                     </div>
 
                     <div className="space-y-4">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Audiencia (Emails)</label>
-                      <textarea 
-                        placeholder="ejemplo@correo.com, cliente@empresa.com..."
-                        value={campaignData.audience} onChange={e => setCampaignData({...campaignData, audience: e.target.value})}
-                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/10 min-h-[100px]"
-                      />
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Audiencia de Destino</label>
+                      <select 
+                        value={(campaignData as any).audienceId || ''} 
+                        onChange={e => setCampaignData({...campaignData, audienceId: e.target.value})}
+                        className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/10 mb-2"
+                      >
+                        <option value="">Ingreso Manual (Usar cuadro de texto inferior)</option>
+                        {audiencesList.map(a => <option key={a.id} value={a.id}>{a.name} ({a._count?.members || 0} contactos)</option>)}
+                      </select>
+                      
+                      {!(campaignData as any).audienceId && (
+                        <textarea 
+                          placeholder="ejemplo@correo.com, cliente@empresa.com..."
+                          value={campaignData.audience} onChange={e => setCampaignData({...campaignData, audience: e.target.value})}
+                          className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/10 min-h-[100px]"
+                        />
+                      )}
                     </div>
 
                     <div className="pt-6 border-t border-slate-100 flex gap-4">
@@ -568,7 +600,9 @@ export const CampaignManager: React.FC = () => {
             </div>
           )}
         </>
-      ) : (
+      )}
+
+      {activeTab === 'branding' && (
         <div className="space-y-8">
             <div className="flex justify-end">
                 <button 
@@ -654,7 +688,7 @@ export const CampaignManager: React.FC = () => {
                 <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Vista Previa Global</h4>
                 <div className="bg-white rounded-[3rem] shadow-2xl shadow-blue-900/10 overflow-hidden border border-slate-100 sticky top-8">
                     <div className="p-12 text-center space-y-6" style={{ background: `linear-gradient(135deg, ${branding.primaryColor} 0%, #054CC1 100%)` }}>
-                    <img src={branding.logoUrl} alt="Logo" className="h-10 mx-auto object-contain drop-shadow-md" />
+                    <img src={branding.logoUrl?.startsWith('/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:3014'}${branding.logoUrl}` : branding.logoUrl} alt="Logo" className="h-10 mx-auto object-contain drop-shadow-md" />
                     {branding.heroImage ? (
                         <img src={branding.heroImage.startsWith('/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:3014'}${branding.heroImage}` : branding.heroImage} className="w-full h-40 object-cover rounded-[2rem] shadow-lg border-2 border-white/20" alt="Hero" />
                     ) : (

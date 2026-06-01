@@ -1,4 +1,5 @@
 import { BrandingSettings } from '../../modules/settings/BrandingSettings'
+import { SystemSettingsPanel } from '../../modules/system/SystemSettingsPanel'
 import { 
   LayoutDashboard, 
   MessageSquare, 
@@ -230,7 +231,7 @@ export function OperationalDashboard() {
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-brand-blue rounded-full flex items-center justify-center shadow-lg shadow-brand-blue/30 text-white shrink-0" style={selectedTenant?.brandingConfig?.primaryColor ? { backgroundColor: selectedTenant.brandingConfig.primaryColor } : {}}>
               {selectedTenant?.brandingConfig?.logoUrl ? (
-                <img src={selectedTenant.brandingConfig.logoUrl} alt="logo" className="w-6 h-6 object-contain" />
+                <img src={selectedTenant.brandingConfig.logoUrl?.startsWith('/') ? `${import.meta.env.VITE_API_URL || 'http://localhost:3014'}${selectedTenant.brandingConfig.logoUrl}` : selectedTenant.brandingConfig.logoUrl} alt="logo" className="w-6 h-6 object-contain" />
               ) : (
                 <Fish size={24} />
               )}
@@ -751,6 +752,13 @@ export function OperationalDashboard() {
                 <div className="dashboard-card p-6 md:col-span-2 border-2 border-brand-blue/10 bg-gradient-to-br from-white to-brand-blue/5">
                   <BrandingSettings />
                 </div>
+
+                {/* SYSTEM SETTINGS SECTION */}
+                {role === 'system' && (
+                  <div className="md:col-span-2">
+                    <SystemSettingsPanel />
+                  </div>
+                )}
 
                 {role === 'system' && (
                   <div className="dashboard-card p-6">

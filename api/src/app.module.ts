@@ -22,6 +22,7 @@ import { CrmModule } from './modules/crm/crm.module';
 import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { CombinedAuthGuard } from './common/guards/combined-auth.guard';
 import { MailModule } from './common/mail/mail.module';
+import { SystemSettingsModule } from './modules/system-settings/system-settings.module';
 
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
@@ -49,6 +50,7 @@ import { join } from 'path';
     EcommerceModule,
     CrmModule,
     MailModule,
+    SystemSettingsModule,
   ],
   controllers: [AppController],
   providers: [

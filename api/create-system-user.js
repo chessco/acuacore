@@ -14,9 +14,11 @@ async function main() {
 
   const hashedPassword = await bcrypt.hash(password, 10);
 
-  // Limpiar primero para asegurar que no hay basura
-  await prisma.user.deleteMany({ where: { email } });
-  console.log('--- Usuario previo eliminado (si existía) ---');
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  if (existingUser) {
+    console.log('✅ Usuario SYSTEM ya existe. Omitiendo creación.');
+    return;
+  }
 
   // Buscar el tenant por ID, por nombre o simplemente el primero disponible
   let tenant = await prisma.tenant.findFirst({
@@ -32,16 +34,8 @@ async function main() {
     });
   }
 
-  const user = await prisma.user.upsert({
-    where: { email },
-    update: {
-      name,
-      password: hashedPassword,
-      role,
-      status: 'ACTIVE',
-      tenantId: tenant.id
-    },
-    create: {
+  const user = await prisma.user.create({
+    data: {
       email,
       name,
       password: hashedPassword,
@@ -51,9 +45,9 @@ async function main() {
     }
   });
 
-  console.log('✅ Usuario SYSTEM procesado con éxito.');
+  console.log('✅ Usuario SYSTEM creado con éxito.');
   console.log(`Email: ${email}`);
-  console.log(`Password: ${password} (Actualizado)`);
+  console.log(`Password: ${password}`);
   console.log('--- Recuerda guardar estas credenciales en un lugar seguro ---');
 }
 

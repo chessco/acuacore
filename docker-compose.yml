@@ -7,7 +7,7 @@ services:
       MYSQL_ROOT_PASSWORD: acuacore_pass
       MYSQL_DATABASE: acuacore_db
     ports:
-      - "3314:3306"
+      - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
