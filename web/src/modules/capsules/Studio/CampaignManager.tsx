@@ -219,6 +219,7 @@ export const CampaignManager: React.FC = () => {
         subject: campaignData.subject,
         content: combinedContent,
         audience: campaignData.audience,
+        audienceId: (campaignData as any).audienceId || null,
         scheduledAt: new Date(),
         templateConfig: {
           ctaText: campaignData.ctaText,
