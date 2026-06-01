@@ -85,13 +85,12 @@ export function OperationalDashboard() {
   const { t, i18n } = useTranslation()
 
   const hasMenu = (menuId: string) => {
-    // Check suite active status first
     const module = AVAILABLE_MODULES.find(m => m.id === menuId);
-    if (module?.suiteId) {
-       const suite = selectedTenant?.planConfig?.suites?.find((s: any) => s.id === module.suiteId);
-       if (!suite || !suite.isActive) return false;
-       
-       // If feature requires specific flag
+    
+    // Feature Flag Check (Tenant Level)
+    if (module?.suiteId && selectedTenant?.enabledModules) {
+       const suite = selectedTenant.enabledModules[module.suiteId];
+       if (!suite?.enabled) return false;
        if (module.featureId && suite.features && suite.features[module.featureId] === false) {
          return false;
        }
