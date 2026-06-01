@@ -58,9 +58,18 @@ export const DonJuanChat: React.FC = () => {
         setSelectedAgent(donJuan);
       } else if (res.data.length > 0) {
         setSelectedAgent(res.data[0]);
+      } else {
+        // Fallback para cuando el catálogo está vacío
+        const fallbackAgent = { id: 'fallback', name: 'Don Juan Camarón', slug: 'don-juan-camaron' };
+        setSelectedAgent(fallbackAgent);
+        setAgents([fallbackAgent]);
       }
     } catch (err) {
       console.error('Error fetching agents:', err);
+      // Fallback on error
+      const fallbackAgent = { id: 'fallback', name: 'Don Juan Camarón', slug: 'don-juan-camaron' };
+      setSelectedAgent(fallbackAgent);
+      setAgents([fallbackAgent]);
     } finally {
       setFetchingAgents(false);
     }

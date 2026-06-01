@@ -887,12 +887,14 @@ export function OperationalDashboard() {
         </div>
 
         {/* Floating Action Button */}
-        <button 
-          onClick={handleQuickAction}
-          className="fixed bottom-8 right-8 w-14 h-14 bg-brand-blue text-white rounded-full flex items-center justify-center shadow-xl shadow-brand-blue/40 hover:scale-110 active:scale-90 transition-all z-20"
-        >
-          <Plus size={28} />
-        </button>
+        {activeTab !== 'donjuan' && (
+          <button 
+            onClick={handleQuickAction}
+            className="fixed bottom-8 right-8 w-14 h-14 bg-brand-blue text-white rounded-full flex items-center justify-center shadow-xl shadow-brand-blue/40 hover:scale-110 active:scale-90 transition-all z-20"
+          >
+            <Plus size={28} />
+          </button>
+        )}
 
         {/* Quick Action Modal Overlay */}
         <AnimatePresence>
