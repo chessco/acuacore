@@ -235,14 +235,29 @@ export const CampaignManager: React.FC = () => {
         'Authorization': `Bearer ${localStorage.getItem('token')}`
       };
 
+      let res;
       if ((campaignData as any).id) {
         // Update existing
-        const res = await axios.patch(`${apiUrl}/api/capsule-studio/campaigns/${(campaignData as any).id}`, payload, { headers });
-        setCampaigns(campaigns.map(c => c.id === res.data.id ? res.data : c));
+        res = await axios.patch(`${apiUrl}/api/capsule-studio/campaigns/${(campaignData as any).id}`, payload, { headers });
       } else {
         // Create new
-        const res = await axios.post(`${apiUrl}/api/capsule-studio/campaigns`, payload, { headers });
-        setCampaigns([res.data, ...campaigns]);
+        res = await axios.post(`${apiUrl}/api/capsule-studio/campaigns`, payload, { headers });
+      }
+
+      let finalCampaign = res.data;
+      if (finalCampaign.audienceId) {
+        const selectedAudience = audiencesList.find(a => a.id === finalCampaign.audienceId);
+        if (selectedAudience) {
+          finalCampaign.audienceList = {
+            _count: { members: selectedAudience._count?.members || 0 }
+          };
+        }
+      }
+
+      if ((campaignData as any).id) {
+        setCampaigns(campaigns.map(c => c.id === finalCampaign.id ? finalCampaign : c));
+      } else {
+        setCampaigns([finalCampaign, ...campaigns]);
       }
 
       setShowCreateModal(false);
