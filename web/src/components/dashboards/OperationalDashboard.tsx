@@ -94,6 +94,9 @@ export function OperationalDashboard() {
        if (module.featureId && suite.features && suite.features[module.featureId] === false) {
          return false;
        }
+       
+       // Permitir Asistente Interno automáticamente si el plan incluye la suite
+       if (menuId === 'donjuan') return true;
     }
 
     if (role === 'system') return true;
