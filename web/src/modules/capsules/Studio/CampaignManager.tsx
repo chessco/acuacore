@@ -17,7 +17,8 @@ import {
   Trash2,
   Eye,
   Sparkles,
-  Loader2
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import axios from 'axios';
 import { useTenant } from '../../../contexts/TenantContext';
@@ -29,6 +30,7 @@ import { AudienceManager } from './components/AudienceManager';
 export const CampaignManager: React.FC = () => {
   const { selectedTenant, flowApiKey, role } = useTenant();
   const [activeTab, setActiveTab] = useState<'campaigns' | 'audiences' | 'branding'>('campaigns');
+  const [refreshKey, setRefreshKey] = useState(0);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
   const [capsules, setCapsules] = useState<any[]>([]);
@@ -98,7 +100,7 @@ export const CampaignManager: React.FC = () => {
       }
     };
     if (selectedTenant) fetchData();
-  }, [selectedTenant, flowApiKey]);
+  }, [selectedTenant, flowApiKey, refreshKey]);
 
   // Refetch audiences specifically when switching back to the campaigns tab
   // so any lists created in the Audiences tab show up in the dropdown
@@ -439,15 +441,24 @@ export const CampaignManager: React.FC = () => {
         </div>
         
         {activeTab === 'campaigns' && (
-          <button 
-            onClick={() => {
-                resetCampaignForm();
-                setShowCreateModal(true);
-            }}
-            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-          >
-            <Plus size={20} /> Nueva Campaña
-          </button>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setRefreshKey(prev => prev + 1)}
+              className="p-3 bg-white text-slate-400 border border-slate-200 rounded-xl hover:bg-slate-50 hover:text-[#001A41] transition-all shadow-sm"
+              title="Actualizar Datos"
+            >
+              <RefreshCw size={20} />
+            </button>
+            <button 
+              onClick={() => {
+                  resetCampaignForm();
+                  setShowCreateModal(true);
+              }}
+              className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+            >
+              <Plus size={20} /> Nueva Campaña
+            </button>
+          </div>
         )}
       </div>
 
