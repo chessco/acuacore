@@ -34,12 +34,13 @@ export class ConversationsService {
 
     if (!conversation) {
       const isCapsule = channel.toUpperCase() === 'CAPSULE';
+      const isInternal = channel.toUpperCase() === 'INTERNAL';
       conversation = await this.db.mysql.conversation.create({
         data: { 
-          userId: isCapsule ? null : userId, 
+          userId: (isCapsule || isInternal) ? null : userId, 
           tenantId, 
-          externalId: isCapsule ? userId : externalId,
-          source: isCapsule ? 'CAPSULE' : 'WHATSAPP',
+          externalId: (isCapsule || isInternal) ? userId : externalId,
+          source: isCapsule ? 'CAPSULE' : (isInternal ? 'INTERNAL' : 'WHATSAPP'),
           metadata: metadata || null
         },
       });
