@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { ArrowLeft, UserPlus, Save, Trash2, CheckCircle, AlertTriangle, FileSpreadsheet, Users } from 'lucide-react';
-
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+import { useTenant } from '../../../../contexts/TenantContext';
 
 interface AudienceEditorProps {
   audience: any;
@@ -10,6 +9,7 @@ interface AudienceEditorProps {
 }
 
 export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack }) => {
+  const { selectedTenant, flowApiKey, role } = useTenant();
   const [members, setMembers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [importText, setImportText] = useState('');
@@ -22,11 +22,23 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
 
+  const getApiContext = () => {
+    let apiUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3014`;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') apiUrl = `http://${window.location.hostname}:3014`;
+    const token = localStorage.getItem('token');
+    const headers = { 
+      'Authorization': `Bearer ${token}`,
+      'x-tenant-id': selectedTenant?.id || '', 
+      'x-user-role': (role || 'ADMIN').toUpperCase(),
+      'x-api-key': flowApiKey 
+    };
+    return { apiUrl, headers };
+  };
+
   const fetchMembers = async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const { apiUrl, headers } = getApiContext();
       const response = await axios.get(`${apiUrl}/api/capsule-studio/audiences/${audience.id}/members`, { headers });
       setMembers(response.data);
     } catch (err) {
@@ -38,13 +50,12 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
 
   useEffect(() => {
     fetchMembers();
-  }, []);
+  }, [selectedTenant]);
 
   const handleImport = async () => {
     if (!importText.trim()) return;
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const { apiUrl, headers } = getApiContext();
       const response = await axios.post(`${apiUrl}/api/capsule-studio/audiences/${audience.id}/members/import`, {
         data: importText
       }, { headers });
@@ -61,10 +72,9 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
   };
 
   const handleManualAdd = async () => {
-    if (!newEmail) return;
+    if (!newEmail.trim()) return;
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const { apiUrl, headers } = getApiContext();
       await axios.post(`${apiUrl}/api/capsule-studio/audiences/${audience.id}/members`, {
         email: newEmail,
         firstName: newName,
@@ -78,14 +88,14 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
       fetchMembers();
     } catch (err) {
       console.error('Error adding member', err);
+      alert('Error al agregar contacto');
     }
   };
 
   const handleDeleteMember = async (memberId: string) => {
-    if (!confirm('¿Eliminar este contacto?')) return;
+    if (!confirm('¿Seguro que deseas eliminar a este contacto?')) return;
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const { apiUrl, headers } = getApiContext();
       await axios.delete(`${apiUrl}/api/capsule-studio/audiences/${audience.id}/members/${memberId}`, { headers });
       fetchMembers();
     } catch (err) {

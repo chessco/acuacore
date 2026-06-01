@@ -99,6 +99,34 @@ export const CampaignManager: React.FC = () => {
     if (selectedTenant) fetchData();
   }, [selectedTenant, flowApiKey]);
 
+  // Refetch audiences specifically when switching back to the campaigns tab
+  // so any lists created in the Audiences tab show up in the dropdown
+  useEffect(() => {
+    if (activeTab === 'campaigns' && selectedTenant) {
+      const fetchAudiences = async () => {
+        const token = localStorage.getItem('token');
+        const role = localStorage.getItem('acuacore_role') || 'ADMIN';
+        let apiUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3014`;
+        if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') apiUrl = `http://${window.location.hostname}:3014`;
+        
+        const headers = { 
+          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': selectedTenant.id, 
+          'x-user-role': role.toUpperCase(),
+          'x-api-key': flowApiKey 
+        };
+
+        try {
+          const res = await axios.get(apiUrl + '/api/capsule-studio/audiences', { headers });
+          setAudiencesList(res.data || []);
+        } catch (err) {
+          console.error('Error fetching audiences:', err);
+        }
+      };
+      fetchAudiences();
+    }
+  }, [activeTab, selectedTenant, flowApiKey]);
+
   const handleGenerateAiText = async (tone: string = 'professional') => {
     const selected = capsules.find(c => c.id === campaignData.capsuleId);
     if (!selected) return alert('Por favor, selecciona una cápsula primero');

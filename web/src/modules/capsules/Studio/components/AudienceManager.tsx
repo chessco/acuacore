@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Users, Plus, Edit, Trash2, ChevronRight, FileSpreadsheet } from 'lucide-react';
 import { AudienceEditor } from './AudienceEditor';
-
-const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
+import { useTenant } from '../../../../contexts/TenantContext';
 
 export const AudienceManager: React.FC = () => {
+  const { selectedTenant, flowApiKey, role } = useTenant();
   const [audiences, setAudiences] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAudience, setSelectedAudience] = useState<any>(null);
@@ -13,11 +13,23 @@ export const AudienceManager: React.FC = () => {
   const [newAudienceName, setNewAudienceName] = useState('');
   const [newAudienceDesc, setNewAudienceDesc] = useState('');
 
+  const getApiContext = () => {
+    let apiUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3014`;
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') apiUrl = `http://${window.location.hostname}:3014`;
+    const token = localStorage.getItem('token');
+    const headers = { 
+      'Authorization': `Bearer ${token}`,
+      'x-tenant-id': selectedTenant?.id || '', 
+      'x-user-role': (role || 'ADMIN').toUpperCase(),
+      'x-api-key': flowApiKey 
+    };
+    return { apiUrl, headers };
+  };
+
   const fetchAudiences = async () => {
     setIsLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const { apiUrl, headers } = getApiContext();
       const response = await axios.get(`${apiUrl}/api/capsule-studio/audiences`, { headers });
       setAudiences(response.data);
     } catch (err) {
@@ -29,13 +41,12 @@ export const AudienceManager: React.FC = () => {
 
   useEffect(() => {
     fetchAudiences();
-  }, []);
+  }, [selectedTenant]);
 
   const handleCreate = async () => {
     if (!newAudienceName) return;
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const { apiUrl, headers } = getApiContext();
       await axios.post(`${apiUrl}/api/capsule-studio/audiences`, {
         name: newAudienceName,
         description: newAudienceDesc
@@ -53,8 +64,7 @@ export const AudienceManager: React.FC = () => {
   const handleDelete = async (id: string) => {
     if (!confirm('¿Estás seguro de eliminar esta lista? Se eliminarán todos sus contactos.')) return;
     try {
-      const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const { apiUrl, headers } = getApiContext();
       await axios.delete(`${apiUrl}/api/capsule-studio/audiences/${id}`, { headers });
       fetchAudiences();
     } catch (err) {
