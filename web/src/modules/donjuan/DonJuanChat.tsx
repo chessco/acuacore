@@ -47,13 +47,17 @@ export const DonJuanChat: React.FC = () => {
 
   const fetchAgents = async () => {
     try {
+      const token = localStorage.getItem('token');
       const res = await axios.get(`${apiUrl}/api/agents`, {
-        headers: { 'x-tenant-id': selectedTenant?.id || '' }
+        headers: { 
+          'x-tenant-id': selectedTenant?.id || '',
+          'Authorization': `Bearer ${token}`
+        }
       });
       setAgents(res.data);
       
-      // Default to don-juan-camaron if it exists, otherwise first agent
-      const donJuan = res.data.find((a: any) => a.slug === 'don-juan-camaron');
+      // Default to any don-juan agent if it exists, otherwise first agent
+      const donJuan = res.data.find((a: any) => a.slug?.toLowerCase().includes('don-juan'));
       if (donJuan) {
         setSelectedAgent(donJuan);
       } else if (res.data.length > 0) {
@@ -100,12 +104,14 @@ export const DonJuanChat: React.FC = () => {
     setLoading(true);
 
     try {
+      const token = localStorage.getItem('token');
       const res = await axios.post(`${apiUrl}/api/agents/${selectedAgent.slug}/chat`, 
         { message: userMessage.content },
         {
           headers: { 
             'x-tenant-id': selectedTenant?.id || '',
-            'x-operator-email': userEmail 
+            'x-operator-email': userEmail,
+            'Authorization': `Bearer ${token}`
           }
         }
       );
