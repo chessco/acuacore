@@ -447,7 +447,7 @@ export const CampaignManager: React.FC = () => {
               className="p-3 bg-white text-slate-400 border border-slate-200 rounded-xl hover:bg-slate-50 hover:text-[#001A41] transition-all shadow-sm"
               title="Actualizar Datos"
             >
-              <RefreshCw size={20} />
+              <RefreshCw size={20} className={loading ? "animate-spin" : ""} />
             </button>
             <button 
               onClick={() => {
