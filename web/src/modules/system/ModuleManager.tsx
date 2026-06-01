@@ -58,6 +58,7 @@ export function ModuleManager() {
       'kb': ['Carga de PDF/Texto', 'Indexación Vectorial', 'Búsqueda Semántica', 'Actualización en Tiempo Real'],
       'analytics': ['Métricas de Conversión', 'Tasa de Automatización', 'Reportes de Ahorro', 'Exportación a PDF/CSV'],
       'predictive': ['Análisis de Sentimiento', 'Predicción de Churn', 'Lead Scoring por IA', 'Detección de Anomalías'],
+      'donjuan': ['Chat Interactivo', 'Selector de Agentes', 'Historial por Usuario', 'Consultas Internas'],
       'module_manager': ['Control de Costos', 'Activación por Tenant', 'Gestión de Licencias', 'Auditoría de Uso'],
       'catalog': ['Gestión de SKU', 'Control de Precios', 'Categorización Dinámica', 'Análisis de Inventario'],
       'orders': ['Facturación PDF', 'Seguimiento en Tiempo Real', 'Historial de Ventas', 'Notificaciones Automáticas'],

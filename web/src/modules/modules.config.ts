@@ -111,7 +111,9 @@ export const AVAILABLE_MODULES: ModuleConfig[] = [
     icon: MessageSquareQuote,
     component: DonJuanChat,
     description: 'Interacción interna con catálogo de agentes IA.',
-    category: 'operativo'
+    category: 'operativo',
+    suiteId: 'intelligence',
+    featureId: 'internal_assistant'
   },
   {
     id: 'agents',
