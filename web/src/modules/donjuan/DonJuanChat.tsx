@@ -13,10 +13,16 @@ export const DonJuanChat: React.FC = () => {
   const [fetchingAgents, setFetchingAgents] = useState(true);
   const [showAgentList, setShowAgentList] = useState(false);
   
-  const [userEmail, setUserEmail] = useState<string>(() => {
-    return localStorage.getItem('donjuan_email') || '';
+  const [userEmail] = useState<string>(() => {
+    const userJson = localStorage.getItem('user');
+    if (userJson) {
+      try {
+        const user = JSON.parse(userJson);
+        if (user && user.email) return user.email;
+      } catch(e) {}
+    }
+    return 'usuario@acuaequipos.com';
   });
-  const [showSettings, setShowSettings] = useState(!userEmail);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3014';
@@ -74,24 +80,6 @@ export const DonJuanChat: React.FC = () => {
     } catch (err) {
       console.error('Error fetching history:', err);
     }
-  };
-
-  const saveEmail = (e: React.FormEvent) => {
-    e.preventDefault();
-    const fd = new FormData(e.target as HTMLFormElement);
-    const email = fd.get('email') as string;
-    if (email) {
-      localStorage.setItem('donjuan_email', email);
-      setUserEmail(email);
-      setShowSettings(false);
-    }
-  };
-
-  const clearEmail = () => {
-    localStorage.removeItem('donjuan_email');
-    setUserEmail('');
-    setMessages([]);
-    setShowSettings(true);
   };
 
   const handleSend = async () => {
@@ -205,52 +193,8 @@ export const DonJuanChat: React.FC = () => {
               {userEmail}
             </span>
           )}
-          <button 
-            onClick={() => setShowSettings(!showSettings)}
-            className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-          >
-            <Settings size={18} />
-          </button>
         </div>
       </div>
-
-      {/* Settings Panel */}
-      {showSettings && (
-        <div className="bg-blue-50 border-b border-blue-100 p-6 z-10 relative">
-          <div className="max-w-md">
-            <h3 className="font-bold text-blue-900 mb-2">Configuración de Sesión</h3>
-            <p className="text-sm text-blue-700 mb-4">
-              Ingresa tu correo institucional. Esto permite guardar y recuperar tu historial de chat con el Asistente Interno.
-            </p>
-            {userEmail ? (
-              <div className="flex items-center gap-4">
-                <span className="font-medium text-slate-800 bg-white px-4 py-2 rounded-lg border border-slate-200 flex-1">
-                  {userEmail}
-                </span>
-                <button 
-                  onClick={clearEmail}
-                  className="px-4 py-2 bg-red-100 text-red-600 hover:bg-red-200 rounded-lg text-sm font-bold transition-colors flex items-center gap-2"
-                >
-                  <Trash2 size={16} /> Cerrar Sesión
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={saveEmail} className="flex gap-2">
-                <input 
-                  type="email" 
-                  name="email"
-                  required
-                  placeholder="ejemplo@acuaequipos.com"
-                  className="flex-1 px-4 py-2 rounded-lg border border-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                />
-                <button type="submit" className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-700 transition-colors">
-                  Guardar
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
 
       {/* Chat Area */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-[#F8FAFC]">
