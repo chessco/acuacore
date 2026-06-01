@@ -1,11 +1,15 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, UseGuards, Req, Headers } from '@nestjs/common';
 import { AgentsService } from './agents.service';
+import { ConversationsService } from '../conversations/conversations.service';
 import { CombinedAuthGuard } from '../../common/guards/combined-auth.guard';
 import { getTenantId } from '../../common/tenant/tenant.middleware';
 
 @Controller('agents')
 export class AgentsController {
-  constructor(private readonly agentsService: AgentsService) {}
+  constructor(
+    private readonly agentsService: AgentsService,
+    private readonly conversationsService: ConversationsService
+  ) {}
 
   @Get()
   async findAll() {
@@ -23,6 +27,37 @@ export class AgentsController {
   async findOne(@Param('slug') slug: string) {
     const tenantId = getTenantId();
     return this.agentsService.findBySlug(slug, tenantId);
+  }
+
+  @Post(':slug/chat')
+  async chat(
+    @Param('slug') slug: string,
+    @Body() body: any,
+    @Headers('x-tenant-id') tenantId?: string,
+    @Headers('x-operator-email') operatorEmail?: string
+  ) {
+    const resolvedTenantId = tenantId || getTenantId();
+    const userId = operatorEmail || 'internal-user';
+    const message = body.message;
+
+    // Use conversationsService to handle the incoming message
+    // Parameters: userId, content, tenantId, externalId, skills, agentSlug, channel, metadata
+    const aiMessage = await this.conversationsService.handleIncomingMessage(
+      userId,
+      message,
+      resolvedTenantId,
+      userId, // externalId
+      undefined, // skills
+      slug, // agentSlug
+      'internal', // channel
+      { internalChat: true, operatorEmail }
+    );
+
+    return {
+      content: aiMessage.content,
+      role: 'assistant',
+      conversationId: aiMessage.conversationId,
+    };
   }
 
   @Patch(':id')

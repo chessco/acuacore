@@ -23,6 +23,7 @@ import {
 import { Inbox } from './inbox/Inbox';
 import { CapsuleList } from './capsules/Studio/CapsuleList';
 import { CampaignManager } from './capsules/Studio/CampaignManager';
+import { DonJuanChat } from './donjuan/DonJuanChat';
 import { LeadManager } from './capsules/Studio/LeadManager';
 import { KnowledgeBase } from './knowledge/KnowledgeBase';
 import { Analytics } from './analytics/Analytics';
@@ -103,6 +104,14 @@ export const AVAILABLE_MODULES: ModuleConfig[] = [
     category: 'operativo',
     suiteId: 'intelligence',
     featureId: 'leads'
+  },
+  {
+    id: 'donjuan',
+    label: 'Asistente Interno AI',
+    icon: MessageSquareQuote,
+    component: DonJuanChat,
+    description: 'Interacción interna con catálogo de agentes IA.',
+    category: 'operativo'
   },
   {
     id: 'agents',
