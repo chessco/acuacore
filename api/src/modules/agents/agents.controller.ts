@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param, UseGuards, Req, Headers } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, UseGuards, Req, Headers, Inject, forwardRef } from '@nestjs/common';
 import { AgentsService } from './agents.service';
 import { ConversationsService } from '../conversations/conversations.service';
 import { CombinedAuthGuard } from '../../common/guards/combined-auth.guard';
@@ -8,6 +8,7 @@ import { getTenantId } from '../../common/tenant/tenant.middleware';
 export class AgentsController {
   constructor(
     private readonly agentsService: AgentsService,
+    @Inject(forwardRef(() => ConversationsService))
     private readonly conversationsService: ConversationsService
   ) {}
 
