@@ -279,7 +279,8 @@ export const CampaignManager: React.FC = () => {
       subject: camp.subject,
       description: camp.content,
       ctaText: (camp.templateConfig as any)?.ctaText || 'Explorar Cápsula Interactiva',
-      audience: camp.audience || ''
+      audience: camp.audience || '',
+      audienceId: camp.audienceId || ''
     } as any);
 
     if ((camp.templateConfig as any)?.blocks) {
@@ -489,7 +490,9 @@ export const CampaignManager: React.FC = () => {
                   <div className="flex items-center gap-12">
                     <div className="text-center">
                       <div className="text-xl font-black text-[#001A41]">
-                        {camp.audience ? camp.audience.split(/[,|\n]/).filter((e: string) => e.trim()).length : 0}
+                        {camp.audienceList 
+                          ? camp.audienceList._count?.members || 0
+                          : camp.audience ? camp.audience.split(/[,|\n]/).filter((e: string) => e.trim()).length : 0}
                       </div>
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Enviados</div>
                     </div>
@@ -775,7 +778,11 @@ export const CampaignManager: React.FC = () => {
                 </div>
                 <div className="p-4 bg-slate-50 rounded-2xl space-y-1">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Enviados</p>
-                  <p className="text-sm font-black text-[#001A41]">{selectedCampaign.audience ? selectedCampaign.audience.split(/[,|\n]/).filter((e: string) => e.trim()).length : 0}</p>
+                  <p className="text-sm font-black text-[#001A41]">
+                    {selectedCampaign.audienceList 
+                      ? selectedCampaign.audienceList._count?.members || 0
+                      : selectedCampaign.audience ? selectedCampaign.audience.split(/[,|\n]/).filter((e: string) => e.trim()).length : 0}
+                  </p>
                 </div>
                 <div className="p-4 bg-slate-50 rounded-2xl space-y-1">
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Aperturas</p>
@@ -794,6 +801,34 @@ export const CampaignManager: React.FC = () => {
                   className="flex-[2] py-4 bg-blue-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-blue-700 transition-all shadow-lg shadow-blue-200 disabled:opacity-50"
                 >
                   {loading ? 'Procesando...' : (selectedCampaign.sentAt ? 'Re-enviar Ahora' : 'Enviar Campaña')}
+                </button>
+                <button
+                  onClick={() => {
+                    const camp = selectedCampaign;
+                    setSelectedCampaign(null);
+                    setCampaignData({
+                      id: undefined as any,
+                      name: camp.name + ' (Copia)',
+                      capsuleId: camp.capsuleId,
+                      subject: camp.subject,
+                      description: camp.content,
+                      ctaText: (camp.templateConfig as any)?.ctaText || 'Explorar Cápsula Interactiva',
+                      audience: camp.audience || '',
+                      audienceId: camp.audienceId || ''
+                    } as any);
+                    if ((camp.templateConfig as any)?.blocks) {
+                      setEmailBlocks((camp.templateConfig as any).blocks);
+                    } else {
+                      setEmailBlocks([
+                        { id: 'h1', type: 'header', content: { title: camp.name } },
+                        { id: 't1', type: 'text', content: { text: camp.content } }
+                      ]);
+                    }
+                    setShowCreateModal(true);
+                  }}
+                  className="flex-[1] py-4 bg-emerald-100 text-emerald-700 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-emerald-200 transition-all"
+                >
+                  Duplicar
                 </button>
                 <button onClick={() => setSelectedCampaign(null)} className="flex-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black uppercase text-[10px] tracking-[0.2em] hover:bg-slate-200 transition-all">
                   Cerrar

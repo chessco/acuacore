@@ -42,7 +42,16 @@ export class CampaignService {
 
     return this.db.mysql.campaign.findMany({
       where,
-      include: { capsule: true },
+      include: { 
+        capsule: true,
+        audienceList: {
+          include: {
+            _count: {
+              select: { members: { where: { status: 'SUBSCRIBED' } } }
+            }
+          }
+        }
+      },
     });
   }
 
