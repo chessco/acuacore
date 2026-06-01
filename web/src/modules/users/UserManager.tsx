@@ -62,6 +62,7 @@ export function UserManager() {
   // Available menus based on role buckets
   const availableMenus = [
     { id: 'dashboard', label: 'Panel Control' },
+    { id: 'donjuan', label: 'Asistente Interno' },
     { id: 'conversations', label: 'Bandeja' },
     { id: 'users', label: 'Usuarios' },
     { id: 'hitl', label: 'HITL' },

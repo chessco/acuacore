@@ -85,18 +85,16 @@ export function OperationalDashboard() {
   const { t, i18n } = useTranslation()
 
   const hasMenu = (menuId: string) => {
+    // Check suite active status first
     const module = AVAILABLE_MODULES.find(m => m.id === menuId);
-    
-    // Feature Flag Check (Tenant Level)
-    if (module?.suiteId && selectedTenant?.enabledModules) {
-       const suite = selectedTenant.enabledModules[module.suiteId];
-       if (!suite?.enabled) return false;
+    if (module?.suiteId) {
+       const suite = selectedTenant?.planConfig?.suites?.find((s: any) => s.id === module.suiteId);
+       if (!suite || !suite.isActive) return false;
+       
+       // If feature requires specific flag
        if (module.featureId && suite.features && suite.features[module.featureId] === false) {
          return false;
        }
-       
-       // Permitir Asistente Interno automáticamente si el plan incluye la suite
-       if (menuId === 'donjuan') return true;
     }
 
     if (role === 'system') return true;
