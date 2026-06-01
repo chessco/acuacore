@@ -15,6 +15,7 @@ import {
   Fish, 
   Palette, 
   Trash2,
+  Eye,
   Sparkles,
   Loader2
 } from 'lucide-react';
@@ -267,7 +268,7 @@ export const CampaignManager: React.FC = () => {
   };
 
   const handleEditClick = (camp: any) => {
-    if (camp.sentAt && role?.toLowerCase() !== 'system') {
+    if (camp.sentAt) {
         setSelectedCampaign(camp); // Just view stats if already sent
         return;
     }
@@ -494,7 +495,7 @@ export const CampaignManager: React.FC = () => {
                           ? camp.audienceList._count?.members || 0
                           : camp.audience ? camp.audience.split(/[,|\n]/).filter((e: string) => e.trim()).length : 0}
                       </div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Enviados</div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{camp.sentAt ? 'Enviados' : 'Destinatarios'}</div>
                     </div>
                     <div className="text-center">
                       <div className="text-xl font-black text-[#001A41]">{camp.opensCount || 0}</div>
@@ -528,9 +529,45 @@ export const CampaignManager: React.FC = () => {
                         <Trash2 size={20} />
                       </button>
                     )}
-                    <button className="p-3 bg-slate-50 text-slate-400 rounded-xl group-hover:bg-[#001A41] group-hover:text-white transition-all">
-                      <ChevronRight size={20} />
-                    </button>
+                    {camp.sentAt ? (
+                      <div className="flex items-center gap-2">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedCampaign(camp);
+                          }}
+                          className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#001A41] hover:text-white transition-all flex items-center gap-2"
+                        >
+                          <BarChart3 size={14} />
+                          Estadísticas
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCampaignData({
+                              id: camp.id,
+                              name: camp.name,
+                              subject: camp.subject,
+                              capsuleId: camp.capsuleId,
+                              scheduledAt: camp.scheduledAt ? new Date(camp.scheduledAt).toISOString().slice(0, 16) : '',
+                              templateConfig: camp.templateConfig,
+                              ctaText: (camp.templateConfig as any)?.ctaText || 'Explorar Cápsula Interactiva',
+                              audience: camp.audience || '',
+                              audienceId: camp.audienceId || ''
+                            } as any);
+                            setShowCreateModal(true);
+                          }}
+                          className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-[#001A41] hover:text-white transition-all flex items-center gap-2"
+                        >
+                          <Eye size={14} />
+                          Diseño
+                        </button>
+                      </div>
+                    ) : (
+                      <button className="p-3 bg-slate-50 text-slate-400 rounded-xl group-hover:bg-[#001A41] group-hover:text-white transition-all">
+                        <ChevronRight size={20} />
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
