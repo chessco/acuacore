@@ -1,4 +1,4 @@
-import { Injectable, NestMiddleware } from '@nestjs/common';
+import { Injectable, NestMiddleware, UnauthorizedException } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { AsyncLocalStorage } from 'async_hooks';
 
@@ -22,8 +22,7 @@ export class TenantMiddleware implements NestMiddleware {
 export function getTenantId(): string {
   const tenantId = tenantStorage.getStore();
   if (!tenantId) {
-    // Acuaequipos Enterprise is the primary tenant
-    return 'edd1ac37-5ff9-4e46-bc7f-fff3c414d718'; 
+    throw new UnauthorizedException('x-tenant-id header is required');
   }
   return tenantId;
 }

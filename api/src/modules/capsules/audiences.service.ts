@@ -52,6 +52,19 @@ export class AudiencesService {
   async addMember(tenantId: string, audienceId: string, data: any) {
     await this.getAudience(tenantId, audienceId);
     
+    if (!data.email?.trim() && !data.phone?.trim()) {
+      throw new Error("Se requiere correo electrónico o teléfono");
+    }
+
+    if (data.phone) {
+      data.phone = data.phone.split(',')[0].replace(/[^\d+]/g, '');
+    }
+
+    if (!data.email?.trim() && data.phone?.trim()) {
+      const cleanPhone = data.phone.replace(/[^\d]/g, '');
+      data.email = `${cleanPhone || Math.random().toString(36).substring(7)}@no-email.whatsapp`;
+    }
+
     // Check if exists
     const existing = await this.db.mysql.audienceMember.findUnique({
       where: { audienceId_email: { audienceId, email: data.email } }
@@ -106,19 +119,32 @@ export class AudiencesService {
          emailIdx = cols.findIndex(c => emailRegex.test(c));
       }
 
-      if (emailIdx === -1 || !cols[emailIdx] || !emailRegex.test(cols[emailIdx])) {
-        errors.push(`Row ignored: No valid email found (${row.substring(0, 30)}...)`);
+      // Try to find name and phone
+      let nameIdx = headers.findIndex(h => h.includes('nombre') || h.includes('contacto') || h.includes('name'));
+      let phoneIdx = headers.findIndex(h => h.includes('tel') || h.includes('phone') || h.includes('cel') || h.includes('móvil') || h.includes('movil'));
+
+      let rawEmail = emailIdx !== -1 ? cols[emailIdx] : null;
+      let rawPhone = phoneIdx !== -1 ? cols[phoneIdx] : null;
+      
+      let email = rawEmail && emailRegex.test(rawEmail) ? rawEmail.toLowerCase() : null;
+      let phone = rawPhone && rawPhone.trim() ? rawPhone.split(',')[0].replace(/[^\d+]/g, '') : null;
+
+      if (!email && !phone) {
+        errors.push(`Row ignored: No valid email or phone found (${row.substring(0, 30)}...)`);
         continue;
       }
 
-      const email = cols[emailIdx].toLowerCase();
-      
-      // Try to find name and phone
-      let nameIdx = headers.findIndex(h => h.includes('nombre') || h.includes('contacto') || h.includes('name'));
-      let phoneIdx = headers.findIndex(h => h.includes('tel') || h.includes('phone'));
-      
+      if (!email && phone) {
+        // Generate dummy email to satisfy DB unique constraint based on phone
+        const cleanPhone = phone.replace(/[^\d]/g, '');
+        email = `${cleanPhone || Math.random().toString(36).substring(7)}@no-email.whatsapp`;
+      }
+
+      if (!email) {
+        continue;
+      }
+
       const firstName = nameIdx !== -1 ? cols[nameIdx] : null;
-      const phone = phoneIdx !== -1 ? cols[phoneIdx] : null;
 
       // Extract metadata (everything else)
       const metadata: any = {};
@@ -153,10 +179,40 @@ export class AudiencesService {
     return { success: true, importedCount, errors };
   }
 
+  async updateMember(tenantId: string, audienceId: string, memberId: string, data: any) {
+    await this.getAudience(tenantId, audienceId);
+    
+    if (data.phone) {
+      data.phone = data.phone.split(',')[0].replace(/[^\d+]/g, '');
+    }
+
+    if (!data.email?.trim() && data.phone?.trim()) {
+      const cleanPhone = data.phone.replace(/[^\d]/g, '');
+      data.email = `${cleanPhone || Math.random().toString(36).substring(7)}@no-email.whatsapp`;
+    }
+
+    return this.db.mysql.audienceMember.update({
+      where: { id: memberId, audienceId },
+      data: {
+        email: data.email,
+        firstName: data.firstName,
+        phone: data.phone
+      }
+    });
+  }
+
   async removeMember(tenantId: string, audienceId: string, memberId: string) {
     await this.getAudience(tenantId, audienceId);
     return this.db.mysql.audienceMember.delete({
       where: { id: memberId, audienceId }
+    });
+  }
+
+  async updateMemberStatus(tenantId: string, audienceId: string, memberId: string, status: string) {
+    await this.getAudience(tenantId, audienceId);
+    return this.db.mysql.audienceMember.update({
+      where: { id: memberId, audienceId },
+      data: { status }
     });
   }
 }

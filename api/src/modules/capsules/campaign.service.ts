@@ -188,7 +188,10 @@ export class CampaignService {
 
     if (campaign.audienceId) {
       const members = await this.db.mysql.audienceMember.findMany({
-        where: { audienceId: campaign.audienceId, status: 'SUBSCRIBED' },
+        where: { 
+          audienceId: campaign.audienceId, 
+          status: { in: ['SUBSCRIBED', 'WA_INVALID'] } 
+        },
         select: { email: true }
       });
       emails = members.map(m => m.email);
@@ -202,6 +205,7 @@ export class CampaignService {
         const recipientEmail = email.trim();
         const trackingPixelWithEmail = `${trackingPixelUrl}?e=${encodeURIComponent(recipientEmail)}`;
         const finalCtaUrl = `${apiUrl}/api/campaign-tracking/click/${campaign.id}?e=${encodeURIComponent(recipientEmail)}&redirect=${encodeURIComponent(`${frontendUrl}/capsules/${campaign.capsule?.slug || ''}?campaignId=${campaign.id}`)}`;
+        const unsubscribeUrl = `${apiUrl}/api/campaign-tracking/unsubscribe/${campaign.id}?e=${encodeURIComponent(recipientEmail)}`;
 
         await this.mailService.sendMail(
           recipientEmail,
@@ -283,10 +287,38 @@ export class CampaignService {
                                         </div>
                                     </td>
                                 </tr>
+                                <!-- Contact Bar -->
+                                <tr>
+                                    <td align="center" style="padding-bottom: 24px;">
+                                        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #001A41; border-radius: 12px;">
+                                            <tr>
+                                                <td align="center" style="padding: 16px 10px; line-height: 2;">
+                                                    <a href="https://acuaequipos.mx" style="text-decoration: none; color: #ffffff; font-size: 12px; display: inline-block; margin: 0 12px;">
+                                                        🌐 acuaequipos.mx
+                                                    </a>
+                                                    <span style="color: #475569; display: inline-block;">|</span>
+                                                    <a href="https://wa.me/526441102097" style="text-decoration: none; color: #ffffff; font-size: 12px; display: inline-block; margin: 0 12px;">
+                                                        📞 (644) 110 2097
+                                                    </a>
+                                                    <span style="color: #475569; display: inline-block;">|</span>
+                                                    <a href="https://wa.me/526441102097" style="text-decoration: none; color: #ffffff; font-size: 12px; display: inline-block; margin: 0 12px; font-weight: bold; color: #4ade80;">
+                                                        💬 WhatsApp
+                                                    </a>
+                                                    <span style="color: #475569; display: inline-block;">|</span>
+                                                    <a href="mailto:soportecomercial@acuaequipos.mx" style="text-decoration: none; color: #ffffff; font-size: 12px; display: inline-block; margin: 0 12px;">
+                                                        ✉️ soportecomercial@acuaequipos.mx
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
                                 <tr>
                                     <td align="center">
                                         <p style="color: #cbd5e1; font-size: 11px; max-width: 400px; margin: 0 auto; line-height: 1.5;">
                                             Recibiste este correo porque estás registrado en nuestra plataforma de distribución de cápsulas de conocimiento.
+                                            <br><br>
+                                            <a href="${unsubscribeUrl}" style="color: #94a3b8; text-decoration: underline;">Cancelar mi suscripción (Unsubscribe)</a>
                                         </p>
                                     </td>
                                 </tr>
@@ -502,10 +534,21 @@ export class CampaignService {
       });
 
       // In a real scenario, this would call MailerService.send
-      // ...
     } catch (err) {
       console.error('Error in auto follow-up:', err);
     }
+  }
+
+  async unsubscribeEmail(campaignId: string, email: string) {
+    const campaign = await this.db.mysql.campaign.findUnique({
+      where: { id: campaignId }
+    });
+    if (!campaign || !campaign.audienceId) return;
+
+    await this.db.mysql.audienceMember.updateMany({
+      where: { audienceId: campaign.audienceId, email },
+      data: { status: 'UNSUBSCRIBED' }
+    });
   }
 
   async removeCampaign(tenantId: string, id: string, user?: any) {
@@ -530,7 +573,7 @@ export class CampaignService {
 
   // ─── WhatsApp Channel Methods ───────────────────────────────────────────────
 
-  async generateWhatsAppMessage(tenantId: string, campaignId: string): Promise<string> {
+  async generateWhatsAppMessage(tenantId: string, campaignId: string): Promise<{ message: string }> {
     const campaign = await this.db.mysql.campaign.findFirst({
       where: { id: campaignId, tenantId },
       include: { capsule: true },
@@ -546,9 +589,9 @@ export class CampaignService {
 
     // Emoji mapping by common aquaculture topics
     const topicEmojiMap: Record<string, string> = {
-      ostión: '🦪', camarón: '🦐', tilapia: '🐟', salmón: '🐠', pesca: '🎣',
-      microalgas: '🌿', productividad: '📈', nutrición: '🧪', bioseguridad: '🛡️',
-      default: '🐚',
+      ostión: '\u{1F9AA}', camarón: '\u{1F990}', tilapia: '\u{1F41F}', salmón: '\u{1F420}', pesca: '\u{1F3A3}',
+      microalgas: '\u{1F33F}', productividad: '\u{1F4C8}', nutrición: '\u{1F9EA}', bioseguridad: '\u{1F6E1}\u{FE0F}',
+      default: '\u{1F41A}',
     };
     const topic = (campaign.capsule?.topic || '').toLowerCase();
     const emoji = Object.entries(topicEmojiMap).find(([key]) => topic.includes(key))?.[1] || topicEmojiMap.default;
@@ -560,7 +603,7 @@ export class CampaignService {
       '',
       description,
       '',
-      `👉 Ver cápsula:`,
+      `\u{1F449} Ver cápsula:`,
       capsuleUrl,
     ].join('\n').slice(0, 500);
 
@@ -570,7 +613,7 @@ export class CampaignService {
       data: { whatsappMessage: message },
     });
 
-    return message;
+    return { message };
   }
 
   async getWhatsAppLinks(tenantId: string, campaignId: string) {
@@ -586,11 +629,11 @@ export class CampaignService {
 
     // Use the stored whatsappMessage or generate a default
     const baseMessage = campaign.whatsappMessage || [
-      `🐚 *${campaign.capsule?.title || campaign.name}*`,
+      `\u{1F41A} *${campaign.capsule?.title || campaign.name}*`,
       '',
       (campaign.capsule?.description || '').slice(0, 220),
       '',
-      `👉 Ver cápsula:`,
+      `\u{1F449} Ver cápsula:`,
       capsuleUrl,
     ].join('\n');
 
@@ -598,7 +641,10 @@ export class CampaignService {
     let members: any[] = [];
     if (campaign.audienceId) {
       members = await this.db.mysql.audienceMember.findMany({
-        where: { audienceId: campaign.audienceId, status: 'SUBSCRIBED' },
+        where: { 
+          audienceId: campaign.audienceId, 
+          status: { in: ['SUBSCRIBED', 'EMAIL_BOUNCED'] } 
+        },
       });
     }
 

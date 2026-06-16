@@ -311,6 +311,27 @@ export const EmailTemplateEditor: React.FC<EmailTemplateEditorProps> = ({
             <p className="font-bold text-sm uppercase tracking-widest text-center">Arrastra bloques para empezar</p>
           </div>
         )}
+
+        {blocks.length > 0 && (
+          <div className="max-w-2xl mx-auto mt-4 p-6 bg-slate-50 rounded-2xl border border-slate-200 border-dashed text-center opacity-70 pointer-events-none">
+            <div className="w-full py-4 px-2 bg-[#001A41] rounded-xl flex flex-wrap justify-center items-center gap-x-3 gap-y-2 text-white text-[10px] mb-4">
+              <span>🌐 acuaequipos.mx</span>
+              <span className="text-slate-500 hidden sm:inline">|</span>
+              <span>📞 (644) 110 2097</span>
+              <span className="text-slate-500 hidden sm:inline">|</span>
+              <span className="text-[#4ade80] font-bold">💬 WhatsApp</span>
+              <span className="text-slate-500 hidden md:inline">|</span>
+              <span>✉️ soportecomercial@acuaequipos.mx</span>
+            </div>
+            <p className="text-[10px] text-slate-400 mb-2">Recibiste este correo porque estás registrado en nuestra plataforma...</p>
+            <span className="text-[10px] text-slate-400 underline">Cancelar mi suscripción (Unsubscribe)</span>
+            <div className="mt-4 pt-4 border-t border-slate-200">
+                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                    (Este pie de página se agrega automáticamente por el servidor al enviar)
+                </p>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -26,7 +26,9 @@ import {
   CheckCheck,
   Users,
   AlertCircle,
-  PhoneOff
+  PhoneOff,
+  UserX,
+  Edit2
 } from 'lucide-react';
 import axios from 'axios';
 import { useTenant } from '../../../contexts/TenantContext';
@@ -431,6 +433,7 @@ export const CampaignManager: React.FC = () => {
     const [newWaCapsuleId, setNewWaCapsuleId] = useState('');
     const [newWaAudienceId, setNewWaAudienceId] = useState('');
     const [newWaLoading, setNewWaLoading] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
 
     const apiUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3014`;
     const headers = {
@@ -492,6 +495,24 @@ export const CampaignManager: React.FC = () => {
       finally { setWaLoading(false); }
     };
 
+    const handleMarkLead = async (memberId: string, status: string) => {
+      if (!selectedWaCampaign?.audienceId) {
+        setWaError('Esta campaña no tiene audiencia asignada.');
+        return;
+      }
+      if (!window.confirm(`¿Seguro que deseas marcar este lead como ${status === 'WA_INVALID' ? 'NÚMERO INVÁLIDO' : 'NO MOLESTAR'}?`)) return;
+      try {
+        await fetch(`${apiUrl}/api/capsule-studio/audiences/${selectedWaCampaign.audienceId}/members/${memberId}/status`, {
+          method: 'PATCH',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status })
+        });
+        setWaLinks(prev => prev.filter(l => l.memberId !== memberId));
+      } catch {
+        setWaError('Error al actualizar lead');
+      }
+    };
+
     const handleGenerateLinks = async () => {
       if (!selectedWaCampaign) return;
       setWaLinksLoading(true);
@@ -544,6 +565,56 @@ export const CampaignManager: React.FC = () => {
       finally { setNewWaLoading(false); }
     };
 
+    const handleUpdateWaCampaign = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newWaName || !newWaCapsuleId || !editingId) return;
+      setNewWaLoading(true);
+      try {
+        const res = await fetch(`${apiUrl}/api/capsule-studio/campaigns/${editingId}`, {
+          method: 'PATCH',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: newWaName,
+            capsuleId: newWaCapsuleId,
+            audienceId: newWaAudienceId || null,
+          }),
+        });
+        const updated = await res.json();
+        setWaCampaigns(prev => prev.map(c => c.id === editingId ? updated : c));
+        if (selectedWaCampaign?.id === editingId) {
+          setSelectedWaCampaign((prev: any) => ({ ...prev, name: updated.name, capsuleId: updated.capsuleId, audienceId: updated.audienceId }));
+        }
+        setEditingId(null);
+        setNewWaName(''); setNewWaCapsuleId(''); setNewWaAudienceId('');
+      } catch { setWaError('Error actualizando campaña'); }
+      finally { setNewWaLoading(false); }
+    };
+
+    const handleDeleteWaCampaign = async (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      if (!window.confirm('¿Deseas eliminar esta campaña WhatsApp permanentemente?')) return;
+      
+      try {
+        await fetch(`${apiUrl}/api/capsule-studio/campaigns/${id}`, {
+          method: 'DELETE',
+          headers,
+        });
+        setWaCampaigns(prev => prev.filter(c => c.id !== id));
+        if (selectedWaCampaign?.id === id) setSelectedWaCampaign(null);
+      } catch {
+        setWaError('No se pudo eliminar la campaña.');
+      }
+    };
+
+    const handleEditClick = (e: React.MouseEvent, camp: any) => {
+      e.stopPropagation();
+      setCreatingNew(false);
+      setEditingId(camp.id);
+      setNewWaName(camp.name);
+      setNewWaCapsuleId(camp.capsuleId || '');
+      setNewWaAudienceId(camp.audienceId || '');
+    };
+
     // WhatsApp message preview renderer (bold & line breaks)
     const renderPreview = (msg: string) =>
       msg.replace(/\*([^*]+)\*/g, '<strong>$1</strong>').replace(/\n/g, '<br />');
@@ -565,7 +636,7 @@ export const CampaignManager: React.FC = () => {
             </div>
           </div>
           <button
-            onClick={() => { setCreatingNew(true); setSelectedWaCampaign(null); setWaLinks([]); }}
+            onClick={() => { setCreatingNew(true); setEditingId(null); setNewWaName(''); setNewWaCapsuleId(''); setNewWaAudienceId(''); setSelectedWaCampaign(null); setWaLinks([]); }}
             className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-lg transition-all hover:opacity-90"
             style={{ background: '#25D366', boxShadow: '0 8px 20px #25D36640' }}
           >
@@ -585,10 +656,10 @@ export const CampaignManager: React.FC = () => {
           <div className="w-72 shrink-0 space-y-3">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Campañas WA</p>
 
-            {/* Create new form */}
-            {creatingNew && (
-              <form onSubmit={handleCreateWaCampaign} className="bg-white border-2 rounded-2xl p-4 space-y-3" style={{ borderColor: '#25D366' }}>
-                <p className="text-xs font-black text-slate-700">Nueva Campaña WA</p>
+            {/* Create new or edit form */}
+            {(creatingNew || editingId) && (
+              <form onSubmit={editingId ? handleUpdateWaCampaign : handleCreateWaCampaign} className="bg-white border-2 rounded-2xl p-4 space-y-3" style={{ borderColor: '#25D366' }}>
+                <p className="text-xs font-black text-slate-700">{editingId ? 'Editar Campaña WA' : 'Nueva Campaña WA'}</p>
                 <input
                   required placeholder="Nombre de campaña"
                   value={newWaName} onChange={e => setNewWaName(e.target.value)}
@@ -609,9 +680,9 @@ export const CampaignManager: React.FC = () => {
                   {audiencesList.map((a: any) => <option key={a.id} value={a.id}>{a.name} ({a._count?.members || 0})</option>)}
                 </select>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setCreatingNew(false)} className="flex-1 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
+                  <button type="button" onClick={() => { setCreatingNew(false); setEditingId(null); }} className="flex-1 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
                   <button type="submit" disabled={newWaLoading} className="flex-1 py-2 rounded-xl text-xs font-black text-white" style={{ background: '#25D366' }}>
-                    {newWaLoading ? <Loader2 size={14} className="animate-spin mx-auto" /> : 'Crear'}
+                    {newWaLoading ? <Loader2 size={14} className="animate-spin mx-auto" /> : (editingId ? 'Guardar' : 'Crear')}
                   </button>
                 </div>
               </form>
@@ -629,7 +700,7 @@ export const CampaignManager: React.FC = () => {
                 <button
                   key={camp.id}
                   onClick={() => handleSelectCampaign(camp)}
-                  className={`w-full text-left p-4 rounded-2xl border transition-all ${
+                  className={`w-full text-left p-4 rounded-2xl border transition-all group relative ${
                     selectedWaCampaign?.id === camp.id
                       ? 'border-green-400 bg-green-50/40 shadow-md shadow-green-100'
                       : 'border-slate-100 bg-white hover:border-green-200 hover:shadow-sm'
@@ -639,13 +710,33 @@ export const CampaignManager: React.FC = () => {
                     <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: selectedWaCampaign?.id === camp.id ? '#25D366' : '#f0fdf4' }}>
                       <MessageCircle size={16} className={selectedWaCampaign?.id === camp.id ? 'text-white' : 'text-green-500'} />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="font-black text-slate-800 text-xs truncate">{camp.name}</p>
                       <p className="text-[10px] text-slate-400 font-medium mt-0.5">
                         {camp.audienceList ? `${camp.audienceList._count?.members || 0} contactos` : 'Sin audiencia'}
                       </p>
                     </div>
-                    {camp.sentAt && <CheckCheck size={14} className="text-green-500 ml-auto shrink-0" />}
+                    
+                    <div className="flex items-center gap-1 shrink-0">
+                      {camp.sentAt && <CheckCheck size={14} className="text-green-500" />}
+                      {/* Hover Actions */}
+                      <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity absolute right-2 bg-white/90 px-1 rounded-lg backdrop-blur-sm shadow-sm">
+                        <div 
+                          onClick={(e) => handleEditClick(e, camp)} 
+                          className="p-1.5 text-slate-400 hover:text-blue-500 transition-colors"
+                          title="Editar"
+                        >
+                          <Edit2 size={14} />
+                        </div>
+                        <div 
+                          onClick={(e) => handleDeleteWaCampaign(e, camp.id)} 
+                          className="p-1.5 text-slate-400 hover:text-red-500 transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 size={14} />
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </button>
               ))
@@ -839,6 +930,20 @@ export const CampaignManager: React.FC = () => {
 
                           {/* Actions */}
                           <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              onClick={() => handleMarkLead(link.memberId, 'WA_INVALID')}
+                              title="Marcar como número inválido / Equivocado"
+                              className="p-2 rounded-xl border border-slate-100 text-slate-400 hover:border-red-300 hover:text-red-500 hover:bg-red-50 transition-all"
+                            >
+                              <PhoneOff size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleMarkLead(link.memberId, 'UNSUBSCRIBED')}
+                              title="No quiere ser molestado (Unsubscribe)"
+                              className="p-2 rounded-xl border border-slate-100 text-slate-400 hover:border-amber-300 hover:text-amber-500 hover:bg-amber-50 transition-all"
+                            >
+                              <UserX size={14} />
+                            </button>
                             <button
                               onClick={() => handleCopyMessage(link.message, link.memberId)}
                               title="Copiar mensaje personalizado"

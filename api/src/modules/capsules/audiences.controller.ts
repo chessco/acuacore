@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Param, UseGuards, Request, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, UseGuards, Request, Delete, Patch, Put } from '@nestjs/common';
 import { AudiencesService } from './audiences.service';
 import { CombinedAuthGuard } from '../../common/guards/combined-auth.guard';
 
@@ -45,5 +45,25 @@ export class AudiencesController {
   @Delete(':id/members/:memberId')
   async removeMember(@Request() req: any, @Param('id') id: string, @Param('memberId') memberId: string) {
     return this.audiencesService.removeMember(req.user.tenantId, id, memberId);
+  }
+
+  @Put(':id/members/:memberId')
+  async updateMember(
+    @Request() req: any, 
+    @Param('id') id: string, 
+    @Param('memberId') memberId: string,
+    @Body() data: any
+  ) {
+    return this.audiencesService.updateMember(req.user.tenantId, id, memberId, data);
+  }
+
+  @Patch(':id/members/:memberId/status')
+  async updateMemberStatus(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Param('memberId') memberId: string,
+    @Body('status') status: string
+  ) {
+    return this.audiencesService.updateMemberStatus(req.user.tenantId, id, memberId, status);
   }
 }

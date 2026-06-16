@@ -1,13 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-// import helmet from 'helmet';
+import helmet from 'helmet';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   
-  // Security Headers - Desactivado temporalmente para debugging de CORS
-  // app.use(helmet());
+  // Security Headers
+  app.use(helmet());
+  
+  // Global Error Handling
+  app.useGlobalFilters(new AllExceptionsFilter());
   
   // Input Validation & Sanitization
   app.useGlobalPipes(new ValidationPipe({
@@ -18,7 +22,7 @@ async function bootstrap() {
 
   // CORS dinámico para producción
   app.enableCors({
-    origin: true,
+    origin: [/^https?:\/\/localhost:\d+$/, 'https://acuacore.pitayacode.io'],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
     exposedHeaders: ['set-cookie'],

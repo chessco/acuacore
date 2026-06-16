@@ -7,11 +7,12 @@ export function NotesView() {
   const [content, setContent] = useState('');
   const [currentNoteId, setCurrentNoteId] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
   const { notes, createNote, updateNote, deleteNote } = useWorkspaceNotes();
 
   // Load the most recent note by default if no note is selected
   useEffect(() => {
-    if (notes && notes.length > 0 && !currentNoteId) {
+    if (notes && notes.length > 0 && !currentNoteId && !isCreatingNew) {
       const sortedNotes = [...notes].sort(
         (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
       );
@@ -20,18 +21,20 @@ export function NotesView() {
       setTitle(latestNote.title || '');
       setContent(latestNote.content || '');
     }
-  }, [notes, currentNoteId]);
+  }, [notes, currentNoteId, isCreatingNew]);
 
   const handleNewNote = () => {
     setCurrentNoteId(null);
     setTitle('');
     setContent('');
+    setIsCreatingNew(true);
   };
 
   const handleSelectNote = (note: any) => {
     setCurrentNoteId(note.id);
     setTitle(note.title || '');
     setContent(note.content || '');
+    setIsCreatingNew(false);
   };
 
   const handleSave = async () => {
@@ -51,6 +54,7 @@ export function NotesView() {
         });
         setCurrentNoteId(newNote?.id);
         setTitle(newNote?.title || finalTitle);
+        setIsCreatingNew(false);
       }
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 2000);

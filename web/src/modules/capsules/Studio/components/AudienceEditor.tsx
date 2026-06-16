@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { ArrowLeft, UserPlus, Save, Trash2, CheckCircle, AlertTriangle, FileSpreadsheet, Users } from 'lucide-react';
+import { ArrowLeft, UserPlus, Save, Trash2, CheckCircle, AlertTriangle, FileSpreadsheet, Users, MailX, UserX, Edit2, X, Check } from 'lucide-react';
 import { useTenant } from '../../../../contexts/TenantContext';
 
 interface AudienceEditorProps {
@@ -21,6 +21,10 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
   const [newEmail, setNewEmail] = useState('');
   const [newName, setNewName] = useState('');
   const [newPhone, setNewPhone] = useState('');
+
+  // Editing state
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ email: '', firstName: '', phone: '' });
 
   const getApiContext = () => {
     let apiUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3014`;
@@ -72,7 +76,7 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
   };
 
   const handleManualAdd = async () => {
-    if (!newEmail.trim()) return;
+    if (!newEmail.trim() && !newPhone.trim()) return;
     try {
       const { apiUrl, headers } = getApiContext();
       await axios.post(`${apiUrl}/api/capsule-studio/audiences/${audience.id}/members`, {
@@ -100,6 +104,48 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
       fetchMembers();
     } catch (err) {
       console.error('Error deleting member', err);
+    }
+  };
+
+  const handleMarkStatus = async (memberId: string, status: string) => {
+    if (!confirm(`¿Seguro que deseas cambiar el estado a ${status === 'EMAIL_BOUNCED' ? 'CORREO INVÁLIDO' : 'NO MOLESTAR'}?`)) return;
+    try {
+      const { apiUrl, headers } = getApiContext();
+      await axios.patch(`${apiUrl}/api/capsule-studio/audiences/${audience.id}/members/${memberId}/status`, { status }, { headers });
+      fetchMembers();
+    } catch (err) {
+      console.error('Error changing member status', err);
+      alert('Error al actualizar el estado');
+    }
+  };
+
+  const startEditing = (member: any) => {
+    setEditingMemberId(member.id);
+    setEditForm({
+      email: member.email.includes('@no-email.whatsapp') ? '' : member.email,
+      firstName: member.firstName || '',
+      phone: member.phone || ''
+    });
+  };
+
+  const cancelEditing = () => {
+    setEditingMemberId(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editForm.email.trim() && !editForm.phone.trim()) return;
+    try {
+      const { apiUrl, headers } = getApiContext();
+      await axios.put(`${apiUrl}/api/capsule-studio/audiences/${audience.id}/members/${editingMemberId}`, {
+        email: editForm.email,
+        firstName: editForm.firstName,
+        phone: editForm.phone
+      }, { headers });
+      setEditingMemberId(null);
+      fetchMembers();
+    } catch (err) {
+      console.error('Error updating member', err);
+      alert('Error al actualizar contacto');
     }
   };
 
@@ -165,7 +211,7 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
             />
             <button
               onClick={handleManualAdd}
-              disabled={!newEmail}
+              disabled={!newEmail.trim() && !newPhone.trim()}
               className="px-6 py-2 bg-slate-800 text-white rounded-xl font-bold disabled:opacity-50 flex items-center gap-2 hover:bg-slate-900 transition"
             >
               <Save className="w-4 h-4" />
@@ -183,7 +229,7 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
               Pegar desde Google Sheets o Excel
             </h3>
             <p className="text-sm text-slate-600 mt-1">
-              Copia las celdas directamente desde tu hoja de cálculo y pégalas aquí. El sistema intentará detectar automáticamente la columna de Correo (y Nombre si existe). Se ignorarán las filas sin correo.
+              Copia las celdas directamente desde tu hoja de cálculo y pégalas aquí. El sistema intentará detectar automáticamente la columna de Correo, Teléfono y Nombre. Se ignorarán las filas que no tengan ni correo ni teléfono.
             </p>
           </div>
           
@@ -239,6 +285,7 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
                 <th className="px-6 py-4">Email</th>
                 <th className="px-6 py-4">Nombre</th>
                 <th className="px-6 py-4">Teléfono</th>
+                <th className="px-6 py-4">Estado</th>
                 <th className="px-6 py-4">Metadatos (Columnas Extra)</th>
                 <th className="px-6 py-4 text-center">Acciones</th>
               </tr>
@@ -246,9 +293,50 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
             <tbody className="divide-y divide-slate-100">
               {members.map(member => (
                 <tr key={member.id} className="hover:bg-slate-50/50 transition">
-                  <td className="px-6 py-4 font-medium text-slate-800">{member.email}</td>
-                  <td className="px-6 py-4">{member.firstName || '-'}</td>
-                  <td className="px-6 py-4">{member.phone || '-'}</td>
+                  <td className="px-6 py-4 font-medium text-slate-800">
+                    {editingMemberId === member.id ? (
+                      <input 
+                        type="text" 
+                        value={editForm.email} 
+                        onChange={e => setEditForm({...editForm, email: e.target.value})} 
+                        className="w-full px-2 py-1 border rounded"
+                        placeholder="Sin correo"
+                      />
+                    ) : (
+                      member.email.includes('@no-email.whatsapp') ? '-' : member.email
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {editingMemberId === member.id ? (
+                      <input 
+                        type="text" 
+                        value={editForm.firstName} 
+                        onChange={e => setEditForm({...editForm, firstName: e.target.value})} 
+                        className="w-full px-2 py-1 border rounded"
+                      />
+                    ) : (
+                      member.firstName || '-'
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {editingMemberId === member.id ? (
+                      <input 
+                        type="text" 
+                        value={editForm.phone} 
+                        onChange={e => setEditForm({...editForm, phone: e.target.value})} 
+                        className="w-full px-2 py-1 border rounded"
+                      />
+                    ) : (
+                      member.phone || '-'
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    {!member.status || member.status === 'SUBSCRIBED' ? <span className="inline-block px-2 py-1 bg-emerald-100 text-emerald-700 text-xs rounded-md font-bold">Activo</span> :
+                     member.status === 'WA_INVALID' ? <span className="inline-block px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-md font-bold" title="WhatsApp Inválido, Solo Correo">Solo Correo</span> :
+                     member.status === 'EMAIL_BOUNCED' ? <span className="inline-block px-2 py-1 bg-amber-100 text-amber-700 text-xs rounded-md font-bold" title="Correo Inválido, Solo WhatsApp">Solo WA</span> :
+                     member.status === 'UNSUBSCRIBED' ? <span className="inline-block px-2 py-1 bg-rose-100 text-rose-700 text-xs rounded-md font-bold">No Molestar</span> :
+                     <span className="inline-block px-2 py-1 bg-slate-100 text-slate-700 text-xs rounded-md font-bold">{member.status}</span>}
+                  </td>
                   <td className="px-6 py-4">
                     {member.metadata ? (
                       <div className="flex flex-wrap gap-1">
@@ -261,13 +349,57 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
                     ) : '-'}
                   </td>
                   <td className="px-6 py-4 text-center">
-                    <button 
-                      onClick={() => handleDeleteMember(member.id)}
-                      className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition"
-                      title="Eliminar contacto"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center justify-center gap-1.5 shrink-0">
+                      {editingMemberId === member.id ? (
+                        <>
+                          <button 
+                            onClick={handleSaveEdit}
+                            className="text-emerald-600 hover:text-emerald-700 p-2 hover:bg-emerald-50 rounded-lg transition"
+                            title="Guardar"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={cancelEditing}
+                            className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition"
+                            title="Cancelar"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <button 
+                            onClick={() => startEditing(member)}
+                            className="text-slate-400 hover:text-blue-500 p-2 hover:bg-blue-50 rounded-lg transition"
+                            title="Editar"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleMarkStatus(member.id, 'EMAIL_BOUNCED')}
+                            className="text-slate-400 hover:text-amber-500 p-2 hover:bg-amber-50 rounded-lg transition"
+                            title="Marcar correo inválido / Rebote"
+                          >
+                            <MailX className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleMarkStatus(member.id, 'UNSUBSCRIBED')}
+                            className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition"
+                            title="No quiere ser molestado (Unsubscribe)"
+                          >
+                            <UserX className="w-4 h-4" />
+                          </button>
+                          <button 
+                            onClick={() => handleDeleteMember(member.id)}
+                            className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition"
+                            title="Eliminar contacto"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
