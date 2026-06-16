@@ -32,8 +32,8 @@ export function NotesView() {
     }
   };
 
-  // React Query v4 uses isLoading, v5 uses isPending
-  const isSaving = createNote.isPending || createNote.isLoading || updateNote.isPending || updateNote.isLoading;
+  // React Query v5 uses isPending
+  const isSaving = createNote.isPending || updateNote.isPending;
 
   return (
     <div className="bg-white rounded-3xl p-6 shadow-xl h-full flex flex-col border border-slate-100">
