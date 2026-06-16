@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { DatabaseService } from '../../../common/database/database.service';
 import { CreateDocumentDto, UpdateDocumentDto } from './dto/documents.dto';
 
 @Injectable()
 export class DocumentsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private db: DatabaseService) {}
 
   async create(tenantId: string, userId: string, dto: CreateDocumentDto) {
-    const document = await this.prisma.workspaceDocument.create({
+    const document = await this.db.mysql.workspaceDocument.create({
       data: {
         ...dto,
         tenantId,
@@ -22,14 +22,14 @@ export class DocumentsService {
   }
 
   async findAll(tenantId: string) {
-    return this.prisma.workspaceDocument.findMany({
+    return this.db.mysql.workspaceDocument.findMany({
       where: { tenantId, deletedAt: null },
       orderBy: { updatedAt: 'desc' },
     });
   }
 
   async findOne(tenantId: string, id: string) {
-    const document = await this.prisma.workspaceDocument.findFirst({
+    const document = await this.db.mysql.workspaceDocument.findFirst({
       where: { id, tenantId, deletedAt: null },
     });
     if (!document) throw new NotFoundException('Document not found');
@@ -38,7 +38,7 @@ export class DocumentsService {
 
   async update(tenantId: string, id: string, dto: UpdateDocumentDto) {
     const document = await this.findOne(tenantId, id);
-    const updated = await this.prisma.workspaceDocument.update({
+    const updated = await this.db.mysql.workspaceDocument.update({
       where: { id },
       data: dto,
     });
@@ -48,7 +48,7 @@ export class DocumentsService {
 
   async remove(tenantId: string, id: string) {
     const document = await this.findOne(tenantId, id);
-    return this.prisma.workspaceDocument.update({
+    return this.db.mysql.workspaceDocument.update({
       where: { id },
       data: { deletedAt: new Date() },
     });

@@ -5,14 +5,14 @@ import { DocumentsController } from './documents/documents.controller';
 import { DocumentsService } from './documents/documents.service';
 import { IdeasController } from './ideas/ideas.controller';
 import { IdeasService } from './ideas/ideas.service';
-import { PrismaModule } from '../../prisma/prisma.module';
+import { DatabaseModule } from '../../common/database/database.module';
 import { AIController } from './ai/ai.controller';
 import { AIService } from './ai/ai.service';
 import { SearchController } from './search/search.controller';
 import { SearchService } from './search/search.service';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [DatabaseModule],
   controllers: [
     NotesController,
     DocumentsController,

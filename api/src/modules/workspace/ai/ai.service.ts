@@ -1,9 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { DatabaseService } from '../../../common/database/database.service';
 
 @Injectable()
 export class AIService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private db: DatabaseService) {}
 
   async ask(tenantId: string, userId: string, question: string) {
     // TODO: Connect to OpenAI SDK and LangGraph/PGVector to query workspace context

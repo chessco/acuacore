@@ -1,13 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { DatabaseService } from '../../../common/database/database.service';
 import { CreateIdeaDto, UpdateIdeaDto } from './dto/ideas.dto';
 
 @Injectable()
 export class IdeasService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private db: DatabaseService) {}
 
   async create(tenantId: string, userId: string, dto: CreateIdeaDto) {
-    const idea = await this.prisma.workspaceIdea.create({
+    const idea = await this.db.mysql.workspaceIdea.create({
       data: {
         ...dto,
         tenantId,
@@ -22,14 +22,14 @@ export class IdeasService {
   }
 
   async findAll(tenantId: string) {
-    return this.prisma.workspaceIdea.findMany({
+    return this.db.mysql.workspaceIdea.findMany({
       where: { tenantId, deletedAt: null },
       orderBy: { updatedAt: 'desc' },
     });
   }
 
   async findOne(tenantId: string, id: string) {
-    const idea = await this.prisma.workspaceIdea.findFirst({
+    const idea = await this.db.mysql.workspaceIdea.findFirst({
       where: { id, tenantId, deletedAt: null },
     });
     if (!idea) throw new NotFoundException('Idea not found');
@@ -38,7 +38,7 @@ export class IdeasService {
 
   async update(tenantId: string, id: string, dto: UpdateIdeaDto) {
     const idea = await this.findOne(tenantId, id);
-    const updated = await this.prisma.workspaceIdea.update({
+    const updated = await this.db.mysql.workspaceIdea.update({
       where: { id },
       data: dto,
     });
@@ -50,7 +50,7 @@ export class IdeasService {
 
   async remove(tenantId: string, id: string) {
     const idea = await this.findOne(tenantId, id);
-    return this.prisma.workspaceIdea.update({
+    return this.db.mysql.workspaceIdea.update({
       where: { id },
       data: { deletedAt: new Date() },
     });

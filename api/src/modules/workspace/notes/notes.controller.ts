@@ -9,32 +9,32 @@ export class NotesController {
   constructor(private readonly notesService: NotesService) {}
 
   @Post()
-  create(@Request() req, @Body() createNoteDto: CreateNoteDto) {
+  create(@Request() req: any, @Body() createNoteDto: CreateNoteDto) {
     const tenantId = req.user.tenantId;
     const userId = req.user.id;
     return this.notesService.create(tenantId, userId, createNoteDto);
   }
 
   @Get()
-  findAll(@Request() req) {
+  findAll(@Request() req: any) {
     const tenantId = req.user.tenantId;
     return this.notesService.findAll(tenantId);
   }
 
   @Get(':id')
-  findOne(@Request() req, @Param('id') id: string) {
+  findOne(@Request() req: any, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     return this.notesService.findOne(tenantId, id);
   }
 
   @Patch(':id')
-  update(@Request() req, @Param('id') id: string, @Body() updateNoteDto: UpdateNoteDto) {
+  update(@Request() req: any, @Param('id') id: string, @Body() updateNoteDto: UpdateNoteDto) {
     const tenantId = req.user.tenantId;
     return this.notesService.update(tenantId, id, updateNoteDto);
   }
 
   @Delete(':id')
-  remove(@Request() req, @Param('id') id: string) {
+  remove(@Request() req: any, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     return this.notesService.remove(tenantId, id);
   }

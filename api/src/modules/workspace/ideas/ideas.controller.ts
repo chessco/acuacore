@@ -9,32 +9,32 @@ export class IdeasController {
   constructor(private readonly ideasService: IdeasService) {}
 
   @Post()
-  create(@Request() req, @Body() createIdeaDto: CreateIdeaDto) {
+  create(@Request() req: any, @Body() createIdeaDto: CreateIdeaDto) {
     const tenantId = req.user.tenantId;
     const userId = req.user.id;
     return this.ideasService.create(tenantId, userId, createIdeaDto);
   }
 
   @Get()
-  findAll(@Request() req) {
+  findAll(@Request() req: any) {
     const tenantId = req.user.tenantId;
     return this.ideasService.findAll(tenantId);
   }
 
   @Get(':id')
-  findOne(@Request() req, @Param('id') id: string) {
+  findOne(@Request() req: any, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     return this.ideasService.findOne(tenantId, id);
   }
 
   @Patch(':id')
-  update(@Request() req, @Param('id') id: string, @Body() updateIdeaDto: UpdateIdeaDto) {
+  update(@Request() req: any, @Param('id') id: string, @Body() updateIdeaDto: UpdateIdeaDto) {
     const tenantId = req.user.tenantId;
     return this.ideasService.update(tenantId, id, updateIdeaDto);
   }
 
   @Delete(':id')
-  remove(@Request() req, @Param('id') id: string) {
+  remove(@Request() req: any, @Param('id') id: string) {
     const tenantId = req.user.tenantId;
     return this.ideasService.remove(tenantId, id);
   }

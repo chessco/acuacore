@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../prisma/prisma.service';
+import { DatabaseService } from '../../../common/database/database.service';
 
 @Injectable()
 export class SearchService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private db: DatabaseService) {}
 
   async search(tenantId: string, query: string, filters?: any) {
     // Basic text search implementation
     const [notes, documents, ideas] = await Promise.all([
-      this.prisma.workspaceNote.findMany({
+      this.db.mysql.workspaceNote.findMany({
         where: {
           tenantId,
           deletedAt: null,
@@ -18,7 +18,7 @@ export class SearchService {
           ],
         },
       }),
-      this.prisma.workspaceDocument.findMany({
+      this.db.mysql.workspaceDocument.findMany({
         where: {
           tenantId,
           deletedAt: null,
@@ -28,7 +28,7 @@ export class SearchService {
           ],
         },
       }),
-      this.prisma.workspaceIdea.findMany({
+      this.db.mysql.workspaceIdea.findMany({
         where: {
           tenantId,
           deletedAt: null,
