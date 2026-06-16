@@ -49,6 +49,11 @@ export class CapsuleStudioController {
     return this.campaignService.getCampaigns(req.user.tenantId, req.user);
   }
 
+  @Get('campaigns/whatsapp')
+  getWhatsAppCampaigns(@Request() req: any) {
+    return this.campaignService.getWhatsAppCampaigns(req.user.tenantId, req.user);
+  }
+
   @Post('campaigns')
   createCampaign(@Request() req: any, @Body() body: any) {
     return this.campaignService.createCampaign(req.user.tenantId, body);
@@ -112,5 +117,22 @@ export class CapsuleStudioController {
   @Post('leads/:id/sync')
   syncLeadToCRM(@Request() req: any, @Param('id') id: string) {
     return this.capsulesService.syncLeadToCRM(id, req.user.tenantId);
+  }
+
+  // ─── WhatsApp Campaign Endpoints ──────────────────────────────────────────────
+
+  @Post('campaigns/:id/whatsapp-message')
+  generateWhatsAppMessage(@Request() req: any, @Param('id') id: string) {
+    return this.campaignService.generateWhatsAppMessage(req.user.tenantId, id);
+  }
+
+  @Patch('campaigns/:id/whatsapp-message')
+  updateWhatsAppMessage(@Request() req: any, @Param('id') id: string, @Body() body: { message: string }) {
+    return this.campaignService.updateCampaign(req.user.tenantId, id, { whatsappMessage: body.message }, req.user);
+  }
+
+  @Get('campaigns/:id/whatsapp-links')
+  getWhatsAppLinks(@Request() req: any, @Param('id') id: string) {
+    return this.campaignService.getWhatsAppLinks(req.user.tenantId, id);
   }
 }

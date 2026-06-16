@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   Mail, 
   Plus, 
@@ -18,7 +18,15 @@ import {
   Eye,
   Sparkles,
   Loader2,
-  RefreshCw
+  RefreshCw,
+  MessageCircle,
+  Phone,
+  ExternalLink,
+  Copy,
+  CheckCheck,
+  Users,
+  AlertCircle,
+  PhoneOff
 } from 'lucide-react';
 import axios from 'axios';
 import { useTenant } from '../../../contexts/TenantContext';
@@ -29,7 +37,7 @@ import { AudienceManager } from './components/AudienceManager';
 
 export const CampaignManager: React.FC = () => {
   const { selectedTenant, flowApiKey, role } = useTenant();
-  const [activeTab, setActiveTab] = useState<'campaigns' | 'audiences' | 'branding'>('campaigns');
+  const [activeTab, setActiveTab] = useState<'campaigns' | 'audiences' | 'branding' | 'whatsapp'>('campaigns');
   const [refreshKey, setRefreshKey] = useState(0);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<any>(null);
@@ -408,32 +416,514 @@ export const CampaignManager: React.FC = () => {
     }
   };
 
+  // ─── WhatsApp Campaign Panel ───────────────────────────────────────────────
+  const WhatsAppCampaignPanel: React.FC = () => {
+    const [waCampaigns, setWaCampaigns] = useState<any[]>([]);
+    const [selectedWaCampaign, setSelectedWaCampaign] = useState<any>(null);
+    const [waMessage, setWaMessage] = useState('');
+    const [waLinks, setWaLinks] = useState<any[]>([]);
+    const [waLoading, setWaLoading] = useState(false);
+    const [waLinksLoading, setWaLinksLoading] = useState(false);
+    const [waError, setWaError] = useState('');
+    const [copiedId, setCopiedId] = useState<string | null>(null);
+    const [creatingNew, setCreatingNew] = useState(false);
+    const [newWaName, setNewWaName] = useState('');
+    const [newWaCapsuleId, setNewWaCapsuleId] = useState('');
+    const [newWaAudienceId, setNewWaAudienceId] = useState('');
+    const [newWaLoading, setNewWaLoading] = useState(false);
+
+    const apiUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3014`;
+    const headers = {
+      'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      'x-tenant-id': selectedTenant?.id || '',
+      'x-api-key': flowApiKey,
+      'x-user-role': (role || 'admin').toUpperCase(),
+    };
+
+    // Load WhatsApp campaigns
+    useEffect(() => {
+      if (!selectedTenant) return;
+      setWaLoading(true);
+      fetch(`${apiUrl}/api/capsule-studio/campaigns/whatsapp`, { headers })
+        .then(r => r.json())
+        .then(data => {
+          setWaCampaigns(Array.isArray(data) ? data : []);
+        })
+        .catch(() => setWaError('Error cargando campañas WhatsApp'))
+        .finally(() => setWaLoading(false));
+    }, [selectedTenant, refreshKey]);
+
+    // When a campaign is selected, load its whatsapp message
+    const handleSelectCampaign = async (camp: any) => {
+      setSelectedWaCampaign(camp);
+      setWaLinks([]);
+      setWaMessage(camp.whatsappMessage || '');
+      // Auto-generate message if none exists
+      if (!camp.whatsappMessage) {
+        await handleGenerateMessage(camp.id, false);
+      }
+    };
+
+    const handleGenerateMessage = async (campId: string, confirm = true) => {
+      if (confirm && !window.confirm('¿Generar un mensaje nuevo con IA? Esto reemplazará el mensaje actual.')) return;
+      setWaLoading(true);
+      try {
+        const res = await fetch(`${apiUrl}/api/capsule-studio/campaigns/${campId}/whatsapp-message`, {
+          method: 'POST', headers
+        });
+        const data = await res.json();
+        setWaMessage(typeof data === 'string' ? data : data.message || '');
+        setSelectedWaCampaign((prev: any) => prev ? { ...prev, whatsappMessage: data } : prev);
+      } catch { setWaError('Error generando mensaje'); }
+      finally { setWaLoading(false); }
+    };
+
+    const handleSaveMessage = async () => {
+      if (!selectedWaCampaign) return;
+      setWaLoading(true);
+      try {
+        await fetch(`${apiUrl}/api/capsule-studio/campaigns/${selectedWaCampaign.id}/whatsapp-message`, {
+          method: 'PATCH',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: waMessage }),
+        });
+        setSelectedWaCampaign((prev: any) => prev ? { ...prev, whatsappMessage: waMessage } : prev);
+      } catch { setWaError('Error guardando mensaje'); }
+      finally { setWaLoading(false); }
+    };
+
+    const handleGenerateLinks = async () => {
+      if (!selectedWaCampaign) return;
+      setWaLinksLoading(true);
+      setWaError('');
+      try {
+        const res = await fetch(`${apiUrl}/api/capsule-studio/campaigns/${selectedWaCampaign.id}/whatsapp-links`, { headers });
+        const data = await res.json();
+        setWaLinks(data.links || []);
+      } catch { setWaError('Error generando links. Verifica que la audiencia tiene contactos.'); }
+      finally { setWaLinksLoading(false); }
+    };
+
+    const handleCopyMessage = (text: string, id: string) => {
+      navigator.clipboard.writeText(text);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    };
+
+    const handleOpenAll = () => {
+      const withPhone = waLinks.filter(l => l.hasPhone);
+      if (!withPhone.length) { alert('Ningún contacto tiene teléfono registrado.'); return; }
+      if (!window.confirm(`¿Abrir ${withPhone.length} conversaciones de WhatsApp en nuevas pestañas?`)) return;
+      withPhone.forEach((l, i) => setTimeout(() => window.open(l.waUrl, '_blank'), i * 500));
+    };
+
+    const handleCreateWaCampaign = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!newWaName || !newWaCapsuleId) return;
+      setNewWaLoading(true);
+      try {
+        const res = await fetch(`${apiUrl}/api/capsule-studio/campaigns`, {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: newWaName,
+            capsuleId: newWaCapsuleId,
+            audienceId: newWaAudienceId || undefined,
+            channel: 'WHATSAPP',
+            subject: newWaName,
+            content: '',
+            scheduledAt: new Date(),
+          }),
+        });
+        const created = await res.json();
+        setWaCampaigns(prev => [created, ...prev]);
+        setCreatingNew(false);
+        setNewWaName(''); setNewWaCapsuleId(''); setNewWaAudienceId('');
+        handleSelectCampaign(created);
+      } catch { setWaError('Error creando campaña'); }
+      finally { setNewWaLoading(false); }
+    };
+
+    // WhatsApp message preview renderer (bold & line breaks)
+    const renderPreview = (msg: string) =>
+      msg.replace(/\*([^*]+)\*/g, '<strong>$1</strong>').replace(/\n/g, '<br />');
+
+    const linksWithPhone = waLinks.filter(l => l.hasPhone).length;
+    const linksNoPhone = waLinks.filter(l => !l.hasPhone).length;
+
+    return (
+      <div className="space-y-6">
+        {/* Header bar */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center" style={{ background: '#25D366' }}>
+              <MessageCircle size={20} className="text-white" />
+            </div>
+            <div>
+              <p className="text-xs font-black text-slate-400 uppercase tracking-widest">Canal</p>
+              <p className="text-sm font-black text-slate-800">Campañas WhatsApp</p>
+            </div>
+          </div>
+          <button
+            onClick={() => { setCreatingNew(true); setSelectedWaCampaign(null); setWaLinks([]); }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest text-white shadow-lg transition-all hover:opacity-90"
+            style={{ background: '#25D366', boxShadow: '0 8px 20px #25D36640' }}
+          >
+            <Plus size={16} /> Nueva Campaña WA
+          </button>
+        </div>
+
+        {waError && (
+          <div className="p-3 bg-red-50 border border-red-100 rounded-2xl flex items-center gap-2 text-red-600 text-sm font-semibold">
+            <AlertCircle size={16} />{waError}
+            <button onClick={() => setWaError('')} className="ml-auto"><X size={14} /></button>
+          </div>
+        )}
+
+        <div className="flex gap-6 items-start">
+          {/* LEFT — Campaign list + creator */}
+          <div className="w-72 shrink-0 space-y-3">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Campañas WA</p>
+
+            {/* Create new form */}
+            {creatingNew && (
+              <form onSubmit={handleCreateWaCampaign} className="bg-white border-2 rounded-2xl p-4 space-y-3" style={{ borderColor: '#25D366' }}>
+                <p className="text-xs font-black text-slate-700">Nueva Campaña WA</p>
+                <input
+                  required placeholder="Nombre de campaña"
+                  value={newWaName} onChange={e => setNewWaName(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-green-400"
+                />
+                <select
+                  required value={newWaCapsuleId} onChange={e => setNewWaCapsuleId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-green-400"
+                >
+                  <option value="">Selecciona cápsula...</option>
+                  {capsules.map((c: any) => <option key={c.id} value={c.id}>{c.title}</option>)}
+                </select>
+                <select
+                  value={newWaAudienceId} onChange={e => setNewWaAudienceId(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm outline-none focus:border-green-400"
+                >
+                  <option value="">Sin audiencia (asignar después)</option>
+                  {audiencesList.map((a: any) => <option key={a.id} value={a.id}>{a.name} ({a._count?.members || 0})</option>)}
+                </select>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => setCreatingNew(false)} className="flex-1 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50">Cancelar</button>
+                  <button type="submit" disabled={newWaLoading} className="flex-1 py-2 rounded-xl text-xs font-black text-white" style={{ background: '#25D366' }}>
+                    {newWaLoading ? <Loader2 size={14} className="animate-spin mx-auto" /> : 'Crear'}
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {waLoading && !waCampaigns.length ? (
+              <div className="flex justify-center py-8"><Loader2 className="animate-spin text-green-500" size={24} /></div>
+            ) : waCampaigns.length === 0 ? (
+              <div className="bg-white rounded-2xl border border-slate-100 p-6 text-center space-y-2">
+                <MessageCircle size={32} className="mx-auto text-slate-200" />
+                <p className="text-xs text-slate-400 font-semibold">No hay campañas WA.<br />Crea la primera.</p>
+              </div>
+            ) : (
+              waCampaigns.map((camp: any) => (
+                <button
+                  key={camp.id}
+                  onClick={() => handleSelectCampaign(camp)}
+                  className={`w-full text-left p-4 rounded-2xl border transition-all ${
+                    selectedWaCampaign?.id === camp.id
+                      ? 'border-green-400 bg-green-50/40 shadow-md shadow-green-100'
+                      : 'border-slate-100 bg-white hover:border-green-200 hover:shadow-sm'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: selectedWaCampaign?.id === camp.id ? '#25D366' : '#f0fdf4' }}>
+                      <MessageCircle size={16} className={selectedWaCampaign?.id === camp.id ? 'text-white' : 'text-green-500'} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-black text-slate-800 text-xs truncate">{camp.name}</p>
+                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                        {camp.audienceList ? `${camp.audienceList._count?.members || 0} contactos` : 'Sin audiencia'}
+                      </p>
+                    </div>
+                    {camp.sentAt && <CheckCheck size={14} className="text-green-500 ml-auto shrink-0" />}
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+
+          {/* RIGHT — Editor + Send panel */}
+          {selectedWaCampaign ? (
+            <div className="flex-1 space-y-6 min-w-0">
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                {/* Message editor */}
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
+                      <MessageCircle size={16} className="text-green-500" />
+                      Mensaje de WhatsApp
+                    </h3>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleGenerateMessage(selectedWaCampaign.id)}
+                        disabled={waLoading}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black text-white shadow-md transition-all hover:opacity-90 disabled:opacity-50"
+                        style={{ background: 'linear-gradient(135deg, #25D366, #128C7E)' }}
+                      >
+                        {waLoading ? <Loader2 size={12} className="animate-spin" /> : <Zap size={12} fill="currentColor" />}
+                        Generar IA
+                      </button>
+                      <button
+                        onClick={handleSaveMessage}
+                        disabled={waLoading}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-black border border-green-300 text-green-700 bg-green-50 hover:bg-green-100 transition-all disabled:opacity-50"
+                      >
+                        <CheckCircle2 size={12} /> Guardar
+                      </button>
+                    </div>
+                  </div>
+
+                  <textarea
+                    value={waMessage}
+                    onChange={e => setWaMessage(e.target.value)}
+                    placeholder="Escribe el mensaje aquí...\n\nUsa *negritas* con asteriscos.\n{{capsuleUrl}} se reemplaza automáticamente."
+                    className="w-full h-44 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-mono resize-none outline-none focus:border-green-400 transition-colors leading-relaxed"
+                  />
+
+                  <div className="text-[10px] font-semibold text-slate-400 flex items-center gap-1.5">
+                    <AlertCircle size={10} />
+                    Usa *texto* para negritas en WhatsApp. Límite recomendado: 500 chars.
+                    <span className={waMessage.length > 500 ? 'text-red-400 font-black' : 'ml-auto'}>{waMessage.length}/500</span>
+                  </div>
+                </div>
+
+                {/* Live preview */}
+                <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-4">
+                  <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
+                    <Eye size={16} className="text-slate-400" />
+                    Vista Previa
+                  </h3>
+                  {/* WhatsApp phone mockup */}
+                  <div className="rounded-3xl overflow-hidden border-4 border-slate-200 shadow-inner mx-auto" style={{ maxWidth: 280, background: '#e5ddd5' }}>
+                    {/* Chat header */}
+                    <div className="px-4 py-3 flex items-center gap-3" style={{ background: '#075E54' }}>
+                      <div className="w-8 h-8 rounded-full bg-green-300 flex items-center justify-center">
+                        <MessageCircle size={14} className="text-white" />
+                      </div>
+                      <div>
+                        <p className="text-white text-xs font-bold">{selectedWaCampaign.capsule?.title || 'AcuaCore'}</p>
+                        <p className="text-green-200 text-[9px]">En línea</p>
+                      </div>
+                    </div>
+                    {/* Messages area */}
+                    <div className="p-4 min-h-[140px] flex flex-col items-end gap-2">
+                      {waMessage ? (
+                        <div className="max-w-[85%] rounded-2xl rounded-tr-sm px-3 py-2 shadow-sm" style={{ background: '#dcf8c6' }}>
+                          <p
+                            className="text-xs text-slate-800 leading-relaxed break-words"
+                            style={{ fontFamily: 'system-ui, -apple-system, sans-serif' }}
+                            dangerouslySetInnerHTML={{ __html: renderPreview(waMessage.slice(0, 280) + (waMessage.length > 280 ? '...' : '')) }}
+                          />
+                          <p className="text-[9px] text-slate-400 mt-1 text-right">12:34 ✓✓</p>
+                        </div>
+                      ) : (
+                        <div className="w-full text-center py-4">
+                          <p className="text-xs text-slate-400 font-medium">El mensaje aparecerá aquí</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleCopyMessage(waMessage, 'preview')}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black border border-slate-200 text-slate-500 hover:bg-slate-50 transition-all"
+                  >
+                    {copiedId === 'preview' ? <><CheckCheck size={14} className="text-green-500" /> ¡Copiado!</> : <><Copy size={14} /> Copiar Mensaje</>}
+                  </button>
+                </div>
+              </div>
+
+              {/* Audience & Send panel */}
+              <div className="bg-white rounded-3xl border border-slate-100 shadow-sm p-6 space-y-5">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-black text-slate-800 text-sm flex items-center gap-2">
+                    <Users size={16} className="text-slate-400" />
+                    Envío Masivo
+                    {waLinks.length > 0 && (
+                      <span className="ml-1 px-2 py-0.5 rounded-full text-[10px] font-black text-white" style={{ background: '#25D366' }}>
+                        {waLinks.length} links
+                      </span>
+                    )}
+                  </h3>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleGenerateLinks}
+                      disabled={waLinksLoading}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black text-white shadow-md transition-all hover:opacity-90 disabled:opacity-50"
+                      style={{ background: '#25D366', boxShadow: '0 4px 12px #25D36640' }}
+                    >
+                      {waLinksLoading ? <Loader2 size={14} className="animate-spin" /> : <Phone size={14} />}
+                      Generar Links
+                    </button>
+                    {waLinks.length > 0 && (
+                      <button
+                        onClick={handleOpenAll}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black border border-green-300 text-green-700 bg-green-50 hover:bg-green-100 transition-all"
+                      >
+                        <ExternalLink size={14} /> Abrir todos ({linksWithPhone})
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Audience info */}
+                {!selectedWaCampaign.audienceId && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-2 text-amber-700 text-xs font-semibold">
+                    <AlertCircle size={14} />
+                    Esta campaña no tiene audiencia asignada. Los links personalizados requieren una lista de contactos.
+                  </div>
+                )}
+
+                {/* Links stats */}
+                {waLinks.length > 0 && (
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="p-3 bg-green-50 rounded-2xl text-center">
+                      <p className="text-xl font-black" style={{ color: '#25D366' }}>{waLinks.length}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Links</p>
+                    </div>
+                    <div className="p-3 bg-green-50 rounded-2xl text-center">
+                      <p className="text-xl font-black text-emerald-600">{linksWithPhone}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Con Teléfono</p>
+                    </div>
+                    <div className="p-3 bg-amber-50 rounded-2xl text-center">
+                      <p className="text-xl font-black text-amber-500">{linksNoPhone}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sin Teléfono</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Contact list */}
+                {waLinks.length > 0 ? (
+                  <div className="space-y-2 max-h-80 overflow-y-auto pr-1 custom-scrollbar">
+                    {waLinks.map((link: any) => {
+                      const initials = link.name?.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase() || '?';
+                      return (
+                        <div
+                          key={link.memberId}
+                          className="flex items-center gap-4 p-3 rounded-2xl border border-slate-100 hover:border-green-200 hover:bg-green-50/30 transition-all group"
+                        >
+                          {/* Avatar */}
+                          <div
+                            className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-xs font-black shrink-0"
+                            style={{ background: link.hasPhone ? '#25D366' : '#94a3b8' }}
+                          >
+                            {initials}
+                          </div>
+
+                          {/* Info */}
+                          <div className="min-w-0 flex-1">
+                            <p className="font-extrabold text-slate-800 text-sm truncate">{link.name}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="text-[10px] text-slate-400 font-medium truncate">{link.email}</span>
+                              {link.hasPhone ? (
+                                <span className="flex items-center gap-0.5 text-[10px] font-bold text-green-600">
+                                  <Phone size={9} /> {link.phone}
+                                </span>
+                              ) : (
+                                <span className="flex items-center gap-0.5 text-[10px] font-bold text-amber-500">
+                                  <PhoneOff size={9} /> Sin teléfono
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              onClick={() => handleCopyMessage(link.message, link.memberId)}
+                              title="Copiar mensaje personalizado"
+                              className="p-2 rounded-xl border border-slate-100 text-slate-400 hover:border-green-300 hover:text-green-600 transition-all"
+                            >
+                              {copiedId === link.memberId ? <CheckCheck size={14} className="text-green-500" /> : <Copy size={14} />}
+                            </button>
+                            <a
+                              href={link.waUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title={link.hasPhone ? 'Abrir WhatsApp' : 'Abrir WhatsApp Web'}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black text-white shadow-sm transition-all hover:opacity-90"
+                              style={{ background: link.hasPhone ? '#25D366' : '#64748b' }}
+                            >
+                              <MessageCircle size={12} />
+                              {link.hasPhone ? 'Enviar' : 'WA Web'}
+                            </a>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center space-y-2">
+                    <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center" style={{ background: '#f0fdf4' }}>
+                      <Phone size={24} className="text-green-400" />
+                    </div>
+                    <p className="text-sm font-bold text-slate-500">Genera los links personalizados</p>
+                    <p className="text-xs text-slate-400 max-w-xs mx-auto">
+                      Cada contacto de la audiencia recibirá un link único de WhatsApp con el mensaje pre-cargado y tracking individual.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center py-24 text-center space-y-4">
+              <div className="w-20 h-20 rounded-3xl flex items-center justify-center" style={{ background: '#f0fdf4' }}>
+                <MessageCircle size={36} className="text-green-400" />
+              </div>
+              <h3 className="text-xl font-black text-slate-700">Selecciona una campaña</h3>
+              <p className="text-slate-400 font-medium max-w-sm">
+                Elige una campaña WhatsApp de la lista o crea una nueva para comenzar a enviar mensajes personalizados.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+  // ─── End WhatsApp Panel ────────────────────────────────────────────────────
+
   return (
     <div className="p-8 space-y-8 h-full overflow-auto premium-scrollbar">
-      {/* ... (keeping header) */}
       <div className="flex justify-between items-end">
         <div className="space-y-4">
           <div className="space-y-2">
-            <h1 className="text-3xl font-black text-[#001A41]">Campañas de Email</h1>
-            <p className="text-slate-500 font-medium">Gestiona la distribución y marca de tus comunicaciones.</p>
+            <h1 className="text-3xl font-black text-[#001A41]">Campañas</h1>
+            <p className="text-slate-500 font-medium">Gestiona campañas de Email y WhatsApp con inteligencia artificial.</p>
           </div>
           
           <div className="flex gap-1 p-1 bg-slate-100 rounded-2xl w-fit">
             <button 
               onClick={() => setActiveTab('campaigns')}
-              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'campaigns' ? 'bg-white text-[#001A41] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${activeTab === 'campaigns' ? 'bg-white text-[#001A41] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              Campañas
+              <Mail size={13} /> Email
+            </button>
+            <button 
+              onClick={() => setActiveTab('whatsapp')}
+              className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${activeTab === 'whatsapp' ? 'bg-white shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              style={activeTab === 'whatsapp' ? { color: '#25D366' } : {}}
+            >
+              <MessageCircle size={13} /> WhatsApp
             </button>
             <button 
               onClick={() => setActiveTab('audiences')}
-              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'audiences' ? 'bg-white text-[#001A41] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'audiences' ? 'bg-white text-[#001A41] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
-              Listas (Audiencias)
+              Audiencias
             </button>
             <button 
               onClick={() => setActiveTab('branding')}
-              className={`px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'branding' ? 'bg-white text-[#001A41] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+              className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${activeTab === 'branding' ? 'bg-white text-[#001A41] shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
             >
               Diseño Global
             </button>
@@ -456,12 +946,13 @@ export const CampaignManager: React.FC = () => {
               }}
               className="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
             >
-              <Plus size={20} /> Nueva Campaña
+              <Plus size={20} /> Nueva Campaña Email
             </button>
           </div>
         )}
       </div>
 
+      {activeTab === 'whatsapp' && <WhatsAppCampaignPanel />}
       {activeTab === 'audiences' && <AudienceManager />}
       {activeTab === 'campaigns' && (
         <>

@@ -309,30 +309,34 @@ model TenantFeature {
 }
 
 model Campaign {
-  id             String          @id @default(uuid())
-  tenantId       String
-  capsuleId      String
-  audienceId     String?
-  name           String
-  audience       String?         @db.Text
-  subject        String
-  content        String          @db.Text
-  scheduledAt    DateTime?
-  sentAt         DateTime?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  templateConfig Json?
-  opensCount     Int             @default(0)
-  clicksCount    Int             @default(0)
-  capsule        Capsule         @relation(fields: [capsuleId], references: [id])
-  audienceList   Audience?       @relation(fields: [audienceId], references: [id])
-  tenant         Tenant          @relation(fields: [tenantId], references: [id])
-  leads          Lead[]
-  events         CampaignEvent[]
+  id                  String          @id @default(uuid())
+  tenantId            String
+  capsuleId           String
+  audienceId          String?
+  name                String
+  audience            String?         @db.Text
+  subject             String
+  content             String          @db.Text
+  channel             CampaignChannel @default(EMAIL)
+  whatsappMessage     String?         @db.Text
+  whatsappLinksCount  Int             @default(0)
+  scheduledAt         DateTime?
+  sentAt              DateTime?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+  templateConfig      Json?
+  opensCount          Int             @default(0)
+  clicksCount         Int             @default(0)
+  capsule             Capsule         @relation(fields: [capsuleId], references: [id])
+  audienceList        Audience?       @relation(fields: [audienceId], references: [id])
+  tenant              Tenant          @relation(fields: [tenantId], references: [id])
+  leads               Lead[]
+  events              CampaignEvent[]
 
   @@index([capsuleId], map: "Campaign_capsuleId_fkey")
   @@index([tenantId], map: "Campaign_tenantId_fkey")
   @@index([audienceId])
+  @@index([channel])
 }
 
 model CampaignEvent {
@@ -364,6 +368,11 @@ enum SkillStatus {
   PRE_PRODUCTION
   PRODUCTION
   INACTIVE
+}
+
+enum CampaignChannel {
+  EMAIL
+  WHATSAPP
 }
 
 enum User_role {

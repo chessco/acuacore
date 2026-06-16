@@ -56,4 +56,31 @@ export class CampaignTrackingController {
     // Fallback if no redirect is provided
     return res.redirect('/');
   }
+
+  @Public()
+  @Get('wa/:id')
+  async trackWhatsApp(
+    @Param('id') id: string,
+    @Query('e') email: string,
+    @Query('redirect') redirect: string,
+    @Req() req: Request,
+    @Res() res: Response,
+  ) {
+    // Register the WhatsApp click engagement in CRM
+    try {
+      await this.campaignService.recordWhatsAppEvent(id, email || 'unknown@whatsapp', {
+        ip: req.ip,
+        userAgent: req.headers['user-agent'],
+        channel: 'WHATSAPP',
+      });
+    } catch (err) {
+      // Don't block redirect on tracking error
+      console.warn('[WA Tracking] Event recording failed:', err?.message);
+    }
+
+    if (redirect) {
+      return res.redirect(redirect);
+    }
+    return res.redirect('/');
+  }
 }

@@ -19,6 +19,7 @@ const KnowledgeBase = React.lazy(() => import('./pages/KnowledgeBase'));
 const Tenants = React.lazy(() => import('./pages/Tenants'));
 const Analytics = React.lazy(() => import('./pages/Analytics'));
 const Settings = React.lazy(() => import('./pages/Settings'));
+const CampaignStudio = React.lazy(() => import('./pages/CampaignStudio'));
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
           <Route path="/tenants" element={<Tenants />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/campaigns" element={<CampaignStudio />} />
           {/* Fallback */}
           <Route path="*" element={<Dashboard />} />
         </Routes>

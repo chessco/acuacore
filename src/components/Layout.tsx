@@ -20,7 +20,8 @@ import {
   Workflow,
   Activity,
   Dna,
-  ScanEye
+  ScanEye,
+  Megaphone
 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { motion } from 'motion/react';
@@ -38,6 +39,7 @@ const navItems = [
   { icon: BrainCircuit, label: 'HITL', path: '/hitl' },
   { icon: Zap, label: 'Habilidades', path: '/skills' },
   { icon: BookOpen, label: 'Conocimiento', path: '/knowledge' },
+  { icon: Megaphone, label: 'Campañas', path: '/campaigns' },
   { icon: Users, label: 'Inquilinos', path: '/tenants' },
   { icon: BarChart3, label: 'Analíticas', path: '/analytics' },
 ];

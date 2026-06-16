@@ -66,6 +66,29 @@ export class CampaignService {
     });
   }
 
+  async getWhatsAppCampaigns(tenantId: string, user?: any) {
+    const isSystem = user?.role === 'SYSTEM' || user?.role === 'ADMIN';
+    const isGlobal = tenantId === 'global' || tenantId === 'all';
+    const where = (isSystem || isGlobal)
+      ? { channel: 'WHATSAPP' as any }
+      : { tenantId, channel: 'WHATSAPP' as any };
+
+    return this.db.mysql.campaign.findMany({
+      where,
+      include: {
+        capsule: true,
+        audienceList: {
+          include: {
+            _count: {
+              select: { members: { where: { status: 'SUBSCRIBED' } } }
+            }
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
   async sendCampaign(tenantId: string, id: string, user?: any) {
     const isSystem = user?.role === 'SYSTEM' || user?.role === 'ADMIN';
     const isGlobal = tenantId === 'global' || tenantId === 'all';
@@ -502,6 +525,134 @@ export class CampaignService {
 
     return this.db.mysql.campaign.delete({
       where: { id },
+    });
+  }
+
+  // ─── WhatsApp Channel Methods ───────────────────────────────────────────────
+
+  async generateWhatsAppMessage(tenantId: string, campaignId: string): Promise<string> {
+    const campaign = await this.db.mysql.campaign.findFirst({
+      where: { id: campaignId, tenantId },
+      include: { capsule: true },
+    });
+    if (!campaign) throw new NotFoundException('Campaña no encontrada');
+
+    const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
+    const capsuleUrl = `${frontendUrl}/capsules/${campaign.capsule?.slug || campaign.capsuleId}`;
+
+    // Build a compact WhatsApp message from the capsule title and description
+    const title = campaign.capsule?.title || campaign.name;
+    const description = (campaign.capsule?.description || campaign.content || '').slice(0, 220);
+
+    // Emoji mapping by common aquaculture topics
+    const topicEmojiMap: Record<string, string> = {
+      ostión: '🦪', camarón: '🦐', tilapia: '🐟', salmón: '🐠', pesca: '🎣',
+      microalgas: '🌿', productividad: '📈', nutrición: '🧪', bioseguridad: '🛡️',
+      default: '🐚',
+    };
+    const topic = (campaign.capsule?.topic || '').toLowerCase();
+    const emoji = Object.entries(topicEmojiMap).find(([key]) => topic.includes(key))?.[1] || topicEmojiMap.default;
+
+    const trackingUrl = `${this.configService.get('API_URL') || 'http://localhost:3014'}/api/campaign-tracking/wa/${campaign.id}/{{contactId}}`;
+
+    const message = [
+      `${emoji} *${title}*`,
+      '',
+      description,
+      '',
+      `👉 Ver cápsula:`,
+      capsuleUrl,
+    ].join('\n').slice(0, 500);
+
+    // Persist the generated message in the campaign
+    await this.db.mysql.campaign.update({
+      where: { id: campaignId },
+      data: { whatsappMessage: message },
+    });
+
+    return message;
+  }
+
+  async getWhatsAppLinks(tenantId: string, campaignId: string) {
+    const campaign = await this.db.mysql.campaign.findFirst({
+      where: { id: campaignId, tenantId },
+      include: { capsule: true },
+    });
+    if (!campaign) throw new NotFoundException('Campaña no encontrada');
+
+    const apiUrl = this.configService.get('API_URL') || 'http://localhost:3014';
+    const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
+    const capsuleUrl = `${frontendUrl}/capsules/${campaign.capsule?.slug || campaign.capsuleId}`;
+
+    // Use the stored whatsappMessage or generate a default
+    const baseMessage = campaign.whatsappMessage || [
+      `🐚 *${campaign.capsule?.title || campaign.name}*`,
+      '',
+      (campaign.capsule?.description || '').slice(0, 220),
+      '',
+      `👉 Ver cápsula:`,
+      capsuleUrl,
+    ].join('\n');
+
+    // Fetch audience members with phone numbers
+    let members: any[] = [];
+    if (campaign.audienceId) {
+      members = await this.db.mysql.audienceMember.findMany({
+        where: { audienceId: campaign.audienceId, status: 'SUBSCRIBED' },
+      });
+    }
+
+    const links = members.map((member) => {
+      // Build the tracking URL for this member (uses email as identifier)
+      const trackingRedirect = encodeURIComponent(
+        `${frontendUrl}/capsules/${campaign.capsule?.slug || campaign.capsuleId}?campaignId=${campaign.id}&channel=whatsapp`
+      );
+      const trackingUrl = `${apiUrl}/api/campaign-tracking/wa/${campaign.id}?e=${encodeURIComponent(member.email)}&redirect=${trackingRedirect}`;
+
+      // Replace {{capsuleUrl}} placeholder with the tracking URL
+      const personalizedMessage = baseMessage.replace(/\{\{capsuleUrl\}\}/g, trackingUrl);
+
+      // Clean phone number (remove spaces, dashes, parens)
+      const rawPhone = (member.phone || '').replace(/[^\d+]/g, '');
+      const phone = rawPhone.startsWith('+') ? rawPhone : rawPhone ? `+52${rawPhone}` : null;
+
+      const encodedMsg = encodeURIComponent(personalizedMessage);
+      const waUrl = phone
+        ? `https://wa.me/${phone.replace('+', '')}?text=${encodedMsg}`
+        : `https://web.whatsapp.com/send?text=${encodedMsg}`;
+
+      return {
+        memberId: member.id,
+        name: `${member.firstName || ''} ${member.lastName || ''}`.trim() || member.email,
+        email: member.email,
+        phone: phone || 'Sin teléfono',
+        hasPhone: !!phone,
+        waUrl,
+        trackingUrl,
+        message: personalizedMessage,
+      };
+    });
+
+    // Update whatsappLinksCount
+    await this.db.mysql.campaign.update({
+      where: { id: campaignId },
+      data: { whatsappLinksCount: links.length },
+    });
+
+    return {
+      campaignId,
+      campaignName: campaign.name,
+      totalLinks: links.length,
+      linksWithPhone: links.filter(l => l.hasPhone).length,
+      links,
+    };
+  }
+
+  async recordWhatsAppEvent(campaignId: string, email: string, metadata?: any) {
+    // Reuse existing recordEvent for CLICK (WhatsApp link click = engagement)
+    return this.recordEvent(campaignId, 'CLICK', email, {
+      ...metadata,
+      channel: 'WHATSAPP',
     });
   }
 }
