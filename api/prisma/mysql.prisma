@@ -38,6 +38,10 @@ model Tenant {
   stockMovements StockMovement[]
   contacts       Contact[]
   audiences      Audience[]
+  workspaceNotes     WorkspaceNote[]
+  workspaceDocuments WorkspaceDocument[]
+  workspaceIdeas     WorkspaceIdea[]
+  workspaceRelations WorkspaceRelation[]
 }
 
 model HumanCorrection {
@@ -276,6 +280,7 @@ model Lead {
   tenant         Tenant?       @relation(fields: [tenantId], references: [id])
   contactId      String?
   contact        Contact?      @relation(fields: [contactId], references: [id])
+  workspaceRelations WorkspaceRelation[]
 
   @@index([capsuleId], map: "Lead_capsuleId_fkey")
   @@index([conversationId], map: "Lead_conversationId_fkey")
@@ -488,6 +493,7 @@ model Contact {
   leads          Lead[]
   deals          Deal[]
   tasks          Task[]
+  workspaceRelations WorkspaceRelation[]
 
   @@unique([tenantId, email])
   @@unique([tenantId, phone])
@@ -604,5 +610,104 @@ model AudienceMember {
 
   @@unique([audienceId, email])
   @@index([audienceId])
+}
+
+model WorkspaceNote {
+  id        String   @id @default(uuid())
+  tenantId  String
+  title     String
+  content   String   @db.Text
+  summary   String?  @db.Text
+  tags      Json?
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  relations WorkspaceRelation[] @relation("NoteRelations")
+
+  @@index([tenantId])
+}
+
+model WorkspaceDocument {
+  id          String   @id @default(uuid())
+  tenantId    String
+  title       String
+  description String?  @db.Text
+  filePath    String
+  fileType    String
+  tags        Json?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  relations   WorkspaceRelation[] @relation("DocumentRelations")
+
+  @@index([tenantId])
+}
+
+model WorkspaceIdea {
+  id          String   @id @default(uuid())
+  tenantId    String
+  title       String
+  description String?  @db.Text
+  status      WorkspaceIdeaStatus @default(DRAFT)
+  priority    String?
+  category    String?
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  relations   WorkspaceRelation[] @relation("IdeaRelations")
+
+  @@index([tenantId])
+}
+
+enum WorkspaceIdeaStatus {
+  DRAFT
+  ACTIVE
+  IN_REVIEW
+  IMPLEMENTED
+  ARCHIVED
+}
+
+model WorkspaceRelation {
+  id                String   @id @default(uuid())
+  tenantId          String
+  
+  noteId            String?
+  documentId        String?
+  ideaId            String?
+
+  leadId            String?
+  companyId         String?
+  contactId         String?
+  opportunityId     String?
+  farmId            String?
+  productionCycleId String?
+  knowledgeId       String?
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  note              WorkspaceNote?     @relation("NoteRelations", fields: [noteId], references: [id])
+  document          WorkspaceDocument? @relation("DocumentRelations", fields: [documentId], references: [id])
+  idea              WorkspaceIdea?     @relation("IdeaRelations", fields: [ideaId], references: [id])
+  
+  lead              Lead?              @relation(fields: [leadId], references: [id])
+  contact           Contact?           @relation(fields: [contactId], references: [id])
+
+  @@index([tenantId])
+  @@index([noteId])
+  @@index([documentId])
+  @@index([ideaId])
+  @@index([leadId])
+  @@index([contactId])
 }
 

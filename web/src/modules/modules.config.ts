@@ -18,8 +18,10 @@ import {
   ShoppingBag,
   CreditCard,
   Target,
-  Trophy
+  Trophy,
+  FolderOpen
 } from 'lucide-react';
+import { WorkspaceView } from './workspace/WorkspaceView';
 import { Inbox } from './inbox/Inbox';
 import { CapsuleList } from './capsules/Studio/CapsuleList';
 import { CampaignManager } from './capsules/Studio/CampaignManager';
@@ -114,6 +116,16 @@ export const AVAILABLE_MODULES: ModuleConfig[] = [
     category: 'operativo',
     suiteId: 'intelligence',
     featureId: 'internal_assistant'
+  },
+  {
+    id: 'workspace',
+    label: 'Workspace',
+    icon: FolderOpen,
+    component: WorkspaceView,
+    description: 'Centro de trabajo, conocimiento y memoria operativa.',
+    category: 'operativo',
+    suiteId: 'workspace',
+    featureId: 'overview'
   },
   {
     id: 'agents',
