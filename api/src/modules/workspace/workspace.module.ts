@@ -6,13 +6,14 @@ import { DocumentsService } from './documents/documents.service';
 import { IdeasController } from './ideas/ideas.controller';
 import { IdeasService } from './ideas/ideas.service';
 import { DatabaseModule } from '../../common/database/database.module';
+import { AiModule } from '../ai/ai.module';
 import { AIController } from './ai/ai.controller';
 import { AIService } from './ai/ai.service';
 import { SearchController } from './search/search.controller';
 import { SearchService } from './search/search.service';
 
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, AiModule],
   controllers: [
     NotesController,
     DocumentsController,

@@ -22,13 +22,13 @@ export function WorkspaceView({ setActiveTab }: { setActiveTab: (tab: string) =>
 
   const renderContent = () => {
     switch (activeSubTab) {
-      case 'overview': return <Overview />;
+      case 'overview': return <Overview setActiveSubTab={setActiveSubTab} />;
       case 'notes': return <NotesView />;
       case 'documents': return <DocumentsView />;
       case 'ideas': return <IdeasView />;
       case 'ai': return <AIAssistantView />;
       case 'search': return <SearchView />;
-      default: return <Overview />;
+      default: return <Overview setActiveSubTab={setActiveSubTab} />;
     }
   };
 

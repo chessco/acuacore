@@ -9,7 +9,11 @@ export class DocumentsService {
   async create(tenantId: string, userId: string, dto: CreateDocumentDto) {
     const document = await this.db.mysql.workspaceDocument.create({
       data: {
-        ...dto,
+        title: dto.title || 'Documento',
+        description: dto.description,
+        filePath: dto.filePath || '',
+        fileType: dto.fileType || 'application/octet-stream',
+        tags: dto.tags,
         tenantId,
         createdBy: userId,
       },

@@ -2,6 +2,7 @@
 # Uso: .\deploy_web_hostinger.ps1
 
 $ErrorActionPreference = "Stop"
+Set-Location $PSScriptRoot
 
 # Configuración de Hostinger
 $SSH_USER = "u471794305"

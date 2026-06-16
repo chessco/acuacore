@@ -2,6 +2,7 @@
 # Uso: .\deploy_api_hetzner.ps1
 
 $ErrorActionPreference = "Stop"
+Set-Location $PSScriptRoot
 $SERVER_IP = "46.224.155.43"
 $SSH_KEY = "$env:USERPROFILE\.ssh\id_citaia"
 

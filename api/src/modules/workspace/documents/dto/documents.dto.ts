@@ -1,13 +1,37 @@
+import { IsString, IsOptional } from 'class-validator';
+
 export class CreateDocumentDto {
-  title: string;
+  @IsString()
+  @IsOptional()
+  title?: string;
+
+  @IsString()
+  @IsOptional()
   description?: string;
-  filePath: string;
-  fileType: string;
+
+  @IsString()
+  @IsOptional()
+  filePath?: string;
+
+  @IsString()
+  @IsOptional()
+  fileType?: string;
+
+  @IsOptional()
   tags?: any;
 }
 
+
 export class UpdateDocumentDto {
+  @IsString()
+  @IsOptional()
   title?: string;
+
+  @IsString()
+  @IsOptional()
   description?: string;
+
+  @IsOptional()
   tags?: any;
 }
+
