@@ -23,6 +23,7 @@ import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { CombinedAuthGuard } from './common/guards/combined-auth.guard';
 import { MailModule } from './common/mail/mail.module';
 import { SystemSettingsModule } from './modules/system-settings/system-settings.module';
+import { WorkspaceModule } from './modules/workspace/workspace.module';
 
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
@@ -51,6 +52,7 @@ import { join } from 'path';
     CrmModule,
     MailModule,
     SystemSettingsModule,
+    WorkspaceModule,
   ],
   controllers: [AppController],
   providers: [
