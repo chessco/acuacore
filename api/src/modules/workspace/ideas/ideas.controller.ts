@@ -15,6 +15,12 @@ export class IdeasController {
     return this.ideasService.create(tenantId, userId, createIdeaDto);
   }
 
+  @Post('generate-ai')
+  generateWithAI(@Request() req: any, @Body() body: { prompt?: string }) {
+    const tenantId = req.user.tenantId;
+    return this.ideasService.generateWithAI(tenantId, body.prompt || '');
+  }
+
   @Get()
   findAll(@Request() req: any) {
     const tenantId = req.user.tenantId;

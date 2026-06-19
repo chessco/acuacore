@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Check, Plus, Trash2, FileText, Calendar } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Save, Loader2, Check, Plus, Trash2, FileText, Calendar, Bold, Image as ImageIcon, Columns, Eye, Edit3 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { useWorkspaceNotes } from './hooks/useWorkspaceNotes';
 
 export function NotesView() {
@@ -8,6 +10,8 @@ export function NotesView() {
   const [currentNoteId, setCurrentNoteId] = useState<string | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [isCreatingNew, setIsCreatingNew] = useState(false);
+  const [mode, setMode] = useState<'edit' | 'preview'>('edit');
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { notes, createNote, updateNote, deleteNote } = useWorkspaceNotes();
 
   // Load the most recent note by default if no note is selected
@@ -35,6 +39,20 @@ export function NotesView() {
     setTitle(note.title || '');
     setContent(note.content || '');
     setIsCreatingNew(false);
+    setMode('preview'); // Open in preview mode by default
+  };
+
+  const insertText = (before: string, after: string = '') => {
+    if (!textareaRef.current) return;
+    const start = textareaRef.current.selectionStart;
+    const end = textareaRef.current.selectionEnd;
+    const selectedText = content.substring(start, end);
+    const newText = content.substring(0, start) + before + selectedText + after + content.substring(end);
+    setContent(newText);
+    setTimeout(() => {
+      textareaRef.current?.focus();
+      textareaRef.current?.setSelectionRange(start + before.length, end + before.length);
+    }, 0);
   };
 
   const handleSave = async () => {
@@ -172,7 +190,7 @@ export function NotesView() {
           </button>
         </div>
 
-        <div className="flex-1 p-6 flex flex-col gap-4">
+        <div className="flex-1 p-6 flex flex-col gap-4 overflow-hidden">
           <input
             type="text"
             className="w-full text-2xl font-black text-slate-800 border-b border-transparent focus:border-slate-200 outline-none pb-2 transition-all"
@@ -180,12 +198,61 @@ export function NotesView() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
           />
-          <textarea
-            className="flex-1 w-full p-4 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue outline-none resize-none custom-scrollbar text-slate-700 leading-relaxed text-sm bg-slate-50/30"
-            placeholder="Escribe tus notas aquí..."
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-          />
+
+          {/* Markdown Toolbar */}
+          <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+            <div className="flex items-center gap-1">
+              <button 
+                onClick={() => setMode('edit')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${mode === 'edit' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}
+              >
+                <Edit3 size={14} /> Editar
+              </button>
+              <button 
+                onClick={() => setMode('preview')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-bold transition-all ${mode === 'preview' ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-500 hover:bg-slate-100'}`}
+              >
+                <Eye size={14} /> Vista Previa
+              </button>
+            </div>
+            
+            {mode === 'edit' && (
+              <div className="flex items-center gap-2 bg-slate-50 p-1 rounded-lg border border-slate-100">
+                <button onClick={() => insertText('**', '**')} className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-white rounded shadow-sm transition-all" title="Negrita">
+                  <Bold size={16} />
+                </button>
+                <button onClick={() => insertText('![Descripción de la imagen](', ')')} className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-white rounded shadow-sm transition-all" title="Insertar Imagen">
+                  <ImageIcon size={16} />
+                </button>
+                <button onClick={() => insertText('\n| Columna 1 | Columna 2 |\n| --------- | --------- |\n| Texto     | Texto     |\n')} className="p-1.5 text-slate-500 hover:text-slate-800 hover:bg-white rounded shadow-sm transition-all" title="Insertar Columnas (Tabla)">
+                  <Columns size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {mode === 'edit' ? (
+            <textarea
+              ref={textareaRef}
+              className="flex-1 w-full p-4 border border-slate-100 rounded-2xl focus:ring-2 focus:ring-brand-blue/30 focus:border-brand-blue outline-none resize-none custom-scrollbar text-slate-700 leading-relaxed text-sm bg-slate-50/30 font-mono"
+              placeholder="Escribe tus notas aquí usando Markdown...&#10;Ejemplo:&#10;**Texto en negrita**&#10;![Imagen](https://link.com/foto.jpg)"
+              value={content}
+              onChange={(e) => setContent(e.target.value)}
+            />
+          ) : (
+            <div className="flex-1 w-full p-6 border border-slate-100 rounded-2xl bg-white overflow-y-auto custom-scrollbar prose prose-slate max-w-none">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  img: ({node, ...props}) => (
+                    <img {...props} referrerPolicy="no-referrer" className="rounded-xl shadow-sm border border-slate-100 max-w-full h-auto" />
+                  )
+                }}
+              >
+                {content || '*No hay contenido todavía...*'}
+              </ReactMarkdown>
+            </div>
+          )}
         </div>
       </div>
     </div>

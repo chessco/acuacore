@@ -47,5 +47,12 @@ export function useWorkspaceIdeas() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['workspace-ideas', tenantId] }),
   });
 
-  return { ideas, isLoading, createIdea, updateIdea, deleteIdea };
+  const generateAiIdeas = useMutation({
+    mutationFn: async (prompt: string) => {
+      const res = await axios.post(`${API_URL}/api/workspace/ideas/generate-ai`, { prompt }, { headers });
+      return res.data;
+    },
+  });
+
+  return { ideas, isLoading, createIdea, updateIdea, deleteIdea, generateAiIdeas };
 }
