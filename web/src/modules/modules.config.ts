@@ -19,8 +19,12 @@ import {
   CreditCard,
   Target,
   Trophy,
-  FolderOpen
+  FolderOpen,
+  Server,
+  ShieldAlert,
+  Smartphone
 } from 'lucide-react';
+import { CommunicationSettingsPanel } from './settings/CommunicationSettingsPanel';
 import { WorkspaceView } from './workspace/WorkspaceView';
 import { Inbox } from './inbox/Inbox';
 import { CapsuleList } from './capsules/Studio/CapsuleList';
@@ -96,6 +100,14 @@ export const AVAILABLE_MODULES: ModuleConfig[] = [
     category: 'operativo',
     suiteId: 'intelligence',
     featureId: 'campaigns'
+  },
+  {
+    id: 'channels',
+    label: 'Canales WhatsApp',
+    icon: Smartphone,
+    component: CommunicationSettingsPanel,
+    description: 'Conexión y sesiones de WhatsApp Web.',
+    category: 'operativo'
   },
   {
     id: 'leads',
