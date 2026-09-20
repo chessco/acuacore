@@ -132,7 +132,7 @@ model Skill {
   tenantId       String
   name           String
   description    String?
-  prompt         String          @db.Text
+  prompt         String?         @db.Text
   version        String          @default("1.0")
   config         Json?
   createdAt      DateTime        @default(now())
