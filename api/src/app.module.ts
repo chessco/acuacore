@@ -29,6 +29,8 @@ import { WorkspaceModule } from './modules/workspace/workspace.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 
+import { CommunicationModule } from './modules/communication/communication.module';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -44,6 +46,7 @@ import { join } from 'path';
     TenantsModule,
     WebhooksModule,
     ConversationsModule,
+    CommunicationModule,
     HitlModule,
     AiModule,
     AuthModule,

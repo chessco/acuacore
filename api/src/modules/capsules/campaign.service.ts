@@ -1,15 +1,33 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../../common/database/database.service';
 import { MailService } from '../../common/mail/mail.service';
 import { ConfigService } from '@nestjs/config';
 import { marked } from 'marked';
+import { WhatsappWebProvider } from '../communication/providers/whatsapp-web/whatsapp-web.provider';
+
+interface WaSendJob {
+  running: boolean;
+  done: boolean;
+  stop: boolean;
+  total: number;
+  sent: number;
+  failed: number;
+  skippedRecently: number;
+  cappedByLimit: number;
+  current: string;
+  errors: string[];
+  startedAt: number;
+}
 
 @Injectable()
 export class CampaignService {
+  private waSendJobs: Map<string, WaSendJob> = new Map();
+
   constructor(
     private db: DatabaseService,
     private mailService: MailService,
     private configService: ConfigService,
+    private whatsapp: WhatsappWebProvider,
   ) {}
 
   async createCampaign(tenantId: string, data: any) {
@@ -648,6 +666,21 @@ export class CampaignService {
       });
     }
 
+    // Emails already sent (via server) in the last 24h — used to prevent
+    // re-sending the same campaign message within the 24h window.
+    const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const recentSent = await this.db.mysql.campaignEvent.findMany({
+      where: {
+        campaignId,
+        type: 'WHATSAPP_SENT',
+        createdAt: { gte: since24h },
+      },
+      select: { email: true },
+    });
+    const sentRecentlyEmails = new Set(
+      recentSent.map((e) => e.email).filter(Boolean),
+    );
+
     const links = members.map((member) => {
       // Build the tracking URL for this member (uses email as identifier)
       const trackingRedirect = encodeURIComponent(
@@ -676,6 +709,7 @@ export class CampaignService {
         waUrl,
         trackingUrl,
         message: personalizedMessage,
+        sentRecently: sentRecentlyEmails.has(member.email),
       };
     });
 
@@ -694,6 +728,314 @@ export class CampaignService {
     };
   }
 
+  /**
+   * Starts a server-side WhatsApp send for a campaign: sends the personalized
+   * message (optionally with an image) to every audience member with a phone,
+   * sequentially, with a random delay between sends to warm up the line.
+   * Runs in the background; poll getWhatsAppSendStatus for progress.
+   */
+  async startWhatsAppSend(
+    tenantId: string,
+    campaignId: string,
+    opts: {
+      imageBase64?: string;
+      imageUrl?: string;
+      minDelayMs?: number;
+      maxDelayMs?: number;
+      dailyLimit?: number;
+    },
+  ) {
+    const existing = this.waSendJobs.get(campaignId);
+    if (existing?.running) {
+      throw new BadRequestException(
+        'Ya hay un envío en curso para esta campaña.',
+      );
+    }
+
+    const channelId = this.whatsapp.getFirstReadyChannel(tenantId);
+    if (!channelId) {
+      throw new BadRequestException(
+        'No hay una línea de WhatsApp conectada. Conecta una línea antes de enviar.',
+      );
+    }
+
+    // Reuse the link builder for personalized message + normalized phone.
+    const linkData = await this.getWhatsAppLinks(tenantId, campaignId);
+    const withPhone = linkData.links.filter((l) => l.hasPhone);
+
+    // Skip contacts already messaged in the last 24h (dedup window).
+    const skippedRecently = withPhone.filter((l) => l.sentRecently).length;
+    let recipients = withPhone
+      .filter((l) => !l.sentRecently)
+      .map((l) => ({
+        email: l.email,
+        name: l.name,
+        phone: (l.phone || '').replace(/\D/g, ''),
+        message: l.message,
+      }))
+      .filter((r) => r.phone);
+
+    if (recipients.length === 0) {
+      throw new BadRequestException(
+        skippedRecently > 0
+          ? 'Todos los contactos con teléfono ya recibieron este mensaje en las últimas 24 horas.'
+          : 'No hay contactos con teléfono en la audiencia de esta campaña.',
+      );
+    }
+
+    // Enforce a daily send limit per line (counts ALL server sends for the
+    // tenant in the last 24h).
+    let cappedByLimit = 0;
+    const dailyLimit = opts.dailyLimit ?? 0;
+    if (dailyLimit > 0) {
+      const sentLast24h = await this.countSentLast24hForTenant(tenantId);
+      const remaining = Math.max(0, dailyLimit - sentLast24h);
+      if (remaining === 0) {
+        throw new BadRequestException(
+          `Alcanzaste el límite diario de ${dailyLimit} mensajes para esta línea (${sentLast24h} enviados en las últimas 24 h). Intenta más tarde.`,
+        );
+      }
+      if (recipients.length > remaining) {
+        cappedByLimit = recipients.length - remaining;
+        recipients = recipients.slice(0, remaining);
+      }
+    }
+
+    const job: WaSendJob = {
+      running: true,
+      done: false,
+      stop: false,
+      total: recipients.length,
+      sent: 0,
+      failed: 0,
+      skippedRecently,
+      cappedByLimit,
+      current: '',
+      errors: [],
+      startedAt: Date.now(),
+    };
+    this.waSendJobs.set(campaignId, job);
+
+    // Fire-and-forget; progress is polled via getWhatsAppSendStatus.
+    void this.runWhatsAppSend(
+      tenantId,
+      channelId,
+      campaignId,
+      recipients,
+      opts,
+      job,
+    );
+
+    return {
+      started: true,
+      total: recipients.length,
+      skippedRecently,
+      cappedByLimit,
+    };
+  }
+
+  /** Counts server WhatsApp sends across all of the tenant's campaigns in 24h. */
+  private async countSentLast24hForTenant(tenantId: string): Promise<number> {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const campaigns = await this.db.mysql.campaign.findMany({
+      where: { tenantId },
+      select: { id: true },
+    });
+    const ids = campaigns.map((c) => c.id);
+    if (ids.length === 0) return 0;
+    return this.db.mysql.campaignEvent.count({
+      where: {
+        campaignId: { in: ids },
+        type: 'WHATSAPP_SENT',
+        createdAt: { gte: since },
+      },
+    });
+  }
+
+  private async runWhatsAppSend(
+    tenantId: string,
+    channelId: string,
+    campaignId: string,
+    recipients: {
+      email: string;
+      name: string;
+      phone: string;
+      message: string;
+    }[],
+    opts: {
+      imageBase64?: string;
+      imageUrl?: string;
+      minDelayMs?: number;
+      maxDelayMs?: number;
+    },
+    job: WaSendJob,
+  ) {
+    const min = Math.max(0, opts.minDelayMs ?? 3000);
+    const max = Math.max(min, opts.maxDelayMs ?? 7000);
+    const hasImage = !!(opts.imageBase64 || opts.imageUrl);
+
+    try {
+      for (let i = 0; i < recipients.length; i++) {
+        if (job.stop) break;
+        const r = recipients[i];
+        job.current = r.name;
+        try {
+          if (hasImage) {
+            await this.whatsapp.sendMedia(tenantId, channelId, r.phone, {
+              imageBase64: opts.imageBase64,
+              imageUrl: opts.imageUrl,
+              caption: r.message,
+            });
+          } else {
+            await this.whatsapp.sendMessage(
+              tenantId,
+              channelId,
+              r.phone,
+              r.message,
+            );
+          }
+          job.sent++;
+          await this.recordWhatsAppSent(campaignId, r.email);
+        } catch (e: any) {
+          job.failed++;
+          if (job.errors.length < 50) {
+            job.errors.push(`${r.name}: ${e?.message || 'error'}`);
+          }
+        }
+
+        // Random warm-up delay before the next send (not after the last).
+        if (i < recipients.length - 1 && !job.stop) {
+          const delay = min + Math.random() * (max - min);
+          await new Promise((res) => setTimeout(res, delay));
+        }
+      }
+    } finally {
+      job.running = false;
+      job.done = true;
+      job.current = '';
+    }
+  }
+
+  getWhatsAppSendStatus(tenantId: string, campaignId: string) {
+    const job = this.waSendJobs.get(campaignId);
+    if (!job) {
+      return { exists: false, running: false };
+    }
+    return {
+      exists: true,
+      running: job.running,
+      done: job.done,
+      total: job.total,
+      sent: job.sent,
+      failed: job.failed,
+      skippedRecently: job.skippedRecently,
+      cappedByLimit: job.cappedByLimit,
+      current: job.current,
+      errors: job.errors.slice(0, 20),
+    };
+  }
+
+  /**
+   * Records a WHATSAPP_SENT event (used for the 24h dedup window). Non-fatal.
+   */
+  private async recordWhatsAppSent(campaignId: string, email: string) {
+    if (!email) return;
+    try {
+      await this.db.mysql.campaignEvent.create({
+        data: { campaignId, type: 'WHATSAPP_SENT', email },
+      });
+    } catch {
+      /* non-fatal: dedup log failure shouldn't block sending */
+    }
+  }
+
+  /** True if this campaign already sent to `email` (server) within 24h. */
+  private async wasSentWithin24h(campaignId: string, email: string) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    const hit = await this.db.mysql.campaignEvent.findFirst({
+      where: {
+        campaignId,
+        email,
+        type: 'WHATSAPP_SENT',
+        createdAt: { gte: since },
+      },
+    });
+    return !!hit;
+  }
+
+  stopWhatsAppSend(tenantId: string, campaignId: string) {
+    const job = this.waSendJobs.get(campaignId);
+    if (job) job.stop = true;
+    return { stopped: true };
+  }
+
+  /**
+   * Sends the personalized campaign message (optionally with an image) to a
+   * single audience member via the library — manual, one at a time.
+   */
+  async sendWhatsAppOne(
+    tenantId: string,
+    campaignId: string,
+    memberId: string,
+    opts: { imageBase64?: string; imageUrl?: string },
+  ) {
+    const channelId = this.whatsapp.getFirstReadyChannel(tenantId);
+    if (!channelId) {
+      throw new BadRequestException(
+        'No hay una línea de WhatsApp conectada. Conecta una línea antes de enviar.',
+      );
+    }
+
+    const linkData = await this.getWhatsAppLinks(tenantId, campaignId);
+    const target = linkData.links.find((l) => l.memberId === memberId);
+    if (!target) {
+      throw new NotFoundException('Contacto no encontrado en la campaña.');
+    }
+    if (!target.hasPhone) {
+      throw new BadRequestException('El contacto no tiene teléfono válido.');
+    }
+
+    // 24h dedup: don't re-send the same campaign message within the window.
+    if (await this.wasSentWithin24h(campaignId, target.email)) {
+      return {
+        sent: false,
+        skipped: true,
+        name: target.name,
+        reason: 'Ya se envió a este contacto en las últimas 24 horas.',
+      };
+    }
+
+    const phone = (target.phone || '').replace(/\D/g, '');
+    const hasImage = !!(opts.imageBase64 || opts.imageUrl);
+
+    try {
+      if (hasImage) {
+        await this.whatsapp.sendMedia(tenantId, channelId, phone, {
+          imageBase64: opts.imageBase64,
+          imageUrl: opts.imageUrl,
+          caption: target.message,
+        });
+      } else {
+        await this.whatsapp.sendMessage(
+          tenantId,
+          channelId,
+          phone,
+          target.message,
+        );
+      }
+    } catch (e: any) {
+      // Graceful failure (e.g. number not on WhatsApp) instead of a 500.
+      return {
+        sent: false,
+        name: target.name,
+        error: e?.message || 'No se pudo enviar el mensaje.',
+      };
+    }
+
+    await this.recordWhatsAppSent(campaignId, target.email);
+    return { sent: true, name: target.name };
+  }
+
   async recordWhatsAppEvent(campaignId: string, email: string, metadata?: any) {
     // Reuse existing recordEvent for CLICK (WhatsApp link click = engagement)
     return this.recordEvent(campaignId, 'CLICK', email, {
@@ -702,3 +1044,4 @@ export class CampaignService {
     });
   }
 }
+

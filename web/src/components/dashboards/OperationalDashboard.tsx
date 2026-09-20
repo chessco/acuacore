@@ -1,4 +1,5 @@
 import { BrandingSettings } from '../../modules/settings/BrandingSettings'
+import { CommunicationSettingsPanel } from '../../modules/settings/CommunicationSettingsPanel'
 import { SystemSettingsPanel } from '../../modules/system/SystemSettingsPanel'
 import { 
   LayoutDashboard, 
@@ -751,6 +752,11 @@ export function OperationalDashboard() {
                 {/* BRANDING SECTION */}
                 <div className="dashboard-card p-6 md:col-span-2 border-2 border-brand-blue/10 bg-gradient-to-br from-white to-brand-blue/5">
                   <BrandingSettings />
+                </div>
+
+                {/* COMMUNICATION CHANNELS SECTION */}
+                <div className="md:col-span-2">
+                  <CommunicationSettingsPanel />
                 </div>
 
                 {/* SYSTEM SETTINGS SECTION */}

@@ -42,6 +42,8 @@ model Tenant {
   workspaceDocuments WorkspaceDocument[]
   workspaceIdeas     WorkspaceIdea[]
   workspaceRelations WorkspaceRelation[]
+  channels           Channel[]
+  communicationSessions CommunicationSession[]
 }
 
 model HumanCorrection {
@@ -720,3 +722,34 @@ model WorkspaceRelation {
   @@index([contactId])
 }
 
+model CommunicationSession {
+  id                String    @id @default(uuid())
+  tenantId          String
+  provider          String
+  agentId           String?
+  phoneNumber       String?
+  sessionIdentifier String?
+  status            String
+  metadata          Json?
+  lastSeenAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}
+
+model Channel {
+  id             String  @id @default(uuid())
+  tenantId       String
+  name           String
+  provider       String
+  defaultAgentId String?
+  status         String
+  configuration  Json?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId])
+}

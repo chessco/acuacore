@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   Mail, 
   Plus, 
@@ -434,6 +434,23 @@ export const CampaignManager: React.FC = () => {
     const [newWaAudienceId, setNewWaAudienceId] = useState('');
     const [newWaLoading, setNewWaLoading] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    // Sequential "send all" (warm-up) state
+    const [waSending, setWaSending] = useState(false);
+    const [waSendProgress, setWaSendProgress] = useState(0);
+    const waStopRef = useRef(false);
+    // Server-side send (image + text) state
+    const [waImage, setWaImage] = useState<string | null>(null);
+    const [waImageName, setWaImageName] = useState('');
+    const [waServerStarting, setWaServerStarting] = useState(false);
+    const [waServerStatus, setWaServerStatus] = useState<any>(null);
+    const waPollRef = useRef<any>(null);
+    // Configurable throttle (persisted in localStorage)
+    const [waDailyLimit, setWaDailyLimit] = useState<number>(() => Number(localStorage.getItem('wa_daily_limit')) || 30);
+    const [waMinDelay, setWaMinDelay] = useState<number>(() => Number(localStorage.getItem('wa_min_delay')) || 4);
+    const [waMaxDelay, setWaMaxDelay] = useState<number>(() => Number(localStorage.getItem('wa_max_delay')) || 9);
+    // Manual per-contact send (via library)
+    const [waSendingOneId, setWaSendingOneId] = useState<string | null>(null);
+    const [waSentOneIds, setWaSentOneIds] = useState<string[]>([]);
 
     const apiUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3014`;
     const headers = {
@@ -537,6 +554,174 @@ export const CampaignManager: React.FC = () => {
       if (!window.confirm(`¿Abrir ${withPhone.length} conversaciones de WhatsApp en nuevas pestañas?`)) return;
       withPhone.forEach((l, i) => setTimeout(() => window.open(l.waUrl, '_blank'), i * 500));
     };
+
+    // Opens each conversation one-by-one with a random 3-7s pause between them
+    // to "warm up" the campaign. Cancelable; clicking again while running stops it.
+    const handleSendAllSequential = async () => {
+      if (waSending) {
+        waStopRef.current = true; // request stop
+        return;
+      }
+      const withPhone = waLinks.filter(l => l.hasPhone);
+      if (!withPhone.length) { alert('Ningún contacto tiene teléfono registrado.'); return; }
+      if (!window.confirm(
+        `Se abrirán ${withPhone.length} conversaciones de WhatsApp UNA POR UNA, con una pausa aleatoria de 3-7 s entre cada una (para calentar la campaña).\n\n` +
+        `• No cierres esta pestaña durante el proceso.\n` +
+        `• Permite las ventanas emergentes si el navegador las bloquea.\n` +
+        `• Puedes detenerlo en cualquier momento con el mismo botón.\n\n¿Continuar?`
+      )) return;
+
+      waStopRef.current = false;
+      setWaSending(true);
+      try {
+        for (let i = 0; i < withPhone.length; i++) {
+          if (waStopRef.current) break;
+          setWaSendProgress(i + 1);
+          window.open(withPhone[i].waUrl, '_blank');
+          // Random 3-7s pause before the next one (not after the last).
+          if (i < withPhone.length - 1) {
+            const delay = 3000 + Math.random() * 4000;
+            const step = 100;
+            for (let waited = 0; waited < delay; waited += step) {
+              if (waStopRef.current) break;
+              await new Promise(r => setTimeout(r, step));
+            }
+          }
+        }
+      } finally {
+        setWaSending(false);
+        setWaSendProgress(0);
+        waStopRef.current = false;
+      }
+    };
+
+    const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) { alert('Selecciona un archivo de imagen.'); return; }
+      if (file.size > 8 * 1024 * 1024) { alert('La imagen es muy grande (máx. 8 MB).'); return; }
+      const reader = new FileReader();
+      reader.onload = () => {
+        setWaImage(reader.result as string);
+        setWaImageName(file.name);
+      };
+      reader.readAsDataURL(file);
+    };
+
+    const pollServerStatus = async () => {
+      if (!selectedWaCampaign) return;
+      try {
+        const res = await fetch(`${apiUrl}/api/capsule-studio/campaigns/${selectedWaCampaign.id}/send-whatsapp/status`, { headers });
+        const data = await res.json();
+        setWaServerStatus(data);
+        if (data.exists && !data.running && data.done && waPollRef.current) {
+          clearInterval(waPollRef.current);
+          waPollRef.current = null;
+        }
+      } catch { /* ignore transient poll errors */ }
+    };
+
+    const startPolling = () => {
+      if (waPollRef.current) clearInterval(waPollRef.current);
+      pollServerStatus();
+      waPollRef.current = setInterval(pollServerStatus, 2000);
+    };
+
+    const handleServerSend = async () => {
+      const withPhone = waLinks.filter(l => l.hasPhone);
+      if (!withPhone.length) { alert('Ningún contacto tiene teléfono registrado. Genera los links primero.'); return; }
+
+      // Normalize + persist config.
+      const minS = Math.max(1, Number(waMinDelay) || 4);
+      const maxS = Math.max(minS, Number(waMaxDelay) || minS);
+      const limit = Math.max(0, Math.floor(Number(waDailyLimit) || 0));
+      localStorage.setItem('wa_daily_limit', String(limit));
+      localStorage.setItem('wa_min_delay', String(minS));
+      localStorage.setItem('wa_max_delay', String(maxS));
+
+      if (!window.confirm(
+        `Se enviará el mensaje${waImage ? ' + imagen' : ''} a ${withPhone.length} contacto(s) DIRECTAMENTE desde el servidor (la línea conectada), con pausa aleatoria de ${minS}-${maxS} s.\n\n` +
+        `Límite diario por línea: ${limit > 0 ? limit + ' mensajes (cuenta envíos de las últimas 24 h)' : 'sin límite'}.\n\n` +
+        `⚠️ El envío automático masivo puede provocar que WhatsApp bloquee la línea. Úsalo con volúmenes controlados.\n\n¿Continuar?`
+      )) return;
+
+      setWaServerStarting(true);
+      try {
+        const res = await fetch(`${apiUrl}/api/capsule-studio/campaigns/${selectedWaCampaign.id}/send-whatsapp`, {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            imageBase64: waImage || undefined,
+            minDelayMs: minS * 1000,
+            maxDelayMs: maxS * 1000,
+            dailyLimit: limit,
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.started) {
+          alert(data.message || 'No se pudo iniciar el envío.');
+          return;
+        }
+        if (data.cappedByLimit) {
+          alert(`Nota: por el límite diario, se enviará solo a ${data.total} contacto(s); ${data.cappedByLimit} quedaron para después.`);
+        }
+        startPolling();
+      } catch {
+        alert('Error al iniciar el envío por servidor.');
+      } finally {
+        setWaServerStarting(false);
+      }
+    };
+
+    const handleStopServerSend = async () => {
+      try {
+        await fetch(`${apiUrl}/api/capsule-studio/campaigns/${selectedWaCampaign.id}/send-whatsapp/stop`, { method: 'POST', headers });
+      } catch { /* ignore */ }
+    };
+
+    // Manual send of a single contact via the library (server).
+    const handleSendOne = async (link: any) => {
+      if (!link.hasPhone) { alert('Este contacto no tiene teléfono.'); return; }
+      setWaSendingOneId(link.memberId);
+      try {
+        const res = await fetch(`${apiUrl}/api/capsule-studio/campaigns/${selectedWaCampaign.id}/send-whatsapp-one`, {
+          method: 'POST',
+          headers: { ...headers, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ memberId: link.memberId, imageBase64: waImage || undefined })
+        });
+        const data = await res.json();
+        if (res.ok && data.skipped) {
+          // Already sent within the 24h window — treat as sent, inform.
+          setWaSentOneIds(prev => prev.includes(link.memberId) ? prev : [...prev, link.memberId]);
+          alert(data.reason || 'Ya se envió a este contacto en las últimas 24 horas.');
+          return;
+        }
+        if (!res.ok || !data.sent) {
+          alert(data.error || data.message || 'No se pudo enviar por la librería.');
+          return;
+        }
+        setWaSentOneIds(prev => prev.includes(link.memberId) ? prev : [...prev, link.memberId]);
+      } catch {
+        alert('Error al enviar por la librería.');
+      } finally {
+        setWaSendingOneId(null);
+      }
+    };
+
+    // Resume progress display if a job is already running, and clean up polling.
+    useEffect(() => {
+      pollServerStatus();
+      return () => {
+        if (waPollRef.current) { clearInterval(waPollRef.current); waPollRef.current = null; }
+      };
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedWaCampaign?.id]);
+
+    // Keep polling active while a resumed job is running.
+    useEffect(() => {
+      if (waServerStatus?.running && !waPollRef.current) startPolling();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [waServerStatus?.running]);
 
     const handleCreateWaCampaign = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -859,9 +1044,22 @@ export const CampaignManager: React.FC = () => {
                     {waLinks.length > 0 && (
                       <button
                         onClick={handleOpenAll}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black border border-green-300 text-green-700 bg-green-50 hover:bg-green-100 transition-all"
+                        disabled={waSending}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black border border-green-300 text-green-700 bg-green-50 hover:bg-green-100 transition-all disabled:opacity-50"
                       >
                         <ExternalLink size={14} /> Abrir todos ({linksWithPhone})
+                      </button>
+                    )}
+                    {waLinks.length > 0 && linksWithPhone > 0 && (
+                      <button
+                        onClick={handleSendAllSequential}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black text-white shadow-md transition-all ${waSending ? 'bg-red-500 hover:bg-red-600' : 'hover:opacity-90'}`}
+                        style={waSending ? undefined : { background: '#128C7E', boxShadow: '0 4px 12px #128C7E40' }}
+                        title="Abre cada chat uno por uno con pausa aleatoria de 3-7s para calentar la campaña"
+                      >
+                        {waSending
+                          ? <><X size={14} /> Detener ({waSendProgress}/{linksWithPhone})</>
+                          : <><Zap size={14} /> Enviar todos ({linksWithPhone})</>}
                       </button>
                     )}
                   </div>
@@ -890,6 +1088,105 @@ export const CampaignManager: React.FC = () => {
                       <p className="text-xl font-black text-amber-500">{linksNoPhone}</p>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Sin Teléfono</p>
                     </div>
+                  </div>
+                )}
+
+                {/* Server-side automatic send (image + text) */}
+                {waLinks.length > 0 && linksWithPhone > 0 && (
+                  <div className="p-4 border border-teal-200 bg-teal-50/50 rounded-2xl space-y-3">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="flex items-center gap-2 text-xs font-black text-teal-800">
+                        <Zap size={14} /> Envío automático por servidor (imagen + texto)
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <label className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold bg-white border border-teal-300 text-teal-700 cursor-pointer hover:bg-teal-50">
+                          <ExternalLink size={14} />
+                          {waImageName ? 'Cambiar imagen' : 'Adjuntar imagen'}
+                          <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                        </label>
+                        {waServerStatus?.running ? (
+                          <button
+                            onClick={handleStopServerSend}
+                            className="px-4 py-2 rounded-xl text-xs font-black text-white bg-red-500 hover:bg-red-600 flex items-center gap-2"
+                          >
+                            <X size={14} /> Detener
+                          </button>
+                        ) : (
+                          <button
+                            onClick={handleServerSend}
+                            disabled={waServerStarting}
+                            className="px-4 py-2 rounded-xl text-xs font-black text-white flex items-center gap-2 disabled:opacity-50"
+                            style={{ background: '#128C7E', boxShadow: '0 4px 12px #128C7E40' }}
+                          >
+                            {waServerStarting ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                            Enviar automático ({linksWithPhone})
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Throttle config */}
+                    <div className="flex items-center gap-4 flex-wrap text-[11px] font-bold text-teal-800">
+                      <label className="flex items-center gap-1.5">
+                        Límite diario
+                        <input
+                          type="number" min={0} value={waDailyLimit}
+                          onChange={(e) => setWaDailyLimit(Number(e.target.value))}
+                          className="w-16 px-2 py-1 rounded-lg border border-teal-200 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-teal-400"
+                        />
+                      </label>
+                      <label className="flex items-center gap-1.5">
+                        Pausa
+                        <input
+                          type="number" min={1} value={waMinDelay}
+                          onChange={(e) => setWaMinDelay(Number(e.target.value))}
+                          className="w-12 px-2 py-1 rounded-lg border border-teal-200 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-teal-400"
+                        />
+                        <span>–</span>
+                        <input
+                          type="number" min={1} value={waMaxDelay}
+                          onChange={(e) => setWaMaxDelay(Number(e.target.value))}
+                          className="w-12 px-2 py-1 rounded-lg border border-teal-200 bg-white text-slate-700 outline-none focus:ring-2 focus:ring-teal-400"
+                        />
+                        s
+                      </label>
+                      <span className="text-teal-500/70 font-medium">0 = sin límite · cuenta envíos de 24 h de la línea</span>
+                    </div>
+
+                    {waImage && (
+                      <div className="flex items-center gap-3">
+                        <img src={waImage} alt="preview" className="w-16 h-16 object-cover rounded-lg border border-teal-200" />
+                        <span className="text-xs text-slate-500 truncate flex-1">{waImageName}</span>
+                        <button
+                          onClick={() => { setWaImage(null); setWaImageName(''); }}
+                          className="text-xs text-red-500 hover:underline font-semibold"
+                        >
+                          Quitar
+                        </button>
+                      </div>
+                    )}
+
+                    {waServerStatus?.exists && (
+                      <div className="space-y-1">
+                        <div className="w-full bg-white rounded-full h-2 overflow-hidden border border-teal-100">
+                          <div
+                            className="h-full bg-teal-500 transition-all"
+                            style={{ width: `${waServerStatus.total ? Math.round(((waServerStatus.sent + waServerStatus.failed) / waServerStatus.total) * 100) : 0}%` }}
+                          />
+                        </div>
+                        <p className="text-[11px] font-semibold text-slate-600">
+                          {waServerStatus.running
+                            ? `Enviando a ${waServerStatus.current || '...'} — ✓ ${waServerStatus.sent} · ✗ ${waServerStatus.failed} de ${waServerStatus.total}`
+                            : `Terminado — ✓ ${waServerStatus.sent} enviados · ✗ ${waServerStatus.failed} fallidos de ${waServerStatus.total}`}
+                          {waServerStatus.skippedRecently ? ` · ⏭ ${waServerStatus.skippedRecently} omitidos (24h)` : ''}
+                          {waServerStatus.cappedByLimit ? ` · 🚦 ${waServerStatus.cappedByLimit} diferidos (límite diario)` : ''}
+                        </p>
+                      </div>
+                    )}
+
+                    <p className="text-[10px] text-slate-400">
+                      Envía directo desde la línea de WhatsApp conectada, con pausa 3-7 s entre cada uno. Úsalo con volúmenes controlados para evitar bloqueos de WhatsApp.
+                    </p>
                   </div>
                 )}
 
@@ -951,11 +1248,33 @@ export const CampaignManager: React.FC = () => {
                             >
                               {copiedId === link.memberId ? <CheckCheck size={14} className="text-green-500" /> : <Copy size={14} />}
                             </button>
+                            {link.hasPhone && (() => {
+                              const isSending = waSendingOneId === link.memberId;
+                              const alreadySent = waSentOneIds.includes(link.memberId) || link.sentRecently;
+                              return (
+                                <button
+                                  onClick={() => handleSendOne(link)}
+                                  disabled={isSending || alreadySent}
+                                  title={alreadySent
+                                    ? 'Ya se envió a este contacto en las últimas 24 horas'
+                                    : 'Enviar este contacto por el servidor (librería), incluye la imagen si adjuntaste una'}
+                                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black text-white shadow-sm transition-all hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
+                                  style={{ background: alreadySent ? '#94a3b8' : '#128C7E' }}
+                                >
+                                  {isSending
+                                    ? <Loader2 size={12} className="animate-spin" />
+                                    : alreadySent
+                                      ? <CheckCheck size={12} />
+                                      : <Send size={12} />}
+                                  {isSending ? 'Enviando' : alreadySent ? 'Enviado 24h' : 'Lib'}
+                                </button>
+                              );
+                            })()}
                             <a
                               href={link.waUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              title={link.hasPhone ? 'Abrir WhatsApp' : 'Abrir WhatsApp Web'}
+                              title={link.hasPhone ? 'Abrir WhatsApp (wa.me)' : 'Abrir WhatsApp Web'}
                               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black text-white shadow-sm transition-all hover:opacity-90"
                               style={{ background: link.hasPhone ? '#25D366' : '#64748b' }}
                             >

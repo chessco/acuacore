@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { ArrowLeft, UserPlus, Save, Trash2, CheckCircle, AlertTriangle, FileSpreadsheet, Users, MailX, UserX, Edit2, X, Check } from 'lucide-react';
+import { ArrowLeft, UserPlus, Save, Trash2, CheckCircle, AlertTriangle, FileSpreadsheet, Users, MailX, UserX, Edit2, X, Check, MessageCircle, Loader2 } from 'lucide-react';
 import { useTenant } from '../../../../contexts/TenantContext';
 
 interface AudienceEditorProps {
@@ -25,6 +25,11 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
   // Editing state
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ email: '', firstName: '', phone: '' });
+
+  // WhatsApp validation state (per member)
+  const [checkingWaId, setCheckingWaId] = useState<string | null>(null);
+  // Bulk WhatsApp validation state
+  const [isCheckingAllWa, setIsCheckingAllWa] = useState(false);
 
   const getApiContext = () => {
     let apiUrl = import.meta.env.VITE_API_URL || `http://${window.location.hostname}:3014`;
@@ -119,6 +124,65 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
     }
   };
 
+  const handleCheckWhatsApp = async (memberId: string) => {
+    try {
+      setCheckingWaId(memberId);
+      const { apiUrl, headers } = getApiContext();
+      const res = await axios.post(
+        `${apiUrl}/api/capsule-studio/audiences/${audience.id}/members/${memberId}/check-whatsapp`,
+        {},
+        { headers }
+      );
+      await fetchMembers();
+      if (res.data?.registered) {
+        // Valid number — subtle confirmation, status chip already reflects it
+      } else {
+        alert('El número no está registrado en WhatsApp. Se marcó como "Solo Correo".');
+      }
+    } catch (err: any) {
+      console.error('Error checking WhatsApp', err);
+      alert(err?.response?.data?.message || 'Error al validar el número en WhatsApp');
+    } finally {
+      setCheckingWaId(null);
+    }
+  };
+
+  const handleCheckAllWhatsApp = async () => {
+    const withPhone = members.filter((m) => m.phone && String(m.phone).trim());
+    if (withPhone.length === 0) {
+      alert('No hay contactos con teléfono para verificar.');
+      return;
+    }
+    if (!window.confirm(
+      `Se verificarán ${withPhone.length} número(s) contra WhatsApp. Esto puede tardar unos segundos. ¿Continuar?`
+    )) {
+      return;
+    }
+    try {
+      setIsCheckingAllWa(true);
+      const { apiUrl, headers } = getApiContext();
+      const res = await axios.post(
+        `${apiUrl}/api/capsule-studio/audiences/${audience.id}/check-whatsapp`,
+        {},
+        { headers }
+      );
+      await fetchMembers();
+      const r = res.data || {};
+      alert(
+        'Verificación completada:\n' +
+        `✓ Con WhatsApp: ${r.registered ?? 0}\n` +
+        `✗ Sin WhatsApp (Solo Correo): ${r.invalid ?? 0}` +
+        (r.noPhone ? `\n📵 Sin teléfono → Solo Correo: ${r.noPhone}` : '') +
+        (r.failed ? `\n⚠ No verificados por error: ${r.failed}` : '')
+      );
+    } catch (err: any) {
+      console.error('Error checking all WhatsApp', err);
+      alert(err?.response?.data?.message || 'Error al verificar los números en WhatsApp');
+    } finally {
+      setIsCheckingAllWa(false);
+    }
+  };
+
   const startEditing = (member: any) => {
     setEditingMemberId(member.id);
     setEditForm({
@@ -166,6 +230,17 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
           </div>
         </div>
         <div className="flex gap-3">
+          <button
+            onClick={handleCheckAllWhatsApp}
+            disabled={isCheckingAllWa}
+            className="px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 bg-white border border-emerald-200 text-emerald-700 hover:bg-emerald-50 shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Verificar en WhatsApp todos los contactos con teléfono"
+          >
+            {isCheckingAllWa
+              ? <Loader2 className="w-4 h-4 animate-spin" />
+              : <MessageCircle className="w-4 h-4" />}
+            {isCheckingAllWa ? 'Verificando...' : 'Verificar WhatsApp'}
+          </button>
           <button
             onClick={() => { setShowImport(false); setShowManualAdd(!showManualAdd); }}
             className={`px-4 py-2 rounded-xl text-sm font-bold transition flex items-center gap-2 ${showManualAdd ? 'bg-slate-200 text-slate-700' : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 shadow-sm'}`}
@@ -369,14 +444,24 @@ export const AudienceEditor: React.FC<AudienceEditorProps> = ({ audience, onBack
                         </>
                       ) : (
                         <>
-                          <button 
+                          <button
                             onClick={() => startEditing(member)}
                             className="text-slate-400 hover:text-blue-500 p-2 hover:bg-blue-50 rounded-lg transition"
                             title="Editar"
                           >
                             <Edit2 className="w-4 h-4" />
                           </button>
-                          <button 
+                          <button
+                            onClick={() => handleCheckWhatsApp(member.id)}
+                            disabled={!member.phone || checkingWaId === member.id}
+                            className="text-slate-400 hover:text-emerald-500 p-2 hover:bg-emerald-50 rounded-lg transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+                            title={member.phone ? 'Verificar si el número tiene WhatsApp' : 'Sin teléfono para verificar'}
+                          >
+                            {checkingWaId === member.id
+                              ? <Loader2 className="w-4 h-4 animate-spin" />
+                              : <MessageCircle className="w-4 h-4" />}
+                          </button>
+                          <button
                             onClick={() => handleMarkStatus(member.id, 'EMAIL_BOUNCED')}
                             className="text-slate-400 hover:text-amber-500 p-2 hover:bg-amber-50 rounded-lg transition"
                             title="Marcar correo inválido / Rebote"

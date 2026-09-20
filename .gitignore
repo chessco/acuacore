@@ -86,3 +86,7 @@ web/public/nano-*.png
 *.temp
 *.temp.*
 *.sql
+
+# WhatsApp Local Storage & Sessions
+.storage/
+api/.storage/
