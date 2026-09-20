@@ -476,7 +476,7 @@ export function OperationalDashboard() {
         </header>
 
         {/* Tab Content Wrapper */}
-        <div className="flex-1 relative overflow-y-auto custom-scrollbar bg-slate-50/50">
+        <div className={`flex-1 relative overflow-y-auto custom-scrollbar bg-slate-50/50 ${['conversations', 'workspace', 'donjuan'].includes(activeTab) ? 'flex flex-col h-full' : ''}`}>
           {activeTab === 'dashboard' && (
             <div className="p-8">
               <div className="mb-8 flex justify-between items-end">
@@ -732,7 +732,7 @@ export function OperationalDashboard() {
           )}
 
           {AVAILABLE_MODULES.find(m => m.id === activeTab)?.component && (
-            <div className="flex flex-col min-h-0">
+            <div className={`flex flex-col min-h-0 ${['conversations', 'workspace', 'donjuan'].includes(activeTab) ? 'h-full flex-1' : ''}`}>
               {(() => {
                 const ModuleComponent = AVAILABLE_MODULES.find(m => m.id === activeTab)!.component;
                 return <ModuleComponent setActiveTab={setActiveTab} />;

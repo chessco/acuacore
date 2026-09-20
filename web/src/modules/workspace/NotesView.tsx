@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Save, Loader2, Check, Plus, Trash2, FileText, Calendar, Bold, Image as ImageIcon, Columns, Eye, Edit3 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import { useWorkspaceNotes } from './hooks/useWorkspaceNotes';
 
 export function NotesView() {
@@ -242,7 +241,6 @@ export function NotesView() {
           ) : (
             <div className="flex-1 w-full p-6 border border-slate-100 rounded-2xl bg-white overflow-y-auto custom-scrollbar prose prose-slate max-w-none">
               <ReactMarkdown 
-                remarkPlugins={[remarkGfm]}
                 components={{
                   img: ({node, ...props}) => (
                     <img {...props} referrerPolicy="no-referrer" className="rounded-xl shadow-sm border border-slate-100 max-w-full h-auto" />

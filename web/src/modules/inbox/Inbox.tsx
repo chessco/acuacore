@@ -283,21 +283,25 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
       return;
     }
     
-    const isCapsule = activeConv?.source === 'CAPSULE';
-    const fetchUrl = isCapsule 
-      ? `${apiUrl}/api/conversations/${activeConversationId}/messages`
-      : `${flowUrl}/whatsapp/history/${activeConversationId}`;
+    const tid = activeConv?.tenantId || selectedTenant?.id || 'global';
+    const token = localStorage.getItem('token');
+    const userRole = localStorage.getItem('acuacore_role') || 'ADMIN';
 
-    const tid = isCapsule ? (selectedTenant?.id || '') : (flowTenantSlug || 'pitaya');
-
-    fetch(fetchUrl, {
+    // Se consulta directamente a la API de AcuaCore donde residen los mensajes
+    fetch(`${apiUrl}/api/conversations/${activeConversationId}/messages`, {
       headers: { 
         'x-tenant-id': tid,
-        'Authorization': flowToken ? `Bearer ${flowToken}` : '',
+        'Authorization': token ? `Bearer ${token}` : '',
+        'x-user-role': userRole.toUpperCase(),
         'x-api-key': flowApiKey
       }
     })
-      .then(res => res.json())
+      .then(async res => {
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}`);
+        }
+        return res.json();
+      })
       .then(data => {
         // Validación: asegurar que data es un array
         const messageList = Array.isArray(data) ? data : (data.messages && Array.isArray(data.messages) ? data.messages : []);
@@ -310,8 +314,34 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
         setMessageCache(prev => ({ ...prev, [activeConversationId]: mapped }));
         runAnalysis(mapped);
       })
-      .catch(err => {
-        console.error("[Inbox] Error cargando historial:", err);
+      .catch(async (err) => {
+        console.warn("[Inbox] Historial no disponible en AcuaCore API, probando fallback:", err);
+        if (flowUrl && activeConv?.source === 'WHATSAPP') {
+          try {
+            const flowRes = await fetch(`${flowUrl}/whatsapp/history/${activeConversationId}`, {
+              headers: { 
+                'x-tenant-id': flowTenantSlug || 'pitaya',
+                'Authorization': flowToken ? `Bearer ${flowToken}` : (token ? `Bearer ${token}` : ''),
+                'x-api-key': flowApiKey
+              }
+            });
+            if (flowRes.ok) {
+              const flowData = await flowRes.json();
+              const messageList = Array.isArray(flowData) ? flowData : (flowData.messages || []);
+              const mapped = messageList.map((m: any) => ({ 
+                ...m, 
+                role: m.role === 'assistant' ? 'assistant' : 'user',
+                content: m.content || m.text || ''
+              }));
+              setMessages(mapped);
+              setMessageCache(prev => ({ ...prev, [activeConversationId]: mapped }));
+              runAnalysis(mapped);
+              return;
+            }
+          } catch (e) {
+            console.error("[Inbox] Fallback también falló:", e);
+          }
+        }
         setMessages([]);
       })
       .finally(() => setIsMessagesLoading(false));
@@ -404,29 +434,46 @@ export function Inbox({ setActiveTab }: { setActiveTab: (tab: string) => void })
 
   const handleSendMessage = () => {
     if (!inputText.trim() || !activeConversationId) return;
-    const tid = selectedTenant?.id || '';
     const activeConv = conversations.find(c => c.id === activeConversationId);
+    const tid = activeConv?.tenantId || selectedTenant?.id || 'global';
     const to = activeConv?.externalId || activeConv?.userId || '';
     if (!to) return;
 
+    const token = localStorage.getItem('token');
+    const userRole = localStorage.getItem('acuacore_role') || 'ADMIN';
     const messageData = { to, content: inputText, conversationId: activeConversationId };
+    
     setMessages(prev => [...prev, { ...messageData, id: 'temp-' + Date.now(), role: 'assistant', createdAt: new Date().toISOString() }]);
+    const currentInput = inputText;
     setInputText('');
 
-    const isCapsuleConv = activeConv?.source === 'CAPSULE';
-    const sendUrl = isCapsuleConv ? `${apiUrl}/api/conversations/${activeConversationId}/reply` : `${flowUrl}/whatsapp/send`;
-
-    fetch(sendUrl, {
+    // Siempre guardar en el API de AcuaCore
+    fetch(`${apiUrl}/api/conversations/${activeConversationId}/reply`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-tenant-id': tid, 'x-api-key': flowApiKey },
-      body: JSON.stringify(isCapsuleConv ? { content: inputText } : messageData)
-    }).catch(err => console.error('[Inbox] Error enviando mensaje:', err));
+      headers: { 
+        'Content-Type': 'application/json', 
+        'x-tenant-id': tid,
+        'Authorization': token ? `Bearer ${token}` : '',
+        'x-user-role': userRole.toUpperCase(),
+        'x-api-key': flowApiKey 
+      },
+      body: JSON.stringify({ content: currentInput })
+    }).catch(err => console.error('[Inbox] Error enviando mensaje a AcuaCore API:', err));
+
+    // Si es WhatsApp y hay un puente secundario en Flow, despachar copia
+    if (activeConv?.source === 'WHATSAPP' && flowUrl) {
+      fetch(`${flowUrl}/whatsapp/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-tenant-id': flowTenantSlug || 'pitaya', 'x-api-key': flowApiKey },
+        body: JSON.stringify(messageData)
+      }).catch(err => console.warn('[Inbox] Flow WhatsApp send warning:', err));
+    }
   };
 
   const activeConversation = conversations.find(c => c.id === activeConversationId)
 
   return (
-    <div className="flex h-full bg-white overflow-hidden relative">
+    <div className="flex h-full min-h-[calc(100vh-5rem)] flex-1 bg-white overflow-hidden relative">
       <div className={`${activeConversationId ? (isSidebarCollapsed ? 'hidden' : 'hidden md:flex') : 'flex'} w-full ${isSidebarCollapsed ? 'md:w-0' : 'md:w-80'} border-r border-border flex-col bg-slate-50/30 transition-all duration-500 ease-in-out overflow-hidden`}>
         <div className="p-4 sm:p-6">
           <div className="mb-1 flex items-center gap-2">
