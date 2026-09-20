@@ -32,6 +32,8 @@ pnpm-debug.log*
 .vscode/*
 !.vscode/extensions.json
 .idea/
+.antigravitycli/
+.gemini/
 .DS_Store
 *.suo
 *.ntvs*
